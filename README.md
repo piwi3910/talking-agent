@@ -6,7 +6,7 @@ The default provider for local runs is an explicitly labeled **offline scripted 
 
 ## Deploy to the KW cluster
 
-Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.watteel.lab). The [KW deployment guide](deploy/kw/README.md) documents the configured `kw` context, existing BuildKit/Nexus services, reused cluster secrets, and Git-driven deployment flow. Desired resources live in `deploy/kw/manifests`; Sync reconciles the `main` branch. KW uses the FastLLM gateway with **Qwen3.6** (`qwen3-6-35b-a3b`) and a Kubernetes Secret for its API key. Cluster credentials are not stored in this repository.
+Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.watteel.lab). The [KW deployment guide](deploy/kw/README.md) documents the configured `kw` context, existing BuildKit/Nexus services, reused cluster secrets, and Git-driven deployment flow. Desired resources live in `deploy/kw/manifests`; Sync reconciles the `main` branch. KW uses the FastLLM gateway with **Qwen3.5-9B** (`qwen3.5-9b`) and a Kubernetes Secret for its API key. Cluster credentials are not stored in this repository.
 
 ## Run locally
 

@@ -47,7 +47,7 @@ The `kw` kubectl context is configured against `https://192.168.10.102:6443`. It
 
 The API serves the built React console and starts its private HTTP mock backend inside the same pod. One replica and `Recreate` updates reflect the current process-local session/memory design; an update resets demo state and briefly interrupts service. The pod runs non-root with a read-only root filesystem and without a Kubernetes API token. nginx buffering is disabled for SSE.
 
-The deployed LLM uses the KW FastLLM gateway at `http://fastllm-proxy.fastllm.svc.cluster.local/v1` and model `qwen3-6-35b-a3b` (Qwen3.6). `LLM_API_KEY` is injected from the existing namespace-local `fastllm-api` Secret, not from Git. Model availability depends on the shared gateway upstream. Memory remains the development provider; NovaMem wiring is separate.
+The deployed LLM uses the KW FastLLM gateway at `http://fastllm-proxy.fastllm.svc.cluster.local/v1` and model `qwen3.5-9b` (Qwen3.5-9B). `LLM_API_KEY` is injected from the existing namespace-local `fastllm-api` Secret, not from Git. Model availability depends on the shared gateway upstream. Memory remains the development provider; NovaMem wiring is separate.
 
 The existing three scripted browser scenario tests are designed for offline mode and assert deterministic wording. For the live model, verify actual tool events and grounded answers through the same HTTP/SSE API rather than expecting those exact phrases.
 
