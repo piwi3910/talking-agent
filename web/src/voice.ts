@@ -91,6 +91,13 @@ export class Voice {
  delta(turn:string,text:string){
   if(this.closed||!this.outputEnabled||turn===this.blockedTurn)return;
   if(turn!==this.turn){this.text='';this.turn=turn;}
+  // Record lists arrive atomically from verified backend results. Keep the full
+  // list in chat and speak a bounded preview, without reading database IDs.
+  if(text.includes('\n- ')) {
+   const lines=text.split('\n'); const rows=lines.filter(line=>line.startsWith('- '));
+   text=lines.filter(line=>!line.startsWith('- ')).join(' ')+' '+rows.slice(0,3).map(line=>line.replace(/(?:Related )?ID:\s*[^\s·]+/g,'').replace(/\s*·\s*$/,'')+'.').join(' ');
+   if(rows.length>3)text+=' More options are listed in the chat.';
+  }
   this.text+=text;
   this.flush(false);
  }
@@ -99,13 +106,13 @@ export class Voice {
   // Tool records retain their complete visual representation. Strip technical IDs
   // from their spoken version, without asking a second LLM to reinterpret facts.
   while(this.text.trim()){
-   const boundary=this.text.match(/^[\s\S]*?[.!?](?:\s|$)/);
+   const boundary=this.text.match(/^[\s\S]*?(?<!\bDr|\bMr|\bMs)[.!?](?:\s|$)/);
    let n=boundary?.[0].length||0;
    if((!n||n>240)&&this.text.length>240)n=this.text.lastIndexOf(' ',220)+1||220;
    if(!n&&final)n=this.text.length;
    if(!n)break;
    let phrase=this.text.slice(0,n);this.text=this.text.slice(n);
-   phrase=phrase.replace(/\bID\s+[^\s·,]+/g,'').replace(/[*#`]/g,'').replace(/\s·\s/g,', ').replace(/^\s*-\s*/gm,'').trim();
+   phrase=phrase.replace(/\b(?:Related )?ID:\s*[^\s·,]+/g,'').replace(/[*#`]/g,'').replace(/\s·\s/g,', ').replace(/^\s*-\s*/gm,'').trim();
    if(phrase){if(this.queue.length>=40){this.cb.error('Spoken reply is too long; the full answer is in chat.');this.text='';break;}this.queue.push({text:phrase,turn:this.turn});}
   }
   void this.produce();

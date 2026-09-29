@@ -66,3 +66,11 @@ Breeze TTS 2 Q8 and Nemotron 3.5 ASR Q8 run in separate audio.cpp ARM64 CUDA con
 Measurements for a fixed 3.2-second test sentence: initial TTS first bytes 1084 ms; repeated warm runs 538–541 ms, about 2.19 seconds total synthesis (RTF ~0.68). Warm file transcription took 141 ms wall time; live STT first output was around 614 ms after beginning the paced input. These are service tests, not end-of-user-speech to audible-agent-response benchmarks. The final report is `docs/speech-validation-20260929.json`.
 
 GPU process memory was approximately 4,194 MiB for Breeze and 1,277 MiB for Nemotron. The host reported 91 GiB available unified memory and no swap use after loading. BGE embedding/reranking, Laya, and the Kuvryn host agent remained running. The .245 LLM host was not modified. Browser microphone/playback, agent speech coordination, and stable Sara/Maya voice references remain subsequent integration work.
+
+## Phase 2 voice / Qwen3.6 — 2026-09-29
+
+- Go suite and race checks for API, speech adapter, and SDK adapter passed. Duplex test requires receipt of a transcript before upload finishes; synthesis cancellation must reach the upstream server. Origin/session/size boundary tests passed.
+- Five browser checks passed at `https://agent.kw.watteel.lab`: branded UI, real Qwen3.6 hospital lookup/book/reschedule/cancel with explicit confirmations, real DGX ASR/TTS using Chromium's WAV microphone, controlled incremental-render regression, and live generated text visible while the turn is still running.
+- Gateway alias `qwen3-6-35b-a3b`, thinking disabled: two short direct requests measured first visible text at 496 / 296 ms, with zero reasoning characters. Those are gateway-only measurements.
+- Full agent trace using the earlier 150-word Wi-Fi question: first visible text at about 3.00 s, including 88 ms memory retrieval; LLM text TTFT 2838 ms, zero reasoning characters. Previous Qwen3.5 trace with default thinking had 9110 ms LLM TTFT and 592 reasoning characters. Different model/settings and cache conditions mean this is not an isolated model-speed comparison.
+- Voice tests validate transcript, real PCM generation and browser playback scheduling. Human listening quality and real-room echo/barge-in still need hands-on evaluation. Browser timings are software estimates, not acoustic measurements.
