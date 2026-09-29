@@ -1,0 +1,90 @@
+[
+  {
+    "keywords": [
+      "application",
+      "status"
+    ],
+    "steps": [
+      {
+        "tool": "admissions.status",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "fee",
+      "program",
+      "admission"
+    ],
+    "steps": [
+      {
+        "tool": "admissions.programs",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "tour",
+      "visit"
+    ],
+    "steps": [
+      {
+        "tool": "tour.availability",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "request",
+      "message"
+    ],
+    "steps": [
+      {
+        "tool": "reception.requests",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "hours",
+      "parking",
+      "direction",
+      "school"
+    ],
+    "steps": [
+      {
+        "tool": "school.information",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "profile"
+    ],
+    "steps": [
+      {
+        "tool": "family.profile",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "hello",
+      "hi"
+    ],
+    "steps": [],
+    "reply": "Hi, I\u2019m Emma at Willowbrook School. I can help with admissions and reception."
+  }
+]

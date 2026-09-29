@@ -1,0 +1,26 @@
+[
+  {
+    "id": "early-years",
+    "kind": "program",
+    "name": "Early Years",
+    "description": "Reception entry; typical ages 4\u20135. Eligibility and places subject to admissions review.",
+    "amount": 8000,
+    "currency": "USD"
+  },
+  {
+    "id": "primary",
+    "kind": "program",
+    "name": "Primary School",
+    "description": "Years 1\u20136; typical ages 5\u201311. Annual tuition excludes meals, transport and optional clubs.",
+    "amount": 11000,
+    "currency": "USD"
+  },
+  {
+    "id": "secondary",
+    "kind": "program",
+    "name": "Secondary School",
+    "description": "Years 7\u201311; typical ages 11\u201316. Annual tuition excludes meals, transport and optional clubs.",
+    "amount": 14000,
+    "currency": "USD"
+  }
+]

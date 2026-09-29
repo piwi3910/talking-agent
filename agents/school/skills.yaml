@@ -1,0 +1,271 @@
+[
+  {
+    "id": "family",
+    "description": "Selected family profile",
+    "keywords": [
+      "family",
+      "profile",
+      "parent"
+    ],
+    "instructions": "Use current records. Never invent IDs or availability. Only access the trusted family. Confirm changes through the confirmation card.",
+    "tools": [
+      {
+        "name": "family.profile",
+        "description": "Read the selected family service profile",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      }
+    ]
+  },
+  {
+    "id": "admissions",
+    "description": "Admissions programs, fees and application progress",
+    "keywords": [
+      "admission",
+      "apply",
+      "application",
+      "fee",
+      "tuition",
+      "year",
+      "grade",
+      "enrol"
+    ],
+    "instructions": "Use current records. Never invent IDs or availability. Only access the trusted family. Confirm changes through the confirmation card.",
+    "tools": [
+      {
+        "name": "admissions.programs",
+        "description": "List school programs, entry year groups and annual tuition; optional program search",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Optional program or year group search"
+            }
+          },
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      },
+      {
+        "name": "admissions.status",
+        "description": "Read only the selected family application progress and outstanding administrative steps",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      },
+      {
+        "name": "admissions.enquire",
+        "description": "Create an admissions enquiry for staff follow-up, without submitting an application or reserving a place",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "program_id": {
+              "type": "string",
+              "description": "Exact program ID from admissions.programs"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Family enquiry for the admissions team"
+            }
+          },
+          "required": [
+            "program_id",
+            "summary"
+          ]
+        },
+        "mutation": true,
+        "timeout_ms": 5000
+      }
+    ]
+  },
+  {
+    "id": "tour",
+    "description": "Campus tours and school visits",
+    "keywords": [
+      "tour",
+      "visit",
+      "book",
+      "cancel",
+      "morning",
+      "afternoon"
+    ],
+    "instructions": "Use current records. Never invent IDs or availability. Only access the trusted family. Confirm changes through the confirmation card.",
+    "tools": [
+      {
+        "name": "tour.availability",
+        "description": "Find future available school tour slots. All times UTC.",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "time_preference": {
+              "type": "string",
+              "enum": [
+                "morning",
+                "afternoon"
+              ]
+            },
+            "from": {
+              "type": "string",
+              "description": "Optional first date YYYY-MM-DD"
+            },
+            "to": {
+              "type": "string",
+              "description": "Optional last date YYYY-MM-DD"
+            }
+          },
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      },
+      {
+        "name": "tour.list",
+        "description": "Read the selected family campus visits",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      },
+      {
+        "name": "tour.book",
+        "description": "Book the exact tour slot chosen by the family",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "type": "string",
+              "description": "Exact slot ID from tour.availability"
+            }
+          },
+          "required": [
+            "slot_id"
+          ]
+        },
+        "mutation": true,
+        "timeout_ms": 5000
+      },
+      {
+        "name": "tour.cancel",
+        "description": "Cancel a booked tour owned by the selected family",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "visit_id": {
+              "type": "string",
+              "description": "Exact owned visit ID from tour.list"
+            }
+          },
+          "required": [
+            "visit_id"
+          ]
+        },
+        "mutation": true,
+        "timeout_ms": 5000
+      }
+    ]
+  },
+  {
+    "id": "school",
+    "description": "School information and contacts",
+    "keywords": [
+      "school",
+      "hours",
+      "direction",
+      "parking",
+      "location",
+      "contact",
+      "term",
+      "transport",
+      "uniform"
+    ],
+    "instructions": "Use current records. Never invent IDs or availability. Only access the trusted family. Confirm changes through the confirmation card.",
+    "tools": [
+      {
+        "name": "school.information",
+        "description": "Find published school hours, directions, transport and contact details",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Optional keyword such as parking, hours, admissions, safeguarding or transport"
+            }
+          },
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      }
+    ]
+  },
+  {
+    "id": "reception",
+    "description": "Reception messages and follow-up",
+    "keywords": [
+      "reception",
+      "message",
+      "request",
+      "staff",
+      "absence",
+      "collection",
+      "safeguard"
+    ],
+    "instructions": "Use current records. Never invent IDs or availability. Only access the trusted family. Confirm changes through the confirmation card.",
+    "tools": [
+      {
+        "name": "reception.create_request",
+        "description": "Leave a message for reception; does not authorize student collection, book staff appointments or send emergency alerts",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Administrative message for reception"
+            }
+          },
+          "required": [
+            "summary"
+          ]
+        },
+        "mutation": true,
+        "timeout_ms": 5000
+      },
+      {
+        "name": "reception.requests",
+        "description": "Read selected family reception messages and admissions enquiries",
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "mutation": false,
+        "timeout_ms": 5000
+      }
+    ]
+  }
+]

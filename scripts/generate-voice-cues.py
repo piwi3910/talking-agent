@@ -9,11 +9,11 @@ GROUPS={
  'listening':["I'm listening.","Go ahead.","Take your time."],
  'acknowledge':['Okay.','All right.','Thanks for explaining.'],
  'interrupted':["Okay, I've stopped.","All right, I'll pause here."]}
-for domain in os.environ.get('VOICE_DOMAINS','telecom,hospital').split(','):
+for domain in os.environ.get('VOICE_DOMAINS','telecom,hospital,school').split(','):
  root=ROOT/'agents'/domain/'voice';ref=(root/'reference.wav').read_bytes();transcript=(root/'reference.txt').read_text().strip()
  manifest=[]
  for category,phrases in GROUPS.items():
-  if (category=='network' and domain=='hospital') or (category=='availability' and domain=='telecom'):continue
+  if (category=='network' and domain!='telecom') or (category=='availability' and domain=='telecom'):continue
   for i,text in enumerate(phrases):
    id=f'{category}-{i+1}';path=root/'cues'/f'{id}.wav';path.parent.mkdir(exist_ok=True)
    body={'model':'breeze','input':text,'stream':True,'stream_format':'audio','response_format':'pcm','voice_ref':{'type':'base64','data':base64.b64encode(ref).decode()},'reference_text':transcript,'options':{'seed':'42','instruction':'Preserve the reference voice. Speak naturally and conversationally.'}}

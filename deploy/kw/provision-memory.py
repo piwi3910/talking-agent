@@ -57,7 +57,10 @@ def main():
     global SECRET
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--validation', action='store_true', help='Provision six disposable isolation-test identities in a separate Secret')
+    parser.add_argument('--scopes-file', type=Path, help='Provision explicit non-secret scopes before deploying a new persona')
     options = parser.parse_args()
+    if options.validation and options.scopes_file:
+        parser.error('--validation and --scopes-file are mutually exclusive')
     if options.validation:
         SECRET = 'novamem-validation-identities'
     existing = kubectl('-n', NAMESPACE, 'get', 'secret', SECRET, '--ignore-not-found', '-o', 'json')
@@ -71,6 +74,10 @@ def main():
             variant = base.copy()
             variant[field] += '-other'
             scopes.append(variant)
+    elif options.scopes_file:
+        scopes = json.loads(options.scopes_file.read_text())
+        if not isinstance(scopes, list) or any(not isinstance(scope, dict) or set(scope) != {'tenant', 'organization', 'domain', 'namespace', 'user'} or any(not isinstance(v, str) or not v.strip() for v in scope.values()) for scope in scopes):
+            raise ValueError('Scopes must be a list of complete non-empty memory scope objects')
     else:
         agents = request('https://agent.kw.watteel.lab/api/agents')
         for agent in agents:

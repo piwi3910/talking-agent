@@ -1,6 +1,6 @@
 # Enterprise AI Agent Demo
 
-A working Go + React/TypeScript text demonstration of **one AI platform, many industries, any frontend**. Nova Telecom support and Crescent Hospital patient services use the same runtime, streaming API, skill activation, HTTP tool execution, session management, and memory interface.
+A working Go + React/TypeScript chat and voice demonstration of **one AI platform, many industries, any frontend**. Nova Telecom support, Crescent Hospital patient services, and Willowbrook School admissions/reception use the same runtime, streaming API, skill activation, HTTP tool execution, session management, and memory interface.
 
 The default provider for local runs is an explicitly labeled **offline scripted demo**. It exercises real tools and stateful mock services without an inference server. Connect an OpenAI-compatible endpoint for open-ended AI conversation. No model is hard-coded.
 
@@ -49,8 +49,8 @@ The implementation follows the [official OpenAI function-calling and streaming f
 
 ## Included
 
-- 2 configuration-driven agents, 18 business skills, and 49 tools (28 telecom, 21 hospital).
-- 20 fictional telecom customers, 20 fictional patients, and 20 doctors across five specialties.
+- 3 configuration-driven agents, 23 business skills, and 60 tools (28 telecom, 21 hospital, 11 school).
+- 20 fictional telecom customers, 20 school families, 20 fictional patients, and 20 doctors across five specialties.
 - All T1–T8 and H1–H6 scenarios, relative-date appointment calendars, insurance, facilities, referrals, and prescription fulfillment status.
 - Stateful mutations with exact-action operator confirmation, ownership checks, atomic slot allocation, and no automatic mutation retries. Successful changes are acknowledged directly from backend records.
 - Calendar results rendered with exact UTC dates and slot IDs; empty model explanations after successful tools can recover from verified service results.
@@ -107,3 +107,11 @@ The live test checks exact calendar dates and slot IDs, booking, rescheduling, c
 ## Browser voice (Phase 2)
 
 The KW demo now supports live microphone transcription (Nemotron 3.5 ASR), streaming spoken replies (Breeze TTS 2), interruption, and live latency metrics. Start a chat, then select **Start voice**. The LLM uses `qwen3-6-35b-a3b` through the existing gateway and Go AI SDK, with thinking disabled. See [voice controls, architecture and limitations](docs/voice.md).
+
+## School admissions and reception
+
+Select **Willowbrook School** in the Personas tab to talk with Emma. The school uses the shared streaming chat, Breeze voice, interruption, activity metrics and confirmation workflow. Its independent configuration, prompt, knowledge, skills, voice assets and NovaMem namespace live in `agents/school/`. Emma currently shares Sara’s synthetic American English voice reference, with general reception cues.
+
+School tools cover family profiles, programs and annual tuition, application progress, admissions enquiries, campus tour availability/booking/cancellation, school information and reception messages. Twenty fictional families include a new applicant (F001) and an application awaiting documents (F002). Weekday tour slots are generated relative to startup; booking is atomic and cancellation checks family ownership. Demo records reset on rollout; NovaMem preferences persist. No real admission decisions, messages to school staff, document uploads or collection authorizations occur.
+
+Before deploying new identities, provision memory using `python3 deploy/kw/provision-memory.py --scopes-file <scopes.json>` with an array of tenant/organization/domain/namespace/user objects. This reuses existing cluster credentials without embedding secrets. School live UI verification: `SCHOOL_LIVE_TESTS=true DEMO_BASE_URL=https://agent.kw.watteel.lab npx playwright test tests/school.spec.ts` from `web/`.

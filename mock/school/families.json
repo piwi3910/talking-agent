@@ -1,0 +1,162 @@
+[
+  {
+    "id": "F001",
+    "kind": "family",
+    "name": "Alex Morgan",
+    "status": "active",
+    "email": "family001@example.invalid",
+    "scenario": "New family exploring primary admissions"
+  },
+  {
+    "id": "F002",
+    "kind": "family",
+    "name": "Sam Patel",
+    "status": "active",
+    "email": "family002@example.invalid",
+    "scenario": "Application awaiting proof of previous schooling"
+  },
+  {
+    "id": "F003",
+    "kind": "family",
+    "name": "Jordan Lee",
+    "status": "active",
+    "email": "family003@example.invalid",
+    "scenario": "Existing family arranging a school visit"
+  },
+  {
+    "id": "F004",
+    "kind": "family",
+    "name": "Taylor Hassan",
+    "status": "active",
+    "email": "family004@example.invalid",
+    "scenario": "Family comparing secondary tuition"
+  },
+  {
+    "id": "F005",
+    "kind": "family",
+    "name": "Casey Williams",
+    "status": "active",
+    "email": "family005@example.invalid",
+    "scenario": "Needs reception directions and accessible parking"
+  },
+  {
+    "id": "F006",
+    "kind": "family",
+    "name": "Robin Ahmed",
+    "status": "active",
+    "email": "family006@example.invalid",
+    "scenario": "New family exploring primary admissions"
+  },
+  {
+    "id": "F007",
+    "kind": "family",
+    "name": "Jamie Chen",
+    "status": "active",
+    "email": "family007@example.invalid",
+    "scenario": "Application awaiting proof of previous schooling"
+  },
+  {
+    "id": "F008",
+    "kind": "family",
+    "name": "Morgan Davis",
+    "status": "active",
+    "email": "family008@example.invalid",
+    "scenario": "Existing family arranging a school visit"
+  },
+  {
+    "id": "F009",
+    "kind": "family",
+    "name": "Riley Thomas",
+    "status": "active",
+    "email": "family009@example.invalid",
+    "scenario": "Family comparing secondary tuition"
+  },
+  {
+    "id": "F010",
+    "kind": "family",
+    "name": "Avery Khan",
+    "status": "active",
+    "email": "family010@example.invalid",
+    "scenario": "Needs reception directions and accessible parking"
+  },
+  {
+    "id": "F011",
+    "kind": "family",
+    "name": "Cameron Wilson",
+    "status": "active",
+    "email": "family011@example.invalid",
+    "scenario": "New family exploring primary admissions"
+  },
+  {
+    "id": "F012",
+    "kind": "family",
+    "name": "Drew Martin",
+    "status": "active",
+    "email": "family012@example.invalid",
+    "scenario": "Application awaiting proof of previous schooling"
+  },
+  {
+    "id": "F013",
+    "kind": "family",
+    "name": "Ellis Brown",
+    "status": "active",
+    "email": "family013@example.invalid",
+    "scenario": "Existing family arranging a school visit"
+  },
+  {
+    "id": "F014",
+    "kind": "family",
+    "name": "Finley Clark",
+    "status": "active",
+    "email": "family014@example.invalid",
+    "scenario": "Family comparing secondary tuition"
+  },
+  {
+    "id": "F015",
+    "kind": "family",
+    "name": "Harper Ali",
+    "status": "active",
+    "email": "family015@example.invalid",
+    "scenario": "Needs reception directions and accessible parking"
+  },
+  {
+    "id": "F016",
+    "kind": "family",
+    "name": "Jesse Moore",
+    "status": "active",
+    "email": "family016@example.invalid",
+    "scenario": "New family exploring primary admissions"
+  },
+  {
+    "id": "F017",
+    "kind": "family",
+    "name": "Logan Scott",
+    "status": "active",
+    "email": "family017@example.invalid",
+    "scenario": "Application awaiting proof of previous schooling"
+  },
+  {
+    "id": "F018",
+    "kind": "family",
+    "name": "Parker Evans",
+    "status": "active",
+    "email": "family018@example.invalid",
+    "scenario": "Existing family arranging a school visit"
+  },
+  {
+    "id": "F019",
+    "kind": "family",
+    "name": "Quinn Lewis",
+    "status": "active",
+    "email": "family019@example.invalid",
+    "scenario": "Family comparing secondary tuition"
+  },
+  {
+    "id": "F020",
+    "kind": "family",
+    "name": "Reese Walker",
+    "status": "active",
+    "email": "family020@example.invalid",
+    "scenario": "Needs reception directions and accessible parking"
+  }
+]

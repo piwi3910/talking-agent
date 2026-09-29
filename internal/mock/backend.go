@@ -37,7 +37,7 @@ type Backend struct {
 
 func Load(root string, now time.Time) (*Backend, error) {
 	b := &Backend{users: map[string]map[string]*User{}, catalogs: map[string][]tools.Record{}, records: map[string][]tools.Record{}}
-	for industry, file := range map[string]string{"telecom": "customers", "hospital": "patients"} {
+	for industry, file := range map[string]string{"telecom": "customers", "hospital": "patients", "school": "families"} {
 		var users []User
 		if err := read(filepath.Join(root, industry, file+".json"), &users); err != nil {
 			return nil, err
@@ -48,7 +48,7 @@ func Load(root string, now time.Time) (*Backend, error) {
 			b.users[industry][u.ID] = &u
 		}
 	}
-	for _, x := range []struct{ industry, name string }{{"telecom", "plans"}, {"hospital", "doctors"}, {"hospital", "departments"}, {"hospital", "facilities"}, {"hospital", "insurance"}} {
+	for _, x := range []struct{ industry, name string }{{"telecom", "plans"}, {"hospital", "doctors"}, {"hospital", "departments"}, {"hospital", "facilities"}, {"hospital", "insurance"}, {"school", "programs"}, {"school", "school_info"}} {
 		var r []tools.Record
 		if err := read(filepath.Join(root, x.industry, x.name+".json"), &r); err != nil {
 			return nil, err
@@ -89,6 +89,7 @@ func Load(root string, now time.Time) (*Backend, error) {
 	for i := 1; i <= 8; i++ {
 		b.records["technician_slots"] = append(b.records["technician_slots"], tools.Record{ID: fmt.Sprintf("TECH-%02d", i), Kind: "technician_slot", Status: "available", Start: day.AddDate(0, 0, i).Add(9 * time.Hour).Format(time.RFC3339)})
 	}
+	b.seedSchool(now)
 	return b, nil
 }
 func read(path string, v any) error {
@@ -183,6 +184,9 @@ func (b *Backend) Execute(req tools.Request) tools.Result {
 	}
 	if req.Industry == "hospital" {
 		return b.hospital(u, req.Name, a)
+	}
+	if req.Industry == "school" {
+		return b.school(u, req.Name, a)
 	}
 	return tools.Failure("unknown_industry", "Unknown backend industry")
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func TestEveryConfiguredToolHasWorkingBackend(t *testing.T) {
-	for _, industry := range []string{"telecom", "hospital"} {
+	for _, industry := range []string{"telecom", "hospital", "school"} {
 		catalog, e := skills.Load("../../agents/" + industry)
 		if e != nil {
 			t.Fatal(e)
@@ -21,11 +21,21 @@ func TestEveryConfiguredToolHasWorkingBackend(t *testing.T) {
 					if industry == "hospital" {
 						user = "P001"
 					}
+					if industry == "school" {
+						user = "F001"
+					}
 					slots := call(b, "hospital", "P001", "appointment.availability", nil)
 					args := map[string]string{}
 					examples := map[string]string{"subscription_id": "SUB-C001", "ticket_id": "T-C001", "summary": "Test service request", "status": "open", "plan_id": "fiber-500", "channel": "11", "slot_id": slots.Records[0].ID, "doctor_id": "D001", "department_id": "DEP01", "appointment_id": "A-P001", "provider": "DemoCare", "plan": "Plus", "facility_id": "parking", "from": time.Now().UTC().Format("2006-01-02")}
 					if d.Name == "technician.book" {
 						examples["slot_id"] = "TECH-01"
+					}
+					if industry == "school" {
+						examples["program_id"] = "primary"
+						examples["slot_id"] = call(b, "school", user, "tour.availability", nil).Records[0].ID
+						if d.Name == "tour.cancel" {
+							examples["visit_id"] = call(b, "school", user, "tour.book", map[string]string{"slot_id": examples["slot_id"]}).Records[0].ID
+						}
 					}
 					for key := range d.Input.Properties {
 						if v, ok := examples[key]; ok {
