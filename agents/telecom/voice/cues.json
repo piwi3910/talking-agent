@@ -1,17 +1,17 @@
 {
-  "reference_sha256": "e1dd62dc6d123a0fad090a7c4b06dfdf36437fa281a9bcc7119db23e1b9fa3ba",
+  "reference_sha256": "9a8dde3138bb2d393b698ec0bc296e0b81f9f925c2a8720418ef443657c6494b",
   "cues": [
     {
       "id": "waiting-1",
       "category": "waiting",
       "text": "One moment.",
-      "duration_ms": 880
+      "duration_ms": 720
     },
     {
       "id": "waiting-2",
       "category": "waiting",
       "text": "Just a moment.",
-      "duration_ms": 1040
+      "duration_ms": 1280
     },
     {
       "id": "waiting-3",
@@ -23,61 +23,61 @@
       "id": "waiting-4",
       "category": "waiting",
       "text": "Let me take a look.",
-      "duration_ms": 2080
+      "duration_ms": 880
     },
     {
       "id": "lookup-1",
       "category": "lookup",
       "text": "I'm checking the details.",
-      "duration_ms": 1600
+      "duration_ms": 1760
     },
     {
       "id": "lookup-2",
       "category": "lookup",
       "text": "I'm looking that up.",
-      "duration_ms": 1280
+      "duration_ms": 1040
     },
     {
       "id": "lookup-3",
       "category": "lookup",
       "text": "Let me check the information.",
-      "duration_ms": 1920
+      "duration_ms": 1280
     },
     {
       "id": "lookup-4",
       "category": "lookup",
       "text": "I'll take a look at that.",
-      "duration_ms": 1920
+      "duration_ms": 1280
     },
     {
       "id": "network-1",
       "category": "network",
       "text": "I'm checking your connection.",
-      "duration_ms": 1840
+      "duration_ms": 1920
     },
     {
       "id": "network-2",
       "category": "network",
       "text": "Let me check the network.",
-      "duration_ms": 1760
+      "duration_ms": 1360
     },
     {
       "id": "network-3",
       "category": "network",
       "text": "I'm checking the connection details.",
-      "duration_ms": 2720
+      "duration_ms": 1680
     },
     {
       "id": "listening-1",
       "category": "listening",
       "text": "I'm listening.",
-      "duration_ms": 1360
+      "duration_ms": 720
     },
     {
       "id": "listening-2",
       "category": "listening",
       "text": "Go ahead.",
-      "duration_ms": 960
+      "duration_ms": 560
     },
     {
       "id": "listening-3",
@@ -89,31 +89,31 @@
       "id": "acknowledge-1",
       "category": "acknowledge",
       "text": "Okay.",
-      "duration_ms": 720
+      "duration_ms": 480
     },
     {
       "id": "acknowledge-2",
       "category": "acknowledge",
       "text": "All right.",
-      "duration_ms": 880
+      "duration_ms": 800
     },
     {
       "id": "acknowledge-3",
       "category": "acknowledge",
       "text": "Thanks for explaining.",
-      "duration_ms": 1920
+      "duration_ms": 1200
     },
     {
       "id": "interrupted-1",
       "category": "interrupted",
       "text": "Okay, I've stopped.",
-      "duration_ms": 2160
+      "duration_ms": 1440
     },
     {
       "id": "interrupted-2",
       "category": "interrupted",
       "text": "All right, I'll pause here.",
-      "duration_ms": 1920
+      "duration_ms": 960
     }
   ]
 }

@@ -2,12 +2,12 @@ import {test,expect} from '@playwright/test';
 import {VoiceCues} from '../src/voice-cues';
 import {Voice} from '../src/voice';
 test('cues respect activity, category, cancellation and cooldown',async()=>{
- const original=globalThis.fetch;const started:string[]=[];let stopped=0;let allowed=false;
+ const original=globalThis.fetch;const urls:string[]=[];const started:string[]=[];let stopped=0;let allowed=false;
  const context={decodeAudioData:async()=>({duration:.2}),createBufferSource:()=>({buffer:null,connect(){},disconnect(){},start(){started.push('audio')},stop(){stopped++},onended:null})} as unknown as AudioContext;
- globalThis.fetch=async(url:any)=>new Response(String(url).endsWith('voice-cues')?JSON.stringify({cues:[{id:'lookup-1',category:'lookup',text:'Checking the details.',duration_ms:200},{id:'waiting-1',category:'waiting',text:'One moment.',duration_ms:200}]}):new Uint8Array([1,0]));
+ globalThis.fetch=async(url:any)=>{urls.push(String(url));return new Response(String(url).endsWith('voice-cues')?JSON.stringify({reference_sha256:'new-voice',cues:[{id:'lookup-1',category:'lookup',text:'Checking the details.',duration_ms:200},{id:'waiting-1',category:'waiting',text:'One moment.',duration_ms:200}]}):new Uint8Array([1,0]));};
  const reports:string[]=[];const cues=new VoiceCues(context,{} as AudioNode,()=>allowed,t=>reports.push(t));
  try{
-  await cues.load('telecom-support');cues.play('lookup');expect(started).toHaveLength(0);
+  await cues.load('telecom-support');expect(urls.slice(1).every(url=>url.endsWith('?v=new-voice'))).toBe(true);cues.play('lookup');expect(started).toHaveLength(0);
   allowed=true;cues.play('lookup');expect(reports).toEqual(['Checking the details.']);
   cues.cancel();expect(stopped).toBe(1);expect(cues.playing).toBe(false);
   cues.play('waiting');expect(started).toHaveLength(1); // cooldown

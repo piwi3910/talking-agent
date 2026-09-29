@@ -28,7 +28,7 @@ Sync pruning is disabled for this app: generated EndpointSlices inherit its Serv
 
 VAD/ONNX assets are pinned by the npm lockfile and copied to the app during build; the browser does not depend on a public CDN. Voice startup loads the detector once. Asset preparation also runs before Vite development.
 
-Sara’s synthetic reference now uses a neutral English female voice, replacing the earlier Arabic-accented design at the operator’s request. Breeze officially supports English and Chinese. The Voice tab has a reference preview for subjective listening review.
+Sara’s synthetic reference was regenerated with an explicit native General American English female voice direction and a different seed after the neutral-English design still sounded accented to the operator. All Sara cues were regenerated from that reference. Cue URLs include the reference revision to avoid stale cached audio. Breeze officially supports English and Chinese. The Voice tab has a reference preview for subjective listening review.
 
 
 ## Prerecorded conversational cues

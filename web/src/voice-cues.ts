@@ -17,10 +17,11 @@ export class VoiceCues {
   try{
    const base=`/api/agents/${agent}/voice-cues`;
    const res=await fetch(base,{signal:this.loadAbort.signal});if(!res.ok)return;
-   this.cues=(await res.json()).cues;
+   const manifest=await res.json();this.cues=manifest.cues;
+   const version=encodeURIComponent(manifest.reference_sha256);
    // Bound concurrent downloads; all assets are local, prerecorded WAVs.
    const pending=[...this.cues];
-   await Promise.all(Array.from({length:3},async()=>{while(pending.length&&!this.closed){const cue=pending.shift()!;const r=await fetch(`${base}/${cue.id}`,{signal:this.loadAbort.signal});if(r.ok){const buffer=await this.ctx.decodeAudioData(await r.arrayBuffer());if(!this.closed)this.clips.set(cue.id,buffer);}}}));
+   await Promise.all(Array.from({length:3},async()=>{while(pending.length&&!this.closed){const cue=pending.shift()!;const r=await fetch(`${base}/${cue.id}?v=${version}`,{signal:this.loadAbort.signal});if(r.ok){const buffer=await this.ctx.decodeAudioData(await r.arrayBuffer());if(!this.closed)this.clips.set(cue.id,buffer);}}}));
   }catch{/* Voice replies work even if optional cues are unavailable. */}
  }
  begin(){this.cancel();this.count=0;this.schedule('waiting',1200);}

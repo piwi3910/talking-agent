@@ -9,7 +9,7 @@ GROUPS={
  'listening':["I'm listening.","Go ahead.","Take your time."],
  'acknowledge':['Okay.','All right.','Thanks for explaining.'],
  'interrupted':["Okay, I've stopped.","All right, I'll pause here."]}
-for domain in ['telecom','hospital']:
+for domain in os.environ.get('VOICE_DOMAINS','telecom,hospital').split(','):
  root=ROOT/'agents'/domain/'voice';ref=(root/'reference.wav').read_bytes();transcript=(root/'reference.txt').read_text().strip()
  manifest=[]
  for category,phrases in GROUPS.items():

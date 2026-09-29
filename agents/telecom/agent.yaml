@@ -40,7 +40,7 @@ memory:
 name: Sara
 organization: Nova Telecom
 persona:
-  voice_style: "Preserve the reference woman’s neutral English voice. Warm, relaxed and conversational; avoid an announcer tone."
+  voice_style: "Preserve the reference woman’s native General American English voice and pronunciation. Warm, relaxed and conversational."
   style: conversational
   tone: friendly
   verbosity: concise
