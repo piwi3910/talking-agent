@@ -10,7 +10,7 @@ Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.wattee
 
 ## Run locally
 
-Requires Go 1.23+ and Node.js 22+ (Node 24 recommended for the supplied lockfile).
+Requires Go 1.26+ and Node.js 22+ (Node 24 recommended for the supplied lockfile).
 
 ```sh
 npm --prefix web ci
@@ -43,7 +43,7 @@ go run ./cmd/server
 
 The adapter uses streaming `/chat/completions`, function calling, usage reporting, cancellation, a 60-second request timeout, and limited pre-stream retries for HTTP 429/503. Endpoints must support streaming tool calls and `stream_options.include_usage`. The model must support function calling. Domain tool names such as `wifi.diagnostics` map to wire-safe names such as `wifi__diagnostics`.
 
-The implementation follows the [official OpenAI function-calling and streaming format](https://developers.openai.com/api/docs/guides/function-calling); no OpenAI SDK or fixed model is required. vLLM, SGLang, a relay, or a hosted compatible endpoint can supply the model. Actual compatibility still depends on that endpoint's implementation.
+The implementation follows the [official OpenAI function-calling and streaming format](https://developers.openai.com/api/docs/guides/function-calling); the provider adapter uses go-ai-sdk without a fixed model. vLLM, SGLang, a relay, or a hosted compatible endpoint can supply the model. Actual compatibility still depends on that endpoint's implementation.
 
 `.env.example` documents all settings. The Go binary reads environment variables, **not `.env` automatically**. Docker Compose reads `.env` for interpolation.
 
@@ -92,3 +92,5 @@ Tests cover every configured tool, all telecom scenarios, memory isolation in al
 Only fictional data and trusted operator-selected identities are supported. Authentication is a demo assertion, not identity verification. Session IDs act as capabilities; this local console has no production login, authorization gateway, durable session storage, or rate limiter. Mock changes reset when their process restarts. Hospital keyword safety is intentionally conservative and not a clinical triage system. The offline provider recognizes documented phrases and IDs, rather than general natural language.
 
 Agent files are discovered at startup; switching loaded agents requires no restart or code changes. Editing configuration files or adding an agent requires restarting the server. No voice, STT/TTS, WebRTC, avatars, engines, or production UI is implemented.
+
+The live LLM adapter uses `github.com/azrtydxb/go-ai-sdk` v0.6.0 with its OpenAI-compatible provider. Go 1.26+ is required. Endpoint, model and credential environment variable remain configurable; the platform runtime owns tool execution and telemetry.

@@ -9,3 +9,5 @@
 - `kubectl` is installed at `/usr/local/bin/kubectl`; persistent credentials are in `~/.kube/config`. Build client credentials are under `~/.config/buildkit/kw/`, outside the repository.
 - Verify Sync is `Healthy` and `Synced` to the intended Git revision, then verify TLS, health, and conversation/SSE at the cluster hostname.
 - Keep one replica while memory, sessions, and mock state are process-local. The KW deployment uses FastLLM at `http://fastllm-proxy.fastllm.svc.cluster.local/v1` with model `qwen3.5-9b` (Qwen3.5-9B). Its API key comes from `enterprise-ai-demo/fastllm-api`, key `LLM_API_KEY`. Memory is still the development provider. Local runs default to offline/scripted mode.
+
+- The LLM adapter uses `github.com/azrtydxb/go-ai-sdk` v0.6.0. Build with Go 1.26+. Preserve the SDK integration when changing providers.
