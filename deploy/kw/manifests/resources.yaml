@@ -25,6 +25,9 @@
         "labels": {
           "app.kubernetes.io/name": "enterprise-ai-demo",
           "app.kubernetes.io/version": "phase1-20260929"
+        },
+        "annotations": {
+          "enterprise-ai-demo/memory-persistence-check": "20260929-1"
         }
       },
       "spec": {
