@@ -79,10 +79,10 @@ func TestSDKRequestMapping(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
 		}
-		if body.Model != "configured" || !body.Stream || len(body.Messages) != 3 {
+		if body.Model != "configured" || !body.Stream || len(body.Messages) != 4 {
 			t.Errorf("bad request: %+v", body)
 		}
-		if len(body.Messages) == 3 && (body.Messages[1].ToolCalls[0].ID != "call1" || body.Messages[2].ToolCallID != "call1" || body.Messages[2].Content != `{"status":"ok"}`) {
+		if len(body.Messages) == 4 && (body.Messages[0].Content != "Instructions\n\nMemory" || body.Messages[2].ToolCalls[0].ID != "call1" || body.Messages[3].ToolCallID != "call1" || body.Messages[3].Content != `{"status":"ok"}`) {
 			t.Errorf("tool roundtrip: %+v", body.Messages)
 		}
 		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Connected\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
@@ -90,6 +90,8 @@ func TestSDKRequestMapping(t *testing.T) {
 	defer s.Close()
 	c := OpenAI{BaseURL: s.URL, Model: "configured", APIKeyEnv: "TEST_LLM_KEY"}
 	out, err := c.Chat(context.Background(), Request{Messages: []Message{
+		{Role: "system", Content: "Instructions"},
+		{Role: "system", Content: "Memory"},
 		{Role: "user", Content: "Check connection"},
 		{Role: "assistant", ToolCalls: []Call{{ID: "call1", Type: "function", Function: Function{Name: "network__status", Arguments: "{}"}}}},
 		{Role: "tool", ToolCallID: "call1", Content: `{"status":"ok"}`},

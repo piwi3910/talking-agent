@@ -85,7 +85,17 @@ func (c *OpenAI) Chat(ctx context.Context, in Request, delta func(string)) (Resp
 	}
 	model := openai.New(openai.WithBaseURL(c.BaseURL), openai.WithAPIKey(os.Getenv(c.APIKeyEnv)), openai.WithHTTPClient(client)).Model(c.Model)
 	call := provider.Call{}
+	// Some compatible model templates accept only one leading system message.
+	// Combine the runtime's instructions and retrieved context before conversion.
+	messages := make([]Message, 0, len(in.Messages))
 	for _, m := range in.Messages {
+		if m.Role == "system" && len(messages) == 1 && messages[0].Role == "system" {
+			messages[0].Content += "\n\n" + m.Content
+		} else {
+			messages = append(messages, m)
+		}
+	}
+	for _, m := range messages {
 		msg := provider.Message{Role: provider.Role(m.Role)}
 		if m.Role == "tool" {
 			var result any

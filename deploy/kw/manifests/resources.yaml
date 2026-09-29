@@ -41,7 +41,7 @@
         "containers": [
           {
             "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:ec2a17f765fbda3a9f818daa83014b3d58aed9d76327db6e846933e01007d0fa",
+            "image": "192.168.10.131/enterprise-ai-demo@sha256:7b42f5343fd6eecc4b70486c0dad2772ffdddc4bf419850e61e0be6f6bf4444b",
             "imagePullPolicy": "IfNotPresent",
             "ports": [
               {
