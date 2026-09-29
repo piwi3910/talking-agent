@@ -1,0 +1,11 @@
+node_modules/
+web/dist/
+.env
+var/
+*.log
+bin/
+web/test-results/
+web/playwright-report/
+web/*.tsbuildinfo
+__pycache__/
+*.pyc

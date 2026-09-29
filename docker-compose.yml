@@ -1,0 +1,36 @@
+services:
+  mock-backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["/app/bin/mock-backend"]
+    environment:
+      MOCK_LISTEN_ADDR: "0.0.0.0:8081"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      LISTEN_ADDR: "0.0.0.0:8080"
+      MOCK_BACKEND_URL: "http://mock-backend:8081"
+      LLM_PROVIDER: "${LLM_PROVIDER:-demo}"
+      LLM_BASE_URL: "${LLM_BASE_URL:-}"
+      LLM_MODEL: "${LLM_MODEL:-}"
+      LLM_API_KEY: "${LLM_API_KEY:-}"
+      MEMORY_PROVIDER: "${MEMORY_PROVIDER:-in-memory}"
+      MAX_ITERATIONS: "${MAX_ITERATIONS:-12}"
+    depends_on:
+      mock-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5

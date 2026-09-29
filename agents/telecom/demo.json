@@ -1,0 +1,297 @@
+[
+  {
+    "keywords": [
+      "optimize",
+      "change channel"
+    ],
+    "steps": [
+      {
+        "tool": "network.outages",
+        "arguments": {}
+      },
+      {
+        "tool": "network.status",
+        "arguments": {}
+      },
+      {
+        "tool": "wifi.optimize",
+        "arguments": {
+          "channel": "11"
+        },
+        "unless_status": [
+          "outage",
+          "restricted",
+          "line_fault"
+        ]
+      },
+      {
+        "tool": "billing.balance",
+        "arguments": {},
+        "when_status": "restricted"
+      },
+      {
+        "tool": "technician.availability",
+        "arguments": {},
+        "when_status": "line_fault"
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "restart"
+    ],
+    "steps": [
+      {
+        "tool": "network.outages",
+        "arguments": {}
+      },
+      {
+        "tool": "network.status",
+        "arguments": {}
+      },
+      {
+        "tool": "wifi.restart",
+        "arguments": {},
+        "unless_status": [
+          "outage",
+          "restricted",
+          "line_fault"
+        ]
+      },
+      {
+        "tool": "billing.balance",
+        "arguments": {},
+        "when_status": "restricted"
+      },
+      {
+        "tool": "technician.availability",
+        "arguments": {},
+        "when_status": "line_fault"
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "change plan",
+      "switch plan"
+    ],
+    "steps": [
+      {
+        "tool": "plan.change",
+        "arguments": {
+          "plan_id": "$plan"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "book technician"
+    ],
+    "steps": [
+      {
+        "tool": "technician.book",
+        "arguments": {
+          "slot_id": "$technician"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "create ticket",
+      "open ticket"
+    ],
+    "steps": [
+      {
+        "tool": "ticket.create",
+        "arguments": {
+          "summary": "$query"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "close ticket"
+    ],
+    "steps": [
+      {
+        "tool": "ticket.update",
+        "arguments": {
+          "ticket_id": "$ticket",
+          "status": "closed"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "ticket"
+    ],
+    "steps": [
+      {
+        "tool": "ticket.list",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "technician"
+    ],
+    "steps": [
+      {
+        "tool": "network.diagnostics",
+        "arguments": {}
+      },
+      {
+        "tool": "technician.availability",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "plan",
+      "upgrade",
+      "recommend"
+    ],
+    "steps": [
+      {
+        "tool": "subscription.list",
+        "arguments": {}
+      },
+      {
+        "tool": "usage.current",
+        "arguments": {}
+      },
+      {
+        "tool": "plan.compare",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "bill",
+      "invoice",
+      "charge"
+    ],
+    "steps": [
+      {
+        "tool": "billing.balance",
+        "arguments": {}
+      },
+      {
+        "tool": "billing.explain",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "data",
+      "allowance",
+      "usage"
+    ],
+    "steps": [
+      {
+        "tool": "usage.current",
+        "arguments": {}
+      },
+      {
+        "tool": "usage.history",
+        "arguments": {}
+      },
+      {
+        "tool": "plan.list",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "internet",
+      "wifi",
+      "wi-fi",
+      "upstairs",
+      "router",
+      "connection",
+      "outage"
+    ],
+    "steps": [
+      {
+        "tool": "network.outages",
+        "arguments": {}
+      },
+      {
+        "tool": "network.status",
+        "arguments": {}
+      },
+      {
+        "tool": "wifi.diagnostics",
+        "arguments": {},
+        "unless_status": [
+          "outage",
+          "restricted",
+          "line_fault"
+        ]
+      },
+      {
+        "tool": "billing.balance",
+        "arguments": {},
+        "when_status": "restricted"
+      },
+      {
+        "tool": "technician.availability",
+        "arguments": {},
+        "when_status": "line_fault"
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "profile",
+      "account"
+    ],
+    "steps": [
+      {
+        "tool": "customer.profile",
+        "arguments": {}
+      },
+      {
+        "tool": "subscription.list",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "prefer troubleshooting"
+    ],
+    "steps": [],
+    "reply": "I\u2019ll remember that you prefer troubleshooting before a technician visit."
+  },
+  {
+    "keywords": [
+      "hello",
+      "hi"
+    ],
+    "steps": [],
+    "reply": "Hello, I\u2019m Sara at Nova Telecom. How can I help with your service?"
+  }
+]

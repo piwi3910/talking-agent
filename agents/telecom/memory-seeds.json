@@ -1,0 +1,5 @@
+[
+ {"user":"C001","text":"Customer has recurring poor upstairs Wi-Fi coverage. Previous diagnostics found channel interference.","tags":["upstairs","wifi","internet","interference"]},
+ {"user":"C001","text":"Previous upstairs Wi-Fi interference was temporarily resolved by changing the channel to 6.","tags":["upstairs","wifi","internet","channel"]},
+ {"user":"C001","text":"Customer prefers troubleshooting before technician dispatch.","tags":["upstairs","wifi","internet","technician"]}
+]

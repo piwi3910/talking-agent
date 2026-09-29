@@ -1,0 +1,162 @@
+[
+  {
+    "id": "D001",
+    "kind": "doctor",
+    "name": "Dr. Ahmed",
+    "specialty": "Dermatology",
+    "location": "Department DEP01",
+    "status": "available"
+  },
+  {
+    "id": "D002",
+    "kind": "doctor",
+    "name": "Dr. Haddad",
+    "specialty": "Cardiology",
+    "location": "Department DEP02",
+    "status": "on leave this week"
+  },
+  {
+    "id": "D003",
+    "kind": "doctor",
+    "name": "Dr. Brooks",
+    "specialty": "Orthopedics",
+    "location": "Department DEP03",
+    "status": "available"
+  },
+  {
+    "id": "D004",
+    "kind": "doctor",
+    "name": "Dr. Khan",
+    "specialty": "Pediatrics",
+    "location": "Department DEP04",
+    "status": "available"
+  },
+  {
+    "id": "D005",
+    "kind": "doctor",
+    "name": "Dr. Cole",
+    "specialty": "General Medicine",
+    "location": "Department DEP05",
+    "status": "available"
+  },
+  {
+    "id": "D006",
+    "kind": "doctor",
+    "name": "Dr. Reyes",
+    "specialty": "Dermatology",
+    "location": "Department DEP01",
+    "status": "available"
+  },
+  {
+    "id": "D007",
+    "kind": "doctor",
+    "name": "Dr. Farouk",
+    "specialty": "Cardiology",
+    "location": "Department DEP02",
+    "status": "available"
+  },
+  {
+    "id": "D008",
+    "kind": "doctor",
+    "name": "Dr. Chen",
+    "specialty": "Orthopedics",
+    "location": "Department DEP03",
+    "status": "available"
+  },
+  {
+    "id": "D009",
+    "kind": "doctor",
+    "name": "Dr. Reed",
+    "specialty": "Pediatrics",
+    "location": "Department DEP04",
+    "status": "available"
+  },
+  {
+    "id": "D010",
+    "kind": "doctor",
+    "name": "Dr. Okafor",
+    "specialty": "General Medicine",
+    "location": "Department DEP05",
+    "status": "available"
+  },
+  {
+    "id": "D011",
+    "kind": "doctor",
+    "name": "Dr. Patel",
+    "specialty": "Dermatology",
+    "location": "Department DEP01",
+    "status": "available"
+  },
+  {
+    "id": "D012",
+    "kind": "doctor",
+    "name": "Dr. Ali",
+    "specialty": "Cardiology",
+    "location": "Department DEP02",
+    "status": "available"
+  },
+  {
+    "id": "D013",
+    "kind": "doctor",
+    "name": "Dr. Shaw",
+    "specialty": "Orthopedics",
+    "location": "Department DEP03",
+    "status": "available"
+  },
+  {
+    "id": "D014",
+    "kind": "doctor",
+    "name": "Dr. Hassan",
+    "specialty": "Pediatrics",
+    "location": "Department DEP04",
+    "status": "available"
+  },
+  {
+    "id": "D015",
+    "kind": "doctor",
+    "name": "Dr. Park",
+    "specialty": "General Medicine",
+    "location": "Department DEP05",
+    "status": "available"
+  },
+  {
+    "id": "D016",
+    "kind": "doctor",
+    "name": "Dr. Noor",
+    "specialty": "Dermatology",
+    "location": "Department DEP01",
+    "status": "available"
+  },
+  {
+    "id": "D017",
+    "kind": "doctor",
+    "name": "Dr. Evans",
+    "specialty": "Cardiology",
+    "location": "Department DEP02",
+    "status": "available"
+  },
+  {
+    "id": "D018",
+    "kind": "doctor",
+    "name": "Dr. Rossi",
+    "specialty": "Orthopedics",
+    "location": "Department DEP03",
+    "status": "available"
+  },
+  {
+    "id": "D019",
+    "kind": "doctor",
+    "name": "Dr. Ibrahim",
+    "specialty": "Pediatrics",
+    "location": "Department DEP04",
+    "status": "available"
+  },
+  {
+    "id": "D020",
+    "kind": "doctor",
+    "name": "Dr. Davis",
+    "specialty": "General Medicine",
+    "location": "Department DEP05",
+    "status": "available"
+  }
+]

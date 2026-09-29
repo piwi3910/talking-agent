@@ -1,0 +1,37 @@
+[
+  {
+    "id": "DEP01",
+    "kind": "department",
+    "name": "Dermatology",
+    "location": "Building A, floor 1",
+    "description": "Open Monday\u2013Friday 08:00\u201318:00 UTC. Follow signs from the main reception."
+  },
+  {
+    "id": "DEP02",
+    "kind": "department",
+    "name": "Cardiology",
+    "location": "Building A, floor 2",
+    "description": "Open Monday\u2013Friday 08:00\u201318:00 UTC. Follow signs from the main reception."
+  },
+  {
+    "id": "DEP03",
+    "kind": "department",
+    "name": "Orthopedics",
+    "location": "Building A, floor 3",
+    "description": "Open Monday\u2013Friday 08:00\u201318:00 UTC. Follow signs from the main reception."
+  },
+  {
+    "id": "DEP04",
+    "kind": "department",
+    "name": "Pediatrics",
+    "location": "Building A, floor 4",
+    "description": "Open Monday\u2013Friday 08:00\u201318:00 UTC. Follow signs from the main reception."
+  },
+  {
+    "id": "DEP05",
+    "kind": "department",
+    "name": "General Medicine",
+    "location": "Building A, floor 5",
+    "description": "Open Monday\u2013Friday 08:00\u201318:00 UTC. Follow signs from the main reception."
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "reception",
+    "kind": "facility",
+    "name": "Main reception",
+    "location": "Building A, ground floor",
+    "description": "Open daily 07:00\u201321:00 UTC. Enter through the main east entrance."
+  },
+  {
+    "id": "parking",
+    "kind": "facility",
+    "name": "Visitor parking",
+    "location": "North entrance, Parking P1",
+    "description": "Open 24 hours. Enter from Example Road. Accessible parking is beside the main entrance."
+  },
+  {
+    "id": "pharmacy",
+    "kind": "facility",
+    "name": "Outpatient pharmacy",
+    "location": "Building B, ground floor",
+    "description": "Open Monday\u2013Saturday 08:00\u201320:00 UTC. Follow the blue signs from reception."
+  }
+]

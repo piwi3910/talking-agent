@@ -1,0 +1,212 @@
+[
+  {
+    "keywords": [
+      "reschedule"
+    ],
+    "steps": [
+      {
+        "tool": "appointment.reschedule",
+        "arguments": {
+          "appointment_id": "$appointment",
+          "slot_id": "$slot"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "cancel"
+    ],
+    "steps": [
+      {
+        "tool": "appointment.cancel",
+        "arguments": {
+          "appointment_id": "$appointment"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "book s-"
+    ],
+    "steps": [
+      {
+        "tool": "appointment.book",
+        "arguments": {
+          "slot_id": "$slot"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "mornings normally",
+      "prefer mornings",
+      "mornings work"
+    ],
+    "steps": [],
+    "reply": "I\u2019ll remember that you generally prefer morning appointments."
+  },
+  {
+    "keywords": [
+      "my appointment",
+      "existing appointment"
+    ],
+    "steps": [
+      {
+        "tool": "appointment.list",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "insurance"
+    ],
+    "steps": [
+      {
+        "tool": "insurance.check",
+        "arguments": {
+          "provider": "$provider",
+          "plan": "$insurance_plan"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "provider"
+    ],
+    "steps": [
+      {
+        "tool": "insurance.providers",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "parking",
+      "direction",
+      "hours",
+      "facility"
+    ],
+    "steps": [
+      {
+        "tool": "facility.search",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "department"
+    ],
+    "steps": [
+      {
+        "tool": "department.search",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "referral"
+    ],
+    "steps": [
+      {
+        "tool": "referral.status",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "prescription"
+    ],
+    "steps": [
+      {
+        "tool": "prescription.status",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "create request"
+    ],
+    "steps": [
+      {
+        "tool": "support.create_request",
+        "arguments": {
+          "summary": "$query"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "appointment",
+      "dermatolog",
+      "ahmed",
+      "doctor",
+      "cardiolog",
+      "orthopedic",
+      "pediatric"
+    ],
+    "steps": [
+      {
+        "tool": "appointment.availability",
+        "arguments": {
+          "doctor_id": "$doctor",
+          "specialty": "$specialty",
+          "time_preference": "$morning",
+          "from": "$from",
+          "to": "$to"
+        }
+      },
+      {
+        "tool": "appointment.availability",
+        "arguments": {
+          "from": "$from",
+          "to": "$to",
+          "time_preference": "$morning"
+        },
+        "when_empty": true
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "profile"
+    ],
+    "steps": [
+      {
+        "tool": "patient.profile",
+        "arguments": {}
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": [
+      "hello",
+      "hi"
+    ],
+    "steps": [],
+    "reply": "Hello, I\u2019m Maya at Crescent Hospital. I can help with appointments and patient services."
+  }
+]

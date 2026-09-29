@@ -1,0 +1,50 @@
+backend:
+  url_env: TELECOM_BACKEND_URL
+branding:
+  color: '#2764d8'
+future:
+  avatar:
+    enabled: false
+  voice:
+    enabled: false
+id: telecom-support
+industry: telecom
+knowledge:
+  - knowledge/services.md
+  - knowledge/policies.md
+memory:
+  namespace: telecom-demo
+  provider: novamem
+  rules:
+    - pattern: (?i)(prefer.*troubleshoot|troubleshoot.*prefer)
+      tags:
+        - wifi
+        - internet
+        - upstairs
+        - technician
+      text: Customer prefers troubleshooting before technician dispatch.
+    - pattern: (?i)upstairs.*(again|terrible|poor)
+      tags:
+        - wifi
+        - internet
+        - upstairs
+      text: Customer reports recurring weak Wi-Fi coverage upstairs.
+name: Sara
+organization: Nova Telecom
+persona:
+  style: conversational
+  tone: friendly
+  verbosity: concise
+role: Customer Support Specialist
+safety: {}
+skills:
+  - customer
+  - subscription
+  - billing
+  - usage
+  - network
+  - wifi
+  - ticket
+  - plan
+  - technician
+tenant: demo-operator

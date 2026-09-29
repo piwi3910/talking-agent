@@ -1,0 +1,26 @@
+[
+  {
+    "id": "fiber-100",
+    "kind": "plan",
+    "name": "Fiber 100",
+    "description": "100 Mbps broadband, no data cap",
+    "amount": 50,
+    "currency": "USD"
+  },
+  {
+    "id": "fiber-500",
+    "kind": "plan",
+    "name": "Fiber 500",
+    "description": "500 Mbps broadband, no data cap",
+    "amount": 70,
+    "currency": "USD"
+  },
+  {
+    "id": "mobile-50",
+    "kind": "plan",
+    "name": "Mobile 50 GB",
+    "description": "50 GB monthly mobile data",
+    "amount": 35,
+    "currency": "USD"
+  }
+]

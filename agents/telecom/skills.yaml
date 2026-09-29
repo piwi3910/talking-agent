@@ -1,0 +1,372 @@
+- description: Customer services
+  id: customer
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - account
+    - profile
+    - who am i
+  tools:
+    - description: Identify the trusted selected customer
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: customer.lookup
+      timeout_ms: 5000
+    - description: Report trusted demo authentication
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: customer.authenticate
+      timeout_ms: 5000
+    - description: Get contact and account profile
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: customer.profile
+      timeout_ms: 5000
+- description: Subscription services
+  id: subscription
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - subscription
+  tools:
+    - description: List subscriptions
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: subscription.list
+      timeout_ms: 5000
+    - description: Inspect a subscription
+      input:
+        additionalProperties: false
+        properties:
+          subscription_id:
+            description: optional subscription ID
+            type: string
+        required: []
+        type: object
+      mutation: false
+      name: subscription.details
+      timeout_ms: 5000
+- description: Billing services
+  id: billing
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - bill
+    - invoice
+    - charge
+    - unpaid
+  tools:
+    - description: Get outstanding balance
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: billing.balance
+      timeout_ms: 5000
+    - description: Get itemized current invoice
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: billing.invoice
+      timeout_ms: 5000
+    - description: Explain changes from the previous invoice
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: billing.explain
+      timeout_ms: 5000
+- description: Usage services
+  id: usage
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - data
+    - allowance
+    - usage
+  tools:
+    - description: Inspect current data usage and allowance
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: usage.current
+      timeout_ms: 5000
+    - description: Inspect historical monthly usage
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: usage.history
+      timeout_ms: 5000
+- description: Network services
+  id: network
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - internet
+    - offline
+    - connection
+    - outage
+    - router
+    - wifi
+    - wi-fi
+    - upstairs
+  tools:
+    - description: Check connectivity, account restrictions and line state
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: network.status
+      timeout_ms: 5000
+    - description: Check regional outages before equipment troubleshooting
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: network.outages
+      timeout_ms: 5000
+    - description: Diagnose access line and router
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: network.diagnostics
+      timeout_ms: 5000
+    - description: Measure current download speed
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: network.speedtest
+      timeout_ms: 5000
+- description: Wifi services
+  id: wifi
+  instructions: Use current backend records. Never invent IDs or availability. Confirm mutations. Check network.outages and network.status before changing equipment.
+  keywords:
+    - wifi
+    - wi-fi
+    - upstairs
+    - router
+    - channel
+  tools:
+    - description: Get router channel and health
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: wifi.status
+      timeout_ms: 5000
+    - description: List connected devices
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: wifi.devices
+      timeout_ms: 5000
+    - description: Check upstairs coverage and channel interference
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: wifi.diagnostics
+      timeout_ms: 5000
+    - description: Restart the router; rejects outage, restriction or physical line issue
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: true
+      name: wifi.restart
+      timeout_ms: 5000
+    - description: Change Wi-Fi channel; rejects outage or physical line issue
+      input:
+        additionalProperties: false
+        properties:
+          channel:
+            description: 'required channel: 1, 6 or 11'
+            enum:
+              - "1"
+              - "6"
+              - "11"
+            type: string
+        required:
+          - channel
+        type: object
+      memory_effect:
+        contains: Interference cleared
+        tags:
+          - wifi
+          - upstairs
+          - internet
+          - interference
+        text: Previous upstairs Wi-Fi interference was resolved by changing channel to {channel}.
+      mutation: true
+      name: wifi.optimize
+      timeout_ms: 5000
+- description: Ticket services
+  id: ticket
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - ticket
+  tools:
+    - description: List support tickets
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: ticket.list
+      timeout_ms: 5000
+    - description: Read one owned support ticket
+      input:
+        additionalProperties: false
+        properties:
+          ticket_id:
+            description: required ticket ID
+            type: string
+        required:
+          - ticket_id
+        type: object
+      mutation: false
+      name: ticket.details
+      timeout_ms: 5000
+    - description: Create support ticket
+      input:
+        additionalProperties: false
+        properties:
+          summary:
+            description: required issue summary
+            type: string
+        required:
+          - summary
+        type: object
+      mutation: true
+      name: ticket.create
+      timeout_ms: 5000
+    - description: Update support ticket
+      input:
+        additionalProperties: false
+        properties:
+          status:
+            description: required open or closed
+            enum:
+              - open
+              - closed
+            type: string
+          ticket_id:
+            description: required ticket ID
+            type: string
+        required:
+          - ticket_id
+          - status
+        type: object
+      mutation: true
+      name: ticket.update
+      timeout_ms: 5000
+- description: Plan services
+  id: plan
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - plan
+    - upgrade
+  tools:
+    - description: List actual available plans
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: plan.list
+      timeout_ms: 5000
+    - description: Compare plans with current subscription and usage
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: plan.compare
+      timeout_ms: 5000
+    - description: Change subscription to an available plan
+      input:
+        additionalProperties: false
+        properties:
+          plan_id:
+            description: required plan ID
+            type: string
+        required:
+          - plan_id
+        type: object
+      mutation: true
+      name: plan.change
+      timeout_ms: 5000
+- description: Technician services
+  id: technician
+  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  keywords:
+    - technician
+    - line
+  tools:
+    - description: Find available technician slots
+      input:
+        additionalProperties: false
+        properties: {}
+        required: []
+        type: object
+      mutation: false
+      name: technician.availability
+      timeout_ms: 5000
+    - description: Book a technician visit
+      input:
+        additionalProperties: false
+        properties:
+          slot_id:
+            description: required available technician slot ID
+            type: string
+        required:
+          - slot_id
+        type: object
+      mutation: true
+      name: technician.book
+      timeout_ms: 5000
