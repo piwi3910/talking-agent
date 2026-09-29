@@ -6,6 +6,7 @@ import (
 	"enterprise-ai-demo/internal/agent"
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/session"
+	"enterprise-ai-demo/internal/speech"
 	"enterprise-ai-demo/internal/tools"
 	"fmt"
 	"io"
@@ -20,6 +21,8 @@ import (
 )
 
 type API struct {
+	Speech      *speech.Client
+	VoiceActive sync.Map
 	Runtime     *agent.Runtime
 	Agents      map[string]*config.Agent
 	Sessions    *session.Store
@@ -75,6 +78,7 @@ func (a *API) users(ctx context.Context, config *config.Agent) ([]tools.Record, 
 }
 func (a *API) Handler() http.Handler {
 	m := http.NewServeMux()
+	a.voiceRoutes(m)
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]string{"status": "ok", "memory": a.Runtime.Memory.Name()})
 	})
@@ -186,7 +190,7 @@ func (a *API) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "no-cache, no-transform")
 		w.Header().Set("X-Accel-Buffering", "no")
 		id, _ := strconv.ParseUint(r.Header.Get("Last-Event-ID"), 10, 64)
 		if raw := r.URL.Query().Get("after"); raw != "" {

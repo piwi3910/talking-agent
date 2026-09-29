@@ -14,7 +14,7 @@ future:
   avatar:
     enabled: false
   voice:
-    enabled: false
+    enabled: true
 id: telecom-support
 industry: telecom
 knowledge:
@@ -40,6 +40,7 @@ memory:
 name: Sara
 organization: Nova Telecom
 persona:
+  voice_style: "Warm, relaxed and conversational. Clear natural English; avoid an announcer tone."
   style: conversational
   tone: friendly
   verbosity: concise

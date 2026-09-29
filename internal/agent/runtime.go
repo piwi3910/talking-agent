@@ -94,7 +94,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		s.Busy.Store(false)
 		emit("turn.completed", map[string]any{"duration_ms": time.Since(started).Milliseconds()})
 	}()
-	fail := func(err error) { emit("agent.error", map[string]any{"message": err.Error()}) }
+	fail := func(err error) {
+		emit("agent.error", map[string]any{"message": err.Error(), "cancelled": errors.Is(ctx.Err(), context.Canceled)})
+	}
 	answer := func(text string) {
 		s.History = append(s.History, llm.Message{Role: "assistant", Content: text})
 		emit("agent.response.delta", map[string]any{"text": text})
@@ -318,7 +320,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 			s.History = append(s.History, llm.Message{Role: "tool", ToolCallID: call.ID, Content: string(raw)})
 		}
 		if pending {
-			answer("Please review and confirm the proposed action in the activity panel.")
+			answer("Please check the details below and confirm when you’re ready.")
 			trim(s)
 			return
 		}

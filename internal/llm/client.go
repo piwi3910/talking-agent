@@ -68,6 +68,7 @@ type OpenAI struct {
 	BaseURL, Model, APIKeyEnv string
 	HTTP                      *http.Client
 	Timeout                   time.Duration
+	DisableThinking           bool
 }
 
 func (c *OpenAI) Name() string      { return "openai-compatible / " + c.Model }
@@ -120,6 +121,9 @@ func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (
 	}
 	model := openai.New(openai.WithBaseURL(c.BaseURL), openai.WithAPIKey(os.Getenv(c.APIKeyEnv)), openai.WithHTTPClient(client)).Model(c.Model)
 	call := provider.Call{}
+	if c.DisableThinking {
+		call.ProviderOptions = map[string]any{"openai": map[string]any{"chat_template_kwargs": map[string]any{"enable_thinking": false}}}
+	}
 	// Some compatible model templates accept only one leading system message.
 	// Combine the runtime's instructions and retrieved context before conversion.
 	messages := make([]Message, 0, len(in.Messages))

@@ -12,6 +12,7 @@ import (
 	"enterprise-ai-demo/internal/mock"
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/skills"
+	"enterprise-ai-demo/internal/speech"
 	"enterprise-ai-demo/internal/tools"
 	"fmt"
 	"log/slog"
@@ -137,7 +138,7 @@ func run() error {
 			if os.Getenv("LLM_MODEL") == "" || os.Getenv("LLM_BASE_URL") == "" {
 				return fmt.Errorf("set LLM_MODEL and LLM_BASE_URL for openai-compatible mode")
 			}
-			runtime.Clients[id] = &llm.OpenAI{BaseURL: os.Getenv("LLM_BASE_URL"), Model: os.Getenv("LLM_MODEL"), APIKeyEnv: env("LLM_API_KEY_ENV", "LLM_API_KEY"), Timeout: 60 * time.Second}
+			runtime.Clients[id] = &llm.OpenAI{BaseURL: os.Getenv("LLM_BASE_URL"), Model: os.Getenv("LLM_MODEL"), APIKeyEnv: env("LLM_API_KEY_ENV", "LLM_API_KEY"), Timeout: 60 * time.Second, DisableThinking: os.Getenv("LLM_DISABLE_THINKING") == "true"}
 		default:
 			return fmt.Errorf("unknown LLM_PROVIDER %s", mode)
 		}
@@ -167,7 +168,7 @@ func run() error {
 	if _, err := os.Stat(web); err != nil {
 		web = ""
 	}
-	app := &api.API{Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	app := &api.API{Speech: &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
 	server := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	serverErrors := make(chan error, 1)
 	go func() {

@@ -158,3 +158,35 @@ func TestReasoningAndWhitespaceAreNotAnAnswer(t *testing.T) {
 		t.Fatal(out, err, text, attempts)
 	}
 }
+
+func TestThinkingOptionAndEarlyDelta(t *testing.T) {
+	received := make(chan struct{})
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		opts, ok := body["chat_template_kwargs"].(map[string]any)
+		if !ok || opts["enable_thinking"] != false {
+			t.Error("thinking option missing from SDK request")
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n")
+		w.(http.Flusher).Flush()
+		select {
+		case <-received:
+		case <-time.After(time.Second):
+			t.Error("text buffered until completion")
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer s.Close()
+	c := OpenAI{BaseURL: s.URL, Model: "configured-model", DisableThinking: true}
+	_, err := c.Chat(context.Background(), Request{}, func(text string) {
+		if text == "Hello" {
+			close(received)
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

@@ -26,7 +26,7 @@ Sync manages the deployment Job and cluster routing resources. Docker handles pr
 | TTS | `http://speech-tts.enterprise-ai-demo.svc.cluster.local` | `http://192.168.10.246:8092` |
 | STT | `http://speech-stt.enterprise-ai-demo.svc.cluster.local` | `http://192.168.10.246:8093` |
 
-These are internal inference services, with no public ingress. Requests must pass through the app's server-side voice integration when that is added. No browser microphone integration is included in this deployment.
+These are internal inference services, with no public ingress. The app proxies live microphone transcription and streamed speech at its public HTTPS hostname. See `docs/voice.md` for the browser controls and protocol.
 
 TTS model ID: `breeze`. POST `/v1/audio/speech` with `input`, `stream: true`, `stream_format: "audio"`, `response_format: "pcm"`. Output is mono signed 16-bit little-endian PCM at 24 kHz. `options.instruction` controls delivery. Inline `voice_ref` and `reference_text` are supported for a stable reference voice; Sara/Maya references have not yet been selected. Defaults follow the Pithagoras Fast baseline: guidance 1, seed 42, eight frames/event, lookahead four, two reference-cache slots.
 

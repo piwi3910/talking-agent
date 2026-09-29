@@ -29,7 +29,9 @@ spec:
   sync:
     automatic: true
     conflictPolicy: adopt
-    prune: true
+    # Service-owned EndpointSlices inherit Sync labels; pruning them causes 503s.
+    # Keep explicit resource removal until Sync excludes controller-owned children.
+    prune: false
     selfHeal: true
   deletionPolicy: Orphan
   health:

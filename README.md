@@ -6,7 +6,7 @@ The default provider for local runs is an explicitly labeled **offline scripted 
 
 ## Deploy to the KW cluster
 
-Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.watteel.lab). The [KW deployment guide](deploy/kw/README.md) documents the configured `kw` context, existing BuildKit/Nexus services, reused cluster secrets, and Git-driven deployment flow. Desired resources live in `deploy/kw/manifests`; Sync reconciles the `main` branch. KW uses the FastLLM gateway with **Qwen3.5-9B** (`qwen3.5-9b`) and a Kubernetes Secret for its API key. Cluster credentials are not stored in this repository.
+Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.watteel.lab). The [KW deployment guide](deploy/kw/README.md) documents the configured `kw` context, existing BuildKit/Nexus services, reused cluster secrets, and Git-driven deployment flow. Desired resources live in `deploy/kw/manifests`; Sync reconciles the `main` branch. KW uses the FastLLM gateway with **Qwen3.6-35B-A3B** (`qwen3-6-35b-a3b`) and a Kubernetes Secret for its API key. Cluster credentials are not stored in this repository.
 
 ## Run locally
 
@@ -92,7 +92,7 @@ Tests cover every configured tool, all telecom scenarios, memory isolation in al
 
 Only fictional data and trusted operator-selected identities are supported. Authentication is a demo assertion, not identity verification. Session IDs act as capabilities; this local console has no production login, authorization gateway, durable session storage, or rate limiter. Mock changes reset when their process restarts. Hospital keyword safety is intentionally conservative and not a clinical triage system. The offline provider recognizes documented phrases and IDs, rather than general natural language.
 
-Agent files are discovered at startup; switching loaded agents requires no restart or code changes. Editing configuration files or adding an agent requires restarting the server. No voice, STT/TTS, WebRTC, avatars, engines, or production UI is implemented.
+Agent files are discovered at startup; switching loaded agents requires no restart or code changes. Editing configuration files or adding an agent requires restarting the server. Phase 2 now adds browser voice and STT/TTS; WebRTC, avatars, engines, and production UI remain out of scope.
 
 The live LLM adapter uses `github.com/azrtydxb/go-ai-sdk` v0.6.0 with its OpenAI-compatible provider. Go 1.26+ is required. Endpoint, model and credential environment variable remain configurable; the platform runtime owns tool execution and telemetry.
 
@@ -103,3 +103,7 @@ DEMO_BASE_URL=https://agent.kw.watteel.lab DEMO_IGNORE_HTTPS_ERRORS=true LIVE_MO
 ```
 
 The live test checks exact calendar dates and slot IDs, booking, rescheduling, cancellation, and operator confirmation. The original `demo.spec.ts` suite targets the offline scripted provider.
+
+## Browser voice (Phase 2)
+
+The KW demo now supports live microphone transcription (Nemotron 3.5 ASR), streaming spoken replies (Breeze TTS 2), interruption, and live latency metrics. Start a chat, then select **Start voice**. The LLM uses `qwen3-6-35b-a3b` through the existing gateway and Go AI SDK, with thinking disabled. See [voice controls, architecture and limitations](docs/voice.md).

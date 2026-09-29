@@ -6,7 +6,7 @@
     "namespace": "enterprise-ai-demo",
     "labels": {
       "app.kubernetes.io/name": "enterprise-ai-demo",
-      "app.kubernetes.io/version": "phase2-chat-20260929"
+      "app.kubernetes.io/version": "phase2-voice-20260929"
     }
   },
   "spec": {
@@ -24,7 +24,7 @@
       "metadata": {
         "labels": {
           "app.kubernetes.io/name": "enterprise-ai-demo",
-          "app.kubernetes.io/version": "phase2-chat-20260929"
+          "app.kubernetes.io/version": "phase2-voice-20260929"
         },
         "annotations": {
           "enterprise-ai-demo/memory-persistence-check": "20260929-1"
@@ -45,7 +45,7 @@
         "containers": [
           {
             "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:f6a733e86240da3958a0a885ccd0a91728d888680fe7d0536e2f4090fcc6bb95",
+            "image": "192.168.10.131/enterprise-ai-demo@sha256:4f0c5e13ba9047e53dcb88f7dc95325b273afe488e177bdb0f729912f0a166b2",
             "imagePullPolicy": "IfNotPresent",
             "ports": [
               {
@@ -54,6 +54,9 @@
               }
             ],
             "env": [
+ {"name":"LLM_DISABLE_THINKING","value":"true"},
+ {"name":"STT_URL","value":"http://speech-stt.enterprise-ai-demo.svc.cluster.local"},
+ {"name":"TTS_URL","value":"http://speech-tts.enterprise-ai-demo.svc.cluster.local"},
               {
                 "name": "LISTEN_ADDR",
                 "value": "0.0.0.0:8080"
@@ -76,7 +79,7 @@
               },
               {
                 "name": "LLM_MODEL",
-                "value": "qwen3.5-9b"
+                "value": "qwen3-6-35b-a3b"
               },
               {
                 "name": "LLM_API_KEY_ENV",

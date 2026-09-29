@@ -14,7 +14,7 @@ future:
   avatar:
     enabled: false
   voice:
-    enabled: false
+    enabled: true
 id: hospital-services
 industry: hospital
 knowledge:
@@ -35,6 +35,7 @@ memory:
 name: Maya
 organization: Crescent Hospital
 persona:
+  voice_style: "Calm, welcoming and conversational. Clear natural English, with gentle pacing."
   style: conversational
   tone: friendly
   verbosity: concise
