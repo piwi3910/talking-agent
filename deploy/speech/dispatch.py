@@ -13,7 +13,7 @@ revision = os.environ['RELEASE_ID']
 assert len(revision) == 12 and all(c in '0123456789abcdef' for c in revision)
 destination = '/home/piwi/enterprise-speech/releases/' + revision
 payload = io.BytesIO()
-with tarfile.open(fileobj=payload, mode='w') as archive:
+with tarfile.open(fileobj=payload, mode='w', dereference=True) as archive:
     for name in ['host-deploy.py', 'models.json', 'compose.json', 'breeze.json', 'nemotron.json']:
         archive.add('/release/' + name, arcname=name)
 subprocess.run(base + [f'mkdir -p {destination} && tar -xf - -C {destination}'], input=payload.getvalue(), check=True)
