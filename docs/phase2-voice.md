@@ -1,6 +1,6 @@
 # Phase 2: customer experience and streaming speech
 
-Status on 2026-09-29: the branded customer chat and right-hand operator playground are implemented. Speech models are recommendations awaiting deployment, not active services. The existing Go runtime, go-ai-sdk integration, FastLLM Qwen3.5-9B model, and NovaMem scopes remain in place.
+Status on 2026-09-29: the branded customer chat and right-hand operator playground are implemented. Breeze TTS 2 and Nemotron 3.5 ASR are now deployed on DGX 192.168.10.246 through a KW Sync delivery Job; browser voice integration is still pending. The existing Go runtime, go-ai-sdk integration, FastLLM Qwen3.5-9B model, and NovaMem scopes remain in place.
 
 ## Selected deployment direction
 
@@ -21,7 +21,7 @@ Nemotron's current license is OpenMDW-1.1. Its advertised 40 locales include eig
 
 VoxCPM2's card reports about 8 GB runtime VRAM and a real-time factor around 0.30 on an RTX 4090. This is synthesis throughput, not time to first audio. Breeze's advertised sub-40 ms first audio is a warm H100 fast-path result; it is not a claim about consumer GPUs or this application. All latency and voice quality need measurement on the target speech host.
 
-Breeze is the explicit user selection after the license distinction was discussed. Keep that choice for the demo; its research/non-commercial terms remain a separate constraint on a later sold managed service. No speech models have been deployed or downloaded by this change.
+Breeze is the explicit user selection after the license distinction was discussed. Keep that choice for the demo; its research/non-commercial terms remain a separate constraint on a later sold managed service. Both selected models have been deployed and verified; see `deploy/speech/README.md` for endpoints and reproducible checks.
 
 ## vLLM compatibility, checked 2026-09-29
 
@@ -41,7 +41,7 @@ Use a pinned [audio.cpp](https://github.com/0xShug0/audio.cpp) build for Breeze 
 
 Planning estimate: reserve one 16–24 GB NVIDIA GPU for the first low-concurrency combined speech evaluation, preferably 24 GB for headroom; this is not a validated sizing guarantee. Keep the existing LLM on its current inference backend to avoid prefill contending with synthesis. CPU inference is possible in native runtimes but must pass the same latency test before being chosen.
 
-The KW nodes currently report ARM64 and no allocatable `nvidia.com/gpu`. This does not rule out external inference hosts behind FastLLM. GPU workloads need an actual GPU host, or a GPU worker registered with the appropriate driver/device plugin; do not create GPU-requesting pods on the present nodes and expect them to schedule. Verify ARM64 image/CUDA compatibility if the speech host uses ARM64. App delivery remains through Kuvryn Sync.
+The KW nodes currently report ARM64 and no allocatable `nvidia.com/gpu`. DGX 192.168.10.246 is an external ARM64/GB10 Docker host managed by Kuvryn, and now hosts the speech containers. GPU workloads need an actual GPU host, or a GPU worker registered with the appropriate driver/device plugin; do not create GPU-requesting pods on the present nodes and expect them to schedule. Verify ARM64 image/CUDA compatibility if the speech host uses ARM64. App delivery remains through Kuvryn Sync.
 
 Required endpoint capabilities, rather than invented provider APIs:
 - STT: persistent audio input, incremental/partial and finalized transcripts, language selection, explicit end-of-audio and cancellation. PCM mono input with a documented sample rate.

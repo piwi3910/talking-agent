@@ -1,0 +1,117 @@
+{
+  "text": "Hello. I can help you find an appointment for Tuesday morning.",
+  "tts": [
+    {
+      "attempt": 1,
+      "first_bytes_ms": 540.7,
+      "total_ms": 2186.2,
+      "audio_seconds": 3.2,
+      "rtf": 0.683,
+      "rms": 2970.2
+    },
+    {
+      "attempt": 2,
+      "first_bytes_ms": 537.6,
+      "total_ms": 2183.5,
+      "audio_seconds": 3.2,
+      "rtf": 0.682,
+      "rms": 2970.2
+    },
+    {
+      "attempt": 3,
+      "first_bytes_ms": 539.1,
+      "total_ms": 2204.4,
+      "audio_seconds": 3.2,
+      "rtf": 0.689,
+      "rms": 2970.2
+    }
+  ],
+  "stt": {
+    "wall_ms": 141.4,
+    "result": {
+      "text": "Hello, I can help you find an appointment for Tuesday morning",
+      "timing": {
+        "wall_ms": 138.468,
+        "audio_duration_ms": 3200,
+        "rtf": 0.0432711
+      }
+    }
+  },
+  "live_stt": [
+    {
+      "ms": 614.7,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": "Hello"
+      }
+    },
+    {
+      "ms": 1215.8,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": ", I can"
+      }
+    },
+    {
+      "ms": 1512.7,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": " help you"
+      }
+    },
+    {
+      "ms": 1917.9,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": " find"
+      }
+    },
+    {
+      "ms": 2219.8,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": " an appointment"
+      }
+    },
+    {
+      "ms": 2518.2,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": " for"
+      }
+    },
+    {
+      "ms": 2820.4,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": " Tuesday"
+      }
+    },
+    {
+      "ms": 3121.1,
+      "before_input_end": true,
+      "event": {
+        "type": "transcript.text.delta",
+        "delta": " morning"
+      }
+    },
+    {
+      "ms": 3736.2,
+      "before_input_end": false,
+      "event": {
+        "type": "transcript.text.done",
+        "text": "Hello, I can help you find an appointment for Tuesday morning",
+        "timing": {
+          "ttft_ms": 613.521
+        }
+      }
+    }
+  ]
+}
