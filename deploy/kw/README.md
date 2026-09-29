@@ -45,7 +45,7 @@ The `kw` kubectl context is configured against `https://192.168.10.102:6443`. It
 
 ## Phase 1 deployment behavior
 
-The API serves the built React console and starts its private HTTP mock backend inside the same pod. One replica and `Recreate` updates reflect the current process-local session/memory design; an update resets demo state and briefly interrupts service. The pod runs non-root with a read-only root filesystem and without a Kubernetes API token. nginx buffering is disabled for SSE.
+The API serves the built React console and starts its private HTTP mock backend inside the same pod. One replica and `Recreate` updates reflect the current process-local sessions and mock backend state; an update resets conversations and mock fixtures and briefly interrupts service. Acknowledged NovaMem facts persist. The pod runs non-root with a read-only root filesystem and without a Kubernetes API token. nginx buffering is disabled for SSE.
 
 The deployed LLM uses the KW FastLLM gateway at `http://fastllm-proxy.fastllm.svc.cluster.local/v1` and model `qwen3.5-9b` (Qwen3.5-9B). `LLM_API_KEY` is injected from the existing namespace-local `fastllm-api` Secret, not from Git. Model availability depends on the shared gateway upstream. Memory uses live NovaMem with one account per complete identity scope. Run `python3 deploy/kw/provision-memory.py` to provision missing fictional users; scoped tokens remain in the `novamem-identities` Secret. See [NovaMem integration](../../docs/novamem.md).
 
@@ -55,7 +55,7 @@ The existing three scripted browser scenario tests are designed for offline mode
 
 ```sh
 DEMO_BASE_URL=https://agent.kw.watteel.lab \
-DEMO_IGNORE_HTTPS_ERRORS=true npm --prefix web run test:e2e
+DEMO_IGNORE_HTTPS_ERRORS=true LIVE_MODEL_TESTS=true npm --prefix web run test:e2e -- tests/live.spec.ts
 ```
 
 The browser override accommodates the lab CA in an isolated test browser. Separately verify the real certificate with the CA-pinned curl command above. These tests modify fictional data; use a fresh deployment when reproducing the original scenarios.
