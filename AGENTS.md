@@ -8,4 +8,4 @@
 - Reuse existing cluster credentials: `buildkit/buildkit-client-tls`, `novaforge/nexus-pull`, and `sera/sera-sync-git`. The provided scripts load these without printing values. Never put credentials, kubeconfig contents, private keys, or passwords in this repository.
 - `kubectl` is installed at `/usr/local/bin/kubectl`; persistent credentials are in `~/.kube/config`. Build client credentials are under `~/.config/buildkit/kw/`, outside the repository.
 - Verify Sync is `Healthy` and `Synced` to the intended Git revision, then verify TLS, health, and conversation/SSE at the cluster hostname.
-- Keep one replica while memory, sessions, and mock state are process-local. The deployed Phase 1 default is explicitly offline/scripted with development memory.
+- Keep one replica while memory, sessions, and mock state are process-local. The KW deployment uses FastLLM at `http://fastllm-proxy.fastllm.svc.cluster.local/v1` with model `qwen3-6-35b-a3b` (Qwen3.6). Its API key comes from `enterprise-ai-demo/fastllm-api`, key `LLM_API_KEY`. Memory is still the development provider. Local runs default to offline/scripted mode.

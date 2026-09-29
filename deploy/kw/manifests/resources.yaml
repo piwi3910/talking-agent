@@ -55,16 +55,37 @@
                 "value": "0.0.0.0:8080"
               },
               {
-                "name": "LLM_PROVIDER",
-                "value": "demo"
-              },
-              {
                 "name": "MEMORY_PROVIDER",
                 "value": "in-memory"
               },
               {
                 "name": "MAX_ITERATIONS",
                 "value": "12"
+              },
+              {
+                "name": "LLM_PROVIDER",
+                "value": "openai-compatible"
+              },
+              {
+                "name": "LLM_BASE_URL",
+                "value": "http://fastllm-proxy.fastllm.svc.cluster.local/v1"
+              },
+              {
+                "name": "LLM_MODEL",
+                "value": "qwen3-6-35b-a3b"
+              },
+              {
+                "name": "LLM_API_KEY_ENV",
+                "value": "LLM_API_KEY"
+              },
+              {
+                "name": "LLM_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "fastllm-api",
+                    "key": "LLM_API_KEY"
+                  }
+                }
               }
             ],
             "resources": {

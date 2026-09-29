@@ -2,11 +2,11 @@
 
 A working Go + React/TypeScript text demonstration of **one AI platform, many industries, any frontend**. Nova Telecom support and Crescent Hospital patient services use the same runtime, streaming API, skill activation, HTTP tool execution, session management, and memory interface.
 
-The default provider is an explicitly labeled **offline scripted demo**. It exercises real tools and stateful mock services without an inference server. Connect an OpenAI-compatible endpoint for open-ended AI conversation. No model is hard-coded.
+The default provider for local runs is an explicitly labeled **offline scripted demo**. It exercises real tools and stateful mock services without an inference server. Connect an OpenAI-compatible endpoint for open-ended AI conversation. No model is hard-coded.
 
 ## Deploy to the KW cluster
 
-Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.watteel.lab). The [KW deployment guide](deploy/kw/README.md) documents the configured `kw` context, existing BuildKit/Nexus services, reused cluster secrets, and Git-driven deployment flow. Desired resources live in `deploy/kw/manifests`; Sync reconciles the `main` branch. Cluster credentials are not stored in this repository.
+Deploy through **Kuvryn Sync** at [agent.kw.watteel.lab](https://agent.kw.watteel.lab). The [KW deployment guide](deploy/kw/README.md) documents the configured `kw` context, existing BuildKit/Nexus services, reused cluster secrets, and Git-driven deployment flow. Desired resources live in `deploy/kw/manifests`; Sync reconciles the `main` branch. KW uses the FastLLM gateway with **Qwen3.6** (`qwen3-6-35b-a3b`) and a Kubernetes Secret for its API key. Cluster credentials are not stored in this repository.
 
 ## Run locally
 
