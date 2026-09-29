@@ -9,3 +9,5 @@ web/playwright-report/
 web/*.tsbuildinfo
 __pycache__/
 *.pyc
+
+web/public/voice-assets/

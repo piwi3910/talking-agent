@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,21 @@ import (
 )
 
 func (a *API) voiceRoutes(m *http.ServeMux) {
+	m.HandleFunc("GET /api/agents/{id}/voice-reference", func(w http.ResponseWriter, r *http.Request) {
+		ref := a.Voices[r.PathValue("id")]
+		if ref == nil {
+			fail(w, 404, "No voice reference configured")
+			return
+		}
+		wav, err := base64.StdEncoding.DecodeString(ref.AudioBase64)
+		if err != nil {
+			fail(w, 500, "Invalid voice reference")
+			return
+		}
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Write(wav)
+	})
 	m.HandleFunc("GET /api/voice", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": "Nemotron 3.5 ASR", "tts": "Breeze TTS 2", "input_sample_rate": 16000, "output_sample_rate": 24000})
 	})
@@ -154,7 +170,7 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	first := true
 	bytes := 0
-	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(in.Text)})
+	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(in.Text), "reference_voice": a.Voices[s.Agent.ID] != nil})
 	instruction := "Speak in a warm, relaxed, conversational voice, with clear natural English. Avoid an announcer tone."
 	if style := s.Agent.Persona["voice_style"]; style != "" {
 		instruction = style
@@ -164,7 +180,7 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Trailer", "X-Speech-Error")
-	err := a.Speech.Synthesize(ctx, in.Text, instruction, func(p []byte) error {
+	err := a.Speech.Synthesize(ctx, in.Text, instruction, a.Voices[s.Agent.ID], func(p []byte) error {
 		if first {
 			first = false
 			s.Events.Emit(in.TurnID, "tts.first_audio", map[string]any{"ttfa_ms": time.Since(started).Milliseconds()})

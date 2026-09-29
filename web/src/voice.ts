@@ -1,3 +1,4 @@
+import type { MicVAD } from '@ricky0123/vad-web';
 // Browser transport only: finalized speech uses the same message API as typing.
 export type VoiceCallbacks = {
  status: (status: string) => void; transcript: (text: string) => void;
@@ -7,7 +8,7 @@ export type VoiceCallbacks = {
 export class Voice {
  private context?: AudioContext;
  private media?: MediaStream;
- private node?: AudioWorkletNode;
+ private detector?: MicVAD;
  private socket?: WebSocket;
  private active = false;
  private muted = false;
@@ -35,21 +36,32 @@ export class Voice {
    this.context = new AudioContext(); await this.context.resume();
    this.media = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
    if(this.closed){this.media.getTracks().forEach(t=>t.stop());return;}
-   await this.context.audioWorklet.addModule('/pcm-worklet.js');
+   this.cb.status('Loading speech detection…');
+   const { MicVAD } = await import('@ricky0123/vad-web');
    if(this.closed)return;
-   const input=this.context.createMediaStreamSource(this.media);
-   this.node=new AudioWorkletNode(this.context,'pcm-capture');
-   this.node.port.onmessage=e=>this.frame(e.data.pcm,e.data.rms);
-   input.connect(this.node); this.node.connect(this.context.destination);
+   this.detector = await MicVAD.new({
+    model:'v6', audioContext:this.context, startOnLoad:false,
+    baseAssetPath:'/voice-assets/', onnxWASMBasePath:'/voice-assets/',
+    ortConfig:ort=>{ort.env.wasm.numThreads=1;},
+    getStream:async()=>this.media!, pauseStream:async()=>{}, resumeStream:async()=>this.media!,
+    positiveSpeechThreshold:0.65, negativeSpeechThreshold:0.4, redemptionMs:700, minSpeechMs:224,
+    onFrameProcessed:(probabilities,frame)=>{
+     const pcm=new ArrayBuffer(frame.length*2);const view=new DataView(pcm);
+     for(let i=0;i<frame.length;i++){const v=Math.max(-1,Math.min(1,frame[i]));view.setInt16(i*2,v<0?v*32768:v*32767,true);}
+     this.frame(pcm,probabilities.isSpeech,frame.length/16);
+    },
+   });
+   if(this.closed){await this.detector.destroy();return;}
+   await this.detector.start();
    this.cb.status('Listening');
   } catch(e) { this.stop(); throw e; }
  }
- private frame(pcm:ArrayBuffer,rms:number) {
+ private frame(pcm:ArrayBuffer,probability:number,ms:number) {
   if(this.closed||this.muted)return;
-  this.preRoll.push(pcm);if(this.preRoll.length>3)this.preRoll.shift();
-  const speaking=rms>(this.output.size ? 0.035 : 0.018);
-  if(speaking){this.lastSpeech=performance.now();this.speechFrames++;}else{this.speechFrames=0;}
-  if(!this.active && !this.socket && this.speechFrames>=2){
+  this.preRoll.push(pcm);if(this.preRoll.length>13)this.preRoll.shift();
+  const speaking=probability>(this.active ? 0.4 : this.output.size ? 0.85 : 0.65);
+  if(speaking){this.lastSpeech=performance.now();this.speechFrames+=ms;}else{this.speechFrames=0;}
+  if(!this.active && !this.socket && this.speechFrames>=224){
    this.active=true;this.silence=0;this.frames=0;this.firstPlayback=false;
    this.stopOutput();this.cb.interrupt();this.cb.transcript('');this.cb.status('Listening to you…');
    const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/sessions/${this.session}/transcribe?utterance=${crypto.randomUUID()}`);
@@ -73,13 +85,13 @@ export class Voice {
    return;
   }
   if(this.active){
-   this.frames++;
+   this.frames+=ms;
    if(this.socket?.readyState===WebSocket.OPEN){
     if(this.socket.bufferedAmount>128000){this.cb.error('Speech connection is too slow.');this.resetInput();return;}
     this.socket.send(pcm);
    }
-   this.silence=speaking?0:this.silence+1;
-   if(this.silence>=7||this.frames>=550)this.finishInput();
+   this.silence=speaking?0:this.silence+ms;
+   if(this.silence>=700||this.frames>=55000)this.finishInput();
   }
  }
  finishInput(){
@@ -156,5 +168,5 @@ export class Voice {
   for(const source of this.output){source.onended=null;try{source.stop();source.disconnect();}catch{ /* Already ended. */ }}
   this.output.clear();this.nextAudio=0;this.firstPlayback=false;
  }
- stop(){this.closed=true;this.resetInput();this.stopOutput();this.media?.getTracks().forEach(t=>t.stop());this.node?.disconnect();void this.context?.close();this.cb.status('Voice off');}
+ stop(){this.closed=true;this.resetInput();this.stopOutput();this.media?.getTracks().forEach(t=>t.stop());const ctx=this.context;if(this.detector)void this.detector.destroy().finally(()=>{void ctx?.close();});else void ctx?.close();this.cb.status('Voice off');}
 }

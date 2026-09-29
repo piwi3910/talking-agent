@@ -74,3 +74,10 @@ GPU process memory was approximately 4,194 MiB for Breeze and 1,277 MiB for Nemo
 - Gateway alias `qwen3-6-35b-a3b`, thinking disabled: two short direct requests measured first visible text at 496 / 296 ms, with zero reasoning characters. Those are gateway-only measurements.
 - Full agent trace using the earlier 150-word Wi-Fi question: first visible text at about 3.00 s, including 88 ms memory retrieval; LLM text TTFT 2838 ms, zero reasoning characters. Previous Qwen3.5 trace with default thinking had 9110 ms LLM TTFT and 592 reasoning characters. Different model/settings and cache conditions mean this is not an isolated model-speed comparison.
 - Voice tests validate transcript, real PCM generation and browser playback scheduling. Human listening quality and real-room echo/barge-in still need hands-on evaluation. Browser timings are software estimates, not acoustic measurements.
+
+## Stable voices and non-speech rejection — 2026-09-29
+
+- Every Breeze phrase now includes the persona's fixed WAV plus exact transcript, rather than relying on a seed and style prompt to preserve speaker identity. Tests verify identical conditioning across different sentences and reject reference paths outside an agent directory.
+- Both synthetic reference transcripts were checked with Nemotron ASR. Sara's reference is 6.88 seconds and was generated with an English/female/gentle-Arabic-accent instruction at guidance 4; Maya's reference is 6.64 seconds. Accent authenticity and timbre quality require human listening, not ASR verification.
+- Silero v6 (vad-web 0.0.31, locked ONNX runtime) replaces RMS-only triggering. Browser test played 10 seconds of deterministic hum/noise/clicks followed by speech: no transcription started during the checked noise interval; the subsequent utterance started one transcription and produced the expected words.
+- Standard microphone→partial/final transcript→real streamed speech test passed with the new detector. Models/WASM are served from KW, without a public CDN.

@@ -1,6 +1,6 @@
 # Phase 2: browser voice
 
-Open https://agent.kw.watteel.lab, start a session, then **Start voice** and allow microphone access. Speak normally; 700 ms of silence finalizes the utterance. **Finish speaking** forces finalization. **Mute mic** keeps replies audible; **Stop audio** interrupts playback; **End voice** releases the microphone. Text and confirmations remain available. Headphones reduce acoustic echo and accidental interruptions.
+Open https://agent.kw.watteel.lab, start a session, then **Start voice** and allow microphone access. Speak normally; 700 ms of non-speech finalizes the utterance. **Finish speaking** forces finalization. **Mute mic** keeps replies audible; **Stop audio** interrupts playback; **End voice** releases the microphone. Text and confirmations remain available. Headphones reduce acoustic echo and accidental interruptions.
 
 The right panel always shows live/latest server stage timings. Activity retains memory, tools, token counts and events; browser audio timings expand below the latency grid. TTFT means first visible answer text, not a hidden reasoning token. End-of-speech to playback is a browser scheduling estimate, not an acoustic measurement. First partial STT includes time spent capturing speech. Finalization starts when the browser closes the utterance upload.
 
@@ -12,7 +12,7 @@ The LLM still uses go-ai-sdk v0.6.0. KW uses gateway model `qwen3-6-35b-a3b`. `L
 
 `POST /api/sessions/{id}/speech` accepts bounded `text` and `turn_id` and proxies streamed Breeze PCM16 at 24 kHz. Browser sentence segmentation starts synthesis before the entire agent turn finishes. Playback and next-phrase synthesis overlap, with bounded queued text/audio. Cancellation aborts synthesis, clears scheduled playback and cancels an in-flight agent turn on barge-in. Old turn deltas cannot restart interrupted speech. Changing identity or persona releases capture and playback.
 
-Speech services are server-side `STT_URL` and `TTS_URL`; no inference credentials or internal endpoint URLs go to the browser. The audio.cpp streaming protocol has its own small Go adapter because it is different from a buffered speech-generation call. Style instructions come from `persona.voice_style`; reference voices have not been assigned.
+Speech services are server-side `STT_URL` and `TTS_URL`; no inference credentials or internal endpoint URLs go to the browser. The audio.cpp streaming protocol has its own small Go adapter because it is different from a buffered speech-generation call. Style instructions come from `persona.voice_style`. Each agent config selects a fixed synthetic WAV and transcript under `voice/`; every phrase sends the same reference to Breeze, preserving speaker identity across sentence requests.
 
 ## Streaming behavior
 
@@ -22,6 +22,10 @@ Real LLM deltas pass through SDK → runtime journal → flushed SSE → React. 
 
 Run `go test ./...`, `npm --prefix web run build`, and the Playwright suite. Opt-in `VOICE_TESTS=true` uses a prerecorded WAV as Chromium's microphone and the actual deployed speech services; set `VOICE_WAV` to a mono WAV containing a short English utterance and trailing silence. `LIVE_MODEL_TESTS=true` exercises real model appointment tools on fictional P018 records.
 
-This is a low-concurrency English demo. VAD uses microphone energy and silence, not semantic turn detection; noisy rooms and loudspeakers need further tuning. Browser tests verify real inference, audio scheduling, cancellation and UI behavior, not subjective naturalness or acoustic echo cancellation. GPU contention can add queuing latency. Speech model services serialize inference. No voice authentication, voice cloning, WebRTC, avatar, or production call-center concurrency is claimed.
+This is a low-concurrency English demo. Silero v6 classifies speech in the browser, alongside browser noise suppression and echo cancellation. A turn starts only after 224 ms of confident speech; playback interruption uses a higher threshold. This rejects many non-speech noises but cannot distinguish a nearby person or television speech from the operator. Noisy rooms and loudspeakers still need hands-on tuning. Browser tests verify real inference, audio scheduling, cancellation and UI behavior, not subjective naturalness or acoustic echo cancellation. GPU contention can add queuing latency. Speech model services serialize inference. No voice authentication, voice cloning, WebRTC, avatar, or production call-center concurrency is claimed.
 
 Sync pruning is disabled for this app: generated EndpointSlices inherit its Service labels and were being incorrectly pruned, causing intermittent 503s. Self-healing and automatic Git deployment remain enabled; obsolete resources need explicit removal until the Sync controller handles owned children correctly.
+
+VAD/ONNX assets are pinned by the npm lockfile and copied to the app during build; the browser does not depend on a public CDN. Voice startup loads the detector once. Asset preparation also runs before Vite development.
+
+Sara’s synthetic reference was designed as an adult female speaking English with a gentle Arabic accent. This is an accent direction, not Arabic-language TTS support; Breeze officially supports English and Chinese. The Voice tab has a reference preview for subjective listening review.

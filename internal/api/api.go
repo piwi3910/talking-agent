@@ -21,6 +21,7 @@ import (
 )
 
 type API struct {
+	Voices      map[string]*speech.Reference
 	Speech      *speech.Client
 	VoiceActive sync.Map
 	Runtime     *agent.Runtime

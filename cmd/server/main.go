@@ -168,7 +168,15 @@ func run() error {
 	if _, err := os.Stat(web); err != nil {
 		web = ""
 	}
-	app := &api.API{Speech: &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	voices := map[string]*speech.Reference{}
+	for id, a := range agents {
+		ref, err := speech.LoadReference(a.Dir, a.Voice.ReferenceAudio, a.Voice.ReferenceText)
+		if err != nil {
+			return fmt.Errorf("load %s voice: %w", id, err)
+		}
+		voices[id] = ref
+	}
+	app := &api.API{Voices: voices, Speech: &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
 	server := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	serverErrors := make(chan error, 1)
 	go func() {

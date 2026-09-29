@@ -88,8 +88,13 @@ func (c *Client) Transcribe(ctx context.Context, audio io.Reader, emit func(stri
 	}
 	return nil
 }
-func (c *Client) Synthesize(ctx context.Context, text, instruction string, emit func([]byte) error) error {
-	raw, _ := json.Marshal(map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": map[string]string{"instruction": instruction}})
+func (c *Client) Synthesize(ctx context.Context, text, instruction string, reference *Reference, emit func([]byte) error) error {
+	body := map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": map[string]string{"instruction": instruction, "seed": "42"}}
+	if reference != nil {
+		body["voice_ref"] = map[string]string{"type": "base64", "data": reference.AudioBase64}
+		body["reference_text"] = reference.Text
+	}
+	raw, _ := json.Marshal(body)
 	resp, err := c.do(ctx, strings.TrimRight(c.TTSURL, "/")+"/v1/audio/speech", bytes.NewReader(raw))
 	if err != nil {
 		return err

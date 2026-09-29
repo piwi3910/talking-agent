@@ -12,6 +12,10 @@ import (
 )
 
 type Agent struct {
+	Voice struct {
+		ReferenceAudio string `yaml:"reference_audio" json:"reference_audio"`
+		ReferenceText  string `yaml:"reference_text" json:"reference_text"`
+	} `yaml:"voice" json:"voice"`
 	Backend struct {
 		URL    string `yaml:"url" json:"url,omitempty"`
 		URLEnv string `yaml:"url_env" json:"url_env,omitempty"`

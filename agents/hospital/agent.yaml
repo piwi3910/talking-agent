@@ -81,3 +81,7 @@ skills:
   - prescription
   - support
 tenant: demo-operator
+
+voice:
+  reference_audio: voice/reference.wav
+  reference_text: voice/reference.txt

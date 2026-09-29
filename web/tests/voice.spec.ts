@@ -16,6 +16,7 @@ test.describe('Voice pipeline',()=>{
   await page.getByRole('tab',{name:'activity',exact:true}).click();
   await expect(page.locator('.trace')).toContainText('stt.final');
   await expect(page.locator('.trace')).toContainText('tts.first_audio');
+  if(process.env.REFERENCE_VOICE_TESTS==='true')await expect(page.locator('.trace')).toContainText('\"reference_voice\": true');
   await expect(page.getByLabel('Live latency metrics')).toContainText(/\d+ ms/);
   await expect(page.locator('.trace')).toContainText('tts.completed',{timeout:20000});
   await page.getByRole('button',{name:'End voice',exact:true}).click();

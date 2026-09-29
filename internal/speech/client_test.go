@@ -2,6 +2,7 @@ package speech
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,7 +73,7 @@ func TestSynthesisStreamsAndCancels(t *testing.T) {
 	defer cancel()
 	c := Client{TTSURL: server.URL}
 	chunks := 0
-	err := c.Synthesize(ctx, "Hello", "Natural", func(b []byte) error { chunks++; cancel(); return nil })
+	err := c.Synthesize(ctx, "Hello", "Natural", nil, func(b []byte) error { chunks++; cancel(); return nil })
 	if chunks != 1 || err == nil {
 		t.Fatalf("chunks=%d err=%v", chunks, err)
 	}
@@ -91,5 +92,40 @@ func TestMissingFinalFails(t *testing.T) {
 	c := Client{STTURL: server.URL}
 	if err := c.Transcribe(context.Background(), strings.NewReader("pcm"), func(string, bool) error { return nil }); err == nil {
 		t.Fatal("accepted truncated transcription")
+	}
+}
+
+func TestReferenceIsIdenticalAcrossPhrases(t *testing.T) {
+	ref, err := LoadReference("../../agents/telecom", "voice/reference.wav", "voice/reference.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Reference struct{ Type, Data string } `json:"voice_ref"`
+			Text      string                      `json:"reference_text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		if body.Reference.Type != "base64" || body.Reference.Data != ref.AudioBase64 || body.Text != ref.Text {
+			t.Error("reference changed or missing")
+		}
+		requests++
+		w.Write([]byte{1, 0})
+	}))
+	defer server.Close()
+	c := Client{TTSURL: server.URL}
+	for _, phrase := range []string{"Let me check.", "Here are your options."} {
+		if err := c.Synthesize(context.Background(), phrase, "Natural", ref, func([]byte) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if requests != 2 {
+		t.Fatal(requests)
+	}
+	if _, err := LoadReference("../../agents/telecom", "../hospital/voice/reference.wav", "voice/reference.txt"); err == nil {
+		t.Fatal("accepted outside reference")
 	}
 }
