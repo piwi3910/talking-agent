@@ -46,7 +46,7 @@ Implemented event types:
 - `safety.blocked`, `agent.error`
 - `agent.response.delta`, `agent.response.completed`
 - `agent.response.recovered` — an empty final generation was replaced by verified current-turn tool results
-- `agent.response.grounded` — a confirmed mutation was acknowledged directly from its successful backend response
+- `agent.response.grounded` — a confirmed mutation or configured read was rendered directly from its successful backend response
 
 `llm.first_token` measures time to first emitted text for each model invocation. Tool-only responses have no text TTFT event. Usage contains provider-reported token counts; the offline provider reports none. `agent.response.delta` is append-only visible text, potentially including model preambles before tools. `agent.response.completed` marks a completed response, while `turn.completed` releases the UI send state even on errors or cancellation.
 

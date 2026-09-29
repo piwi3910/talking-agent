@@ -30,6 +30,12 @@ func TestEmptyAnswerRecoversOnlyVerifiedCurrentResults(t *testing.T) {
 	for _, mode := range []string{"success", "no_slots", "failed_tool", "no_tools", "partial", "provider_error", "cancelled"} {
 		t.Run(mode, func(t *testing.T) {
 			r, agents, _ := setup(t)
+			// Exercise the generic recovery path without the calendar's terminal policy.
+			skill := r.Catalogs["hospital-services"]["appointment"]
+			for i := range skill.Tools {
+				skill.Tools[i].ResponseMode = ""
+			}
+			r.Catalogs["hospital-services"]["appointment"] = skill
 			s := session.NewStore().Create(agents["hospital-services"], "P001")
 			// A prior result must not be reused when this turn never reaches a tool.
 			s.History = []llm.Message{{Role: "user", Content: "old request"}, {Role: "assistant", Content: "old verified answer"}}
@@ -132,5 +138,39 @@ func TestConfirmedMutationAcknowledgedWithoutModel(t *testing.T) {
 				t.Fatal("failed write reported success")
 			}
 		})
+	}
+}
+
+func TestConfiguredCalendarRecordsEndTurnWithoutSynthesis(t *testing.T) {
+	r, agents, _ := setup(t)
+	s := session.NewStore().Create(agents["hospital-services"], "P001")
+	count := 0
+	r.Clients[s.Agent.ID] = testClient{respond: func(_ llm.Request, _ func(string)) llm.Response {
+		count++
+		if count > 1 {
+			t.Fatal("configured calendar results sent back for model synthesis")
+		}
+		return llm.Response{Message: llm.Message{Role: "assistant", ToolCalls: []llm.Call{{ID: "slots", Type: "function", Function: llm.Function{Name: "appointment__availability", Arguments: `{"doctor_id":"D001","time_preference":"morning"}`}}}}}
+	}}
+	r.Run(context.Background(), s, "search", Turn{Text: "Show appointments"})
+	if count != 1 || !hasEvent(s, "agent.response.grounded") || hasEvent(s, "agent.error") || !strings.Contains(conversation(s), "ID: S-D001") {
+		t.Fatal(conversation(s))
+	}
+}
+
+func TestEmptyCalendarContinuesToAlternativeSearch(t *testing.T) {
+	r, agents, _ := setup(t)
+	s := session.NewStore().Create(agents["hospital-services"], "P001")
+	count := 0
+	r.Clients[s.Agent.ID] = testClient{respond: func(_ llm.Request, _ func(string)) llm.Response {
+		count++
+		if count == 1 {
+			return llm.Response{Message: llm.Message{Role: "assistant", ToolCalls: []llm.Call{{ID: "slots", Type: "function", Function: llm.Function{Name: "appointment__availability", Arguments: `{"doctor_id":"missing"}`}}}}}
+		}
+		return llm.Response{Message: llm.Message{Role: "assistant", Content: "Would another doctor work?"}}
+	}}
+	r.Run(context.Background(), s, "search", Turn{Text: "Show appointments"})
+	if count != 2 || hasEvent(s, "agent.response.grounded") || !strings.Contains(conversation(s), "another doctor") {
+		t.Fatal(conversation(s))
 	}
 }

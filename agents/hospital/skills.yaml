@@ -127,7 +127,7 @@
       mutation: false
       name: appointment.list
       timeout_ms: 5000
-    - description: Search open calendar slots; dates are YYYY-MM-DD and time is UTC
+    - description: Search open calendar slots; non-empty results are displayed directly as the final answer, so complete prerequisite lookups first. Dates are YYYY-MM-DD and time is UTC
       input:
         additionalProperties: false
         properties:
@@ -153,6 +153,7 @@
         type: object
       mutation: false
       name: appointment.availability
+      response_mode: records
       timeout_ms: 5000
     - description: Book an available appointment
       input:

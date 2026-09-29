@@ -52,7 +52,8 @@ The implementation follows the [official OpenAI function-calling and streaming f
 - 2 configuration-driven agents, 18 business skills, and 49 tools (28 telecom, 21 hospital).
 - 20 fictional telecom customers, 20 fictional patients, and 20 doctors across five specialties.
 - All T1–T8 and H1–H6 scenarios, relative-date appointment calendars, insurance, facilities, referrals, and prescription fulfillment status.
-- Stateful mutations with exact-action operator confirmation, ownership checks, atomic slot allocation, and no automatic mutation retries.
+- Stateful mutations with exact-action operator confirmation, ownership checks, atomic slot allocation, and no automatic mutation retries. Successful changes are acknowledged directly from backend records.
+- Calendar results rendered with exact UTC dates and slot IDs; empty model explanations after successful tools can recover from verified service results.
 - Relevant memory retrieval, asynchronous allowlisted fact extraction, prior-resolution memory, and isolation across tenant / organization / agent / namespace / user.
 - Separate session history, bounded tool loops, timeout/cancellation, structured errors/logs, SSE event replay, and live tool/memory/LLM telemetry.
 - Deterministic hospital emergency handling before model/tool execution; patient services only.

@@ -211,6 +211,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 	type serviceResult struct {
 		name   string
 		result tools.Result
+		mode   string
 	}
 	var latestResults []serviceResult
 	for iteration := 0; iteration < max; iteration++ {
@@ -311,7 +312,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 				res = r.execute(ctx, s, d, args, emit)
 			}
 			if name != "skills.activate" || res.Error != nil {
-				latestResults = append(latestResults, serviceResult{name, res})
+				latestResults = append(latestResults, serviceResult{name: name, result: res, mode: defs[name].ResponseMode})
 			}
 			raw, _ := json.Marshal(res)
 			s.History = append(s.History, llm.Message{Role: "tool", ToolCallID: call.ID, Content: string(raw)})
@@ -319,6 +320,27 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		if pending {
 			answer("Please review and confirm the proposed action in the activity panel.")
 			trim(s)
+			return
+		}
+		// Some skills return authoritative records that do not need model prose.
+		// Empty results continue the agent loop so it can seek alternatives.
+		direct, valid := false, len(latestResults) > 0
+		texts, names := []string{}, []string{}
+		for _, entry := range latestResults {
+			text := tools.FormatResult(entry.result)
+			if text == "" {
+				valid = false
+				break
+			}
+			if entry.mode == "records" && len(entry.result.Records) > 0 {
+				direct = true
+			}
+			texts = append(texts, text)
+			names = append(names, entry.name)
+		}
+		if direct && valid && ctx.Err() == nil {
+			emit("agent.response.grounded", map[string]any{"source": "tool_records", "tools": names})
+			answer(strings.Join(texts, "\n\n"))
 			return
 		}
 	}

@@ -44,6 +44,9 @@ func Load(dir string) (Catalog, error) {
 				return nil, fmt.Errorf("invalid/duplicate tool %s", t.Name)
 			}
 			names[t.Name] = true
+			if t.ResponseMode != "" && (t.ResponseMode != "records" || t.Mutation) {
+				return nil, fmt.Errorf("%s has invalid response_mode for a read tool", t.Name)
+			}
 			if t.Input.Type != "object" || t.Input.AdditionalProperties {
 				return nil, fmt.Errorf("%s requires closed object input", t.Name)
 			}

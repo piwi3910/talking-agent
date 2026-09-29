@@ -30,6 +30,8 @@ type MemoryEffect struct {
 	Tags     []string `yaml:"tags" json:"tags"`
 }
 type Definition struct {
+	// "records" finalizes a successful read with non-empty records using Go formatting.
+	ResponseMode string        `yaml:"response_mode,omitempty" json:"response_mode,omitempty"`
 	MemoryEffect *MemoryEffect `yaml:"memory_effect,omitempty" json:"memory_effect,omitempty"`
 	Name         string        `yaml:"name" json:"name"`
 	Description  string        `yaml:"description" json:"description"`

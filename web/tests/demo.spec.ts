@@ -24,7 +24,8 @@ test('hospital preferences survive new sessions and appointments book', async ({
   await page.getByRole('button', { name: 'New session' }).click();
   await send(page, 'Can I make another appointment with Dr. Ahmed?');
   const reply = page.locator('.bubble.assistant').last();
-  await expect(reply).toContainText('You usually prefer mornings');
+  await expect(page.locator('.memory')).toContainText('User generally prefers morning appointments.');
+  await expect(reply).toContainText('Available appointments (UTC)');
   const text = await reply.innerText();
   const slot = text.match(/S-D\d{3}-\d{8}-\d{2}/)?.[0];
   expect(slot).toBeTruthy();

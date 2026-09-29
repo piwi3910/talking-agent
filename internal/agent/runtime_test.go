@@ -74,7 +74,7 @@ func TestMemoryAcrossSessionsAndIndustrySwitch(t *testing.T) {
 	}
 	second := store.Create(agents["hospital-services"], "P001")
 	r.Run(context.Background(), second, "t2", Turn{Text: "Can I make another appointment with Dr. Ahmed?"})
-	if !strings.Contains(conversation(second), "prefer mornings") {
+	if !strings.Contains(conversation(second), "Available appointments (UTC)") {
 		t.Fatal(conversation(second))
 	}
 	for _, e := range second.Events.Since(0) {

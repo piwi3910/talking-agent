@@ -51,6 +51,11 @@ test('live hospital availability, confirmed booking, rescheduling and cancellati
     expect(slot.start.slice(0, 10)).toBe(date);
     expect(new Date(slot.start).getUTCHours()).toBeLessThan(12);
   }
+  const reply = page.locator('.bubble.assistant').last();
+  await expect(reply).toContainText('Available appointments (UTC)');
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(tomorrow);
+  await expect(reply).toContainText(`${weekday} ${date}`);
+  for (const slot of available) await expect(reply).toContainText(slot.id);
   const [first, second] = available;
   await send(page, `Book slot ${first.id}.`);
   await confirm(page, 'appointment.book', first.id, 'Appointment booked.');
