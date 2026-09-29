@@ -4,11 +4,12 @@ test('telecom recurrence, confirmation, and live tool trace', async ({ page }) =
   await page.goto('/');
   await page.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'activity', exact: true }).click();
   await send(page, 'My internet upstairs is terrible again.');
   await expect(page.locator('.bubble.assistant').last()).toContainText('Last time we found channel interference');
   await expect(page.locator('.tool-row').filter({ hasText: 'wifi.diagnostics' })).toBeVisible();
   await send(page, 'Optimize my Wi-Fi channel');
-  await expect(page.locator('.confirmation')).toContainText('wifi.optimize');
+  await expect(page.locator('.confirmation')).toContainText('Update your Wi-Fi settings?');
   await page.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.locator('.bubble.assistant').last()).toContainText('Interference cleared');
   await expect(page.getByRole('button', { name: 'Send ↗', exact: true })).toBeVisible();
@@ -16,12 +17,15 @@ test('telecom recurrence, confirmation, and live tool trace', async ({ page }) =
 });
 test('hospital preferences survive new sessions and appointments book', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Agent', { exact: true }).selectOption('hospital-services');
+  await page.getByRole('button', { name: 'Crescent Hospital' }).click();
   await page.getByLabel('Demo identity', { exact: true }).selectOption('P006');
   await page.getByRole('button', { name: 'Start session' }).click();
+  await page.getByRole('tab', { name: 'activity', exact: true }).click();
   await send(page, 'Mornings normally work better for me.');
   await expect(page.locator('.trace')).toContainText('memory.store.completed');
+  await page.getByRole('tab', { name: 'personas', exact: true }).click();
   await page.getByRole('button', { name: 'New session' }).click();
+  await page.getByRole('tab', { name: 'activity', exact: true }).click();
   await send(page, 'Can I make another appointment with Dr. Ahmed?');
   const reply = page.locator('.bubble.assistant').last();
   await expect(page.locator('.memory')).toContainText('User generally prefers morning appointments.');
@@ -30,7 +34,7 @@ test('hospital preferences survive new sessions and appointments book', async ({
   const slot = text.match(/S-D\d{3}-\d{8}-\d{2}/)?.[0];
   expect(slot).toBeTruthy();
   await send(page, `Book ${slot}`);
-  await expect(page.locator('.confirmation')).toContainText('appointment.book');
+  await expect(page.locator('.confirmation')).toContainText('Book this appointment?');
   await page.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.locator('.bubble.assistant').last()).toContainText('Appointment booked');
   await expect(page.getByRole('button', { name: 'Send ↗', exact: true })).toBeVisible();
@@ -38,7 +42,7 @@ test('hospital preferences survive new sessions and appointments book', async ({
 });
 test('hospital urgent safety path bypasses tools', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Agent', { exact: true }).selectOption('hospital-services');
+  await page.getByRole('button', { name: 'Crescent Hospital' }).click();
   await page.getByRole('button', { name: 'Start session' }).click();
   await send(page, "I have chest pain and can't breathe. Book an appointment.");
   await expect(page.locator('.bubble.assistant').last()).toContainText('emergency services now');

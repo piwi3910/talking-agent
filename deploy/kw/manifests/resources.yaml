@@ -6,7 +6,7 @@
     "namespace": "enterprise-ai-demo",
     "labels": {
       "app.kubernetes.io/name": "enterprise-ai-demo",
-      "app.kubernetes.io/version": "phase1-20260929"
+      "app.kubernetes.io/version": "phase2-chat-20260929"
     }
   },
   "spec": {
@@ -24,7 +24,7 @@
       "metadata": {
         "labels": {
           "app.kubernetes.io/name": "enterprise-ai-demo",
-          "app.kubernetes.io/version": "phase1-20260929"
+          "app.kubernetes.io/version": "phase2-chat-20260929"
         },
         "annotations": {
           "enterprise-ai-demo/memory-persistence-check": "20260929-1"
@@ -45,7 +45,7 @@
         "containers": [
           {
             "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:2bf97985eee08f9e7af6d8047f41fba260d10288d32d0f1150b4e435ffab0b62",
+            "image": "192.168.10.131/enterprise-ai-demo@sha256:f6a733e86240da3958a0a885ccd0a91728d888680fe7d0536e2f4090fcc6bb95",
             "imagePullPolicy": "IfNotPresent",
             "ports": [
               {

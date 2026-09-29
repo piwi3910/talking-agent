@@ -1,6 +1,14 @@
 backend:
   url_env: HOSPITAL_BACKEND_URL
 branding:
+  mark: "+"
+  tagline: "Care starts here."
+  service_label: "PATIENT SERVICES"
+  headline: "Here to make things easier."
+  description: "A helping hand with the details, so you can focus on you."
+  welcome: "I can help you find a doctor, arrange an appointment, or find your way around the hospital. What do you need a hand with?"
+  disclaimer: "For appointments and services, not medical advice."
+  footer: "Helping you find your next step."
   color: '#087f72'
 future:
   avatar:

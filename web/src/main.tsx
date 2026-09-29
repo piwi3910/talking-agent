@@ -4,7 +4,7 @@ import './style.css';
 
 type RecordItem = { id: string; name: string; description?: string };
 type Tool = { name: string; description: string; mutation: boolean };
-type Agent = { config: { id: string; name: string; organization: string; role: string; industry: string; persona: Record<string, string>; memory: { namespace: string }; skills: string[]; knowledge: string[]; branding: { color: string } }; users: RecordItem[]; skills: Record<string, { description: string; instructions: string; tools: Tool[] }>; llm: string; memory: string };
+type Agent = { config: { id: string; name: string; organization: string; role: string; industry: string; persona: Record<string, string>; memory: { namespace: string }; skills: string[]; knowledge: string[]; branding: Record<string, string> }; users: RecordItem[]; skills: Record<string, { description: string; instructions: string; tools: Tool[] }>; llm: string; memory: string };
 type Event = { id: number; type: string; turn_id?: string; time: string; data: { text?: string; message?: string; tool?: string; duration_ms?: number; ttft_ms?: number; count?: number; usage?: { total_tokens: number }; memories?: { text: string }[]; [key: string]: unknown } };
 type Chat = { id: string; role: 'user' | 'assistant'; text: string };
 type Pending = { id: string; tool: string; arguments: Record<string, string>; expires: string };
@@ -14,11 +14,13 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
   return data;
 }
-const examples: Record<string, string[]> = {
-  telecom: ['My internet upstairs is terrible again.', 'Explain my bill.', 'Compare available plans.', 'Optimize my Wi-Fi channel.', 'Show technician availability.'],
-  hospital: ['I’d like to see a dermatologist this week.', 'Mornings normally work better for me.', 'Can I make another appointment with Dr. Ahmed?', 'Show my appointments.', 'Is DemoCare Plus insurance supported?', 'Where is visitor parking?'],
-};
+function actionLabel(tool: string) {
+  const labels: Record<string, string> = { 'wifi.optimize': 'Update your Wi-Fi settings?', 'wifi.restart': 'Restart your router?', 'plan.change': 'Change your plan?', 'appointment.book': 'Book this appointment?', 'appointment.reschedule': 'Reschedule your appointment?', 'appointment.cancel': 'Cancel your appointment?', 'technician.book': 'Book a technician visit?', 'ticket.create': 'Create a support ticket?', 'ticket.update': 'Update your support ticket?', 'support.create_request': 'Send your service request?' };
+  return labels[tool] || 'Confirm this change?';
+}
 function App() {
+  const [tab, setTab] = useState('personas');
+  const [playground, setPlayground] = useState(true);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentID, setAgentID] = useState('');
   const [userID, setUserID] = useState('');
@@ -40,8 +42,9 @@ function App() {
     api<Agent[]>('/agents').then(items => { if (!live) return; setAgents(items); const first = items.find(a => a.config.industry === 'telecom') || items[0]; if (first) { setAgentID(first.config.id); setUserID(first.users[0]?.id || ''); } }).catch(e => { if (live) setError(e.message); });
     return () => { live = false; source.current?.close(); };
   }, []);
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat]);
-  function reset() { source.current?.close(); source.current = null; setSession(''); setConnected(false); setChat([]); setEvents([]); setPending([]); setError(''); lastID.current = 0; }
+  useEffect(() => { if (agent) document.title = `${agent.config.organization} · Chat`; }, [agent]);
+  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat, pending, busy]);
+  function reset() { source.current?.close(); source.current = null; setSession(''); setConnected(false); setChat([]); setEvents([]); setPending([]); setMessage(''); setBusy(false); setError(''); lastID.current = 0; }
   function changeAgent(id: string) { reset(); setAgentID(id); setUserID(agents.find(a => a.config.id === id)?.users[0]?.id || ''); }
   async function start() {
     reset(); setStarting(true);
@@ -87,36 +90,58 @@ function App() {
   const tokens = events.reduce((n, e) => n + (e.data.usage?.total_tokens || 0), 0);
   const calls = events.filter(e => e.type === 'tool.completed' || e.type === 'tool.failed');
   const displayEvents = events.filter(e => e.type !== 'agent.response.delta').slice(-60).reverse();
-  return <div className="app" style={{ '--accent': agent?.config.branding.color || '#2764d8' } as React.CSSProperties}>
-    <header><div className="brand-icon">N</div><div><div className="eyebrow">SHARED PLATFORM · PHASE 1</div><h1>Enterprise AI Demo</h1></div><span className="header-tag">TEXT CONSOLE</span></header>
-    <section className="controls" aria-label="Session setup">
-      <label>Agent<select aria-label="Agent" value={agentID} disabled={busy || starting} onChange={e => changeAgent(e.target.value)}>{agents.map(a => <option key={a.config.id} value={a.config.id}>{a.config.industry === 'telecom' ? 'Telecom Support' : a.config.industry === 'hospital' ? 'Hospital Patient Services' : a.config.role}</option>)}</select></label>
-      <label>Demo identity<select aria-label="Demo identity" value={userID} disabled={busy || starting} onChange={e => { reset(); setUserID(e.target.value); }}>{agent?.users.map(u => <option key={u.id} value={u.id}>{u.id} · {u.name} — {u.description}</option>)}</select></label>
-      <button className="primary" disabled={!agent || !userID || busy || starting} onClick={start}>{starting ? 'Starting…' : session ? 'New session' : 'Start session'}</button>
-    </section>
-    {agent && <section className="agent-info"><div><strong>{agent.config.name}</strong><span> / {agent.config.organization}</span><p>{agent.config.role} · {Object.values(agent.config.persona).join(' · ')}</p></div><div className="modes"><span>{agent.llm}</span><span>Memory: {agent.memory}</span></div><details><summary>Configuration & capabilities</summary><div className="config-grid"><div><b>Memory namespace</b><p>{agent.config.memory.namespace}</p><b>Knowledge</b>{agent.config.knowledge.map(k => <p key={k}>{k}</p>)}</div><div><b>Skills & tools</b>{Object.entries(agent.skills).map(([id, s]) => <p key={id}><strong>{id}</strong> — {s.tools.map(t => t.name).join(', ')}</p>)}</div></div></details></section>}
-    {error && <div className="error" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
-    <main>
-      <section className="conversation"><div className="panel-title"><h2>Conversation</h2><span className={connected ? 'status connected' : 'status'}>{session ? connected ? 'Connected' : 'Reconnecting…' : 'No active session'}</span></div>
-        <div className="messages" role="log" aria-label="Conversation messages" aria-live="polite">
-          {!chat.length && <div className="empty"><div className="empty-icon">↗</div><h3>One AI platform. Many industries.</h3><p>Select an agent and a demo identity, then start a session. Tools and memories appear alongside the conversation.</p><small>All customer and patient records are fictional.</small></div>}
-          {chat.map(m => <article key={m.id} className={`bubble ${m.role}`}><div className="speaker">{m.role === 'user' ? 'You' : agent?.config.name}</div><div>{m.text}</div></article>)}
-          {busy && <div className="working" role="status">Agent is working…</div>}<div ref={bottom}/>
+  const brand = agent?.config.branding || {};
+  const user = agent?.users.find(u => u.id === userID);
+  const tabs = ['personas', 'activity', 'capabilities', 'voice'];
+  return <div className={`app ${playground ? '' : 'customer-only'}`} style={{ '--accent': brand.color || '#2764d8' } as React.CSSProperties}>
+    <main className="workspace">
+      <section className="customer-experience" aria-label="Customer experience">
+        <header className="brand-header"><div className="brand-lockup"><div className="brand-icon" aria-hidden="true">{brand.mark || 'N'}</div><div><strong>{agent?.config.organization || 'Welcome'}</strong><span>{brand.tagline || 'Here to help'}</span></div></div><button className="playground-toggle" onClick={() => setPlayground(!playground)} aria-expanded={playground} aria-controls="playground">{playground ? 'Hide playground' : 'Open playground'} <span aria-hidden="true">☷</span></button></header>
+        <div className="customer-stage">
+          <div className="service-heading"><span className="eyebrow">{brand.service_label || 'CUSTOMER SUPPORT'}</span><h1>{brand.headline || 'How can we help you today?'}</h1><p>{brand.description || 'A little help, whenever you need it.'}</p></div>
+          <section className="conversation" aria-label="Support chat">
+            <div className="chat-header"><div className="avatar">{agent?.config.name.slice(0, 1) || 'A'}<i/></div><div className="agent-heading"><h2>{agent?.config.name || 'Your assistant'}</h2><span>{agent?.config.role}</span></div><span className={connected ? 'status connected' : 'status'}>{session ? connected ? 'Connected' : 'Reconnecting…' : 'Ready to help'}</span></div>
+            <div className="messages" role="log" aria-label="Conversation messages" aria-live="polite">
+              {!chat.length && <div className="welcome"><div className="welcome-symbol" aria-hidden="true">{brand.mark || 'N'}</div><h3>{session ? `Hi ${user?.name.split(' ')[0] || 'there'}, I’m ${agent?.config.name}.` : `Hello, I’m ${agent?.config.name || 'your assistant'}.`}</h3><p>{brand.welcome || 'Tell me what you need a hand with.'}</p>{!session && <button className="primary start-chat" disabled={!agent || !userID || starting} onClick={start}>{starting ? 'Connecting…' : 'Start chat'} <span aria-hidden="true">↗</span></button>}</div>}
+              {chat.map(m => <article key={m.id} className={`bubble ${m.role}`}><div className="speaker">{m.role === 'user' ? 'You' : agent?.config.name}</div><div>{m.text}</div></article>)}
+              {pending.map(p => <div className="confirmation" key={p.id}><span className="eyebrow">YOUR APPROVAL</span><h3>{actionLabel(p.tool)}</h3><p>Please check the details before confirming.</p><dl>{Object.entries(p.arguments).map(([key, value]) => <React.Fragment key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{value}</dd></React.Fragment>)}</dl><small>Available until {new Date(p.expires).toLocaleTimeString()}</small><div><button className="primary" disabled={busy} onClick={() => send('', p.id)}>Confirm</button><button disabled={busy} onClick={() => send('', p.id, true)}>Cancel</button></div></div>)}
+              {busy && <div className="working" role="status"><span className="typing">● ● ●</span> {agent?.config.name} is helping you…</div>}<div ref={bottom}/>
+            </div>
+            {error && <div className="error" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
+
+            <form onSubmit={e => { e.preventDefault(); if (message.trim()) void send(message.trim()); }}><label className="sr-only" htmlFor="message">Message</label><textarea id="message" placeholder={session ? `Message ${agent?.config.name}…` : 'Start a chat to get in touch'} disabled={!session || busy} value={message} maxLength={8000} onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (message.trim() && !busy) void send(message.trim()); } }}/>{busy ? <button type="button" onClick={cancel}>Stop</button> : <button className="primary send" aria-label="Send ↗" disabled={!session || !message.trim()} type="submit">Send <span aria-hidden="true">↗</span></button>}</form>
+            <div className="chat-footnote">{agent?.config.name} is an AI assistant. {brand.disclaimer || 'Please check important details.'}</div>
+          </section>
+          <p className="customer-footer">{agent?.config.organization} <span>·</span> {brand.footer || 'Here for you, every step of the way.'}</p>
         </div>
-        <div className="suggestions">{(examples[agent?.config.industry || ''] || []).map(text => <button key={text} disabled={!session || busy} onClick={() => setMessage(text)}>{text}</button>)}</div>
-        <form onSubmit={e => { e.preventDefault(); if (message.trim()) void send(message.trim()); }}><label className="sr-only" htmlFor="message">Message</label><textarea id="message" placeholder={session ? 'Type a message…' : 'Start a session to begin'} disabled={!session || busy} value={message} maxLength={8000} onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (message.trim() && !busy) void send(message.trim()); } }}/>{busy ? <button type="button" onClick={cancel}>Stop</button> : <button className="primary" disabled={!session || !message.trim()} type="submit">Send ↗</button>}</form>
       </section>
-      <aside><div className="panel-title"><h2>Agent activity</h2><span className="quiet">LIVE TRACE</span></div>
-        <div className="activity-content">
-          {pending.map(p => <div className="confirmation" key={p.id}><strong>Confirm change</strong><p>{p.tool}</p><pre>{JSON.stringify(p.arguments, null, 2)}</pre><small>Expires {new Date(p.expires).toLocaleTimeString()}</small><div><button className="primary" disabled={busy} onClick={() => send('', p.id)}>Confirm</button><button disabled={busy} onClick={() => send('', p.id, true)}>Cancel</button></div></div>)}
-          <section><h3>Memory</h3><p className="metric">{memories?.data.count ?? 0}<small> relevant memories retrieved</small></p>{memories?.data.memories?.map((m, i) => <p className="memory" key={i}>{m.text}</p>)}<p className="quiet">Namespace: {agent?.config.memory.namespace || '—'}</p></section>
-          <section><h3>Tools <span className="count">{calls.length}</span></h3>{calls.length ? calls.slice(-8).map(e => <div className="tool-row" key={e.id}><code>{e.data.tool}</code><span className={e.type === 'tool.failed' ? 'failed' : ''}>{e.type === 'tool.failed' ? 'failed · ' : ''}{e.data.duration_ms} ms</span></div>) : <p className="quiet">Tool calls will appear here.</p>}</section>
-          <section><h3>LLM</h3><div className="metrics"><div><b>{firstToken?.data.ttft_ms ?? '—'}<small> ms</small></b><span>Latest text TTFT</span></div><div><b>{tokens || '—'}</b><span>Reported tokens</span></div></div></section>
-          <section><h3>Event stream</h3><div className="trace">{displayEvents.map(e => <details key={e.id}><summary><span>{e.type}</span><time>{new Date(e.time).toLocaleTimeString()}</time></summary><pre>{JSON.stringify(e.data, null, 2)}</pre></details>)}</div></section>
+      <aside id="playground" className="playground" hidden={!playground} aria-label="Agent playground">
+        <div className="playground-header"><div><span className="eyebrow">OPERATOR WORKSPACE</span><h2>Agent playground</h2></div><span className="lab-badge">LAB</span></div>
+        <div className="tabs" role="tablist" aria-label="Playground tabs">{tabs.map(t => <button id={`tab-${t}`} key={t} role="tab" aria-selected={tab === t} aria-controls={`panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)} onKeyDown={e => { const offset = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (offset) { e.preventDefault(); const next = tabs[(tabs.indexOf(t) + offset + tabs.length) % tabs.length]; setTab(next); document.getElementById(`tab-${next}`)?.focus(); } }}>{t}</button>)}</div>
+        <div className="playground-content">
+          <div id="panel-personas" role="tabpanel" aria-labelledby="tab-personas" hidden={tab !== 'personas'}>
+            <section><h3>Choose your experience</h3><p className="muted">Switch the brand, persona and service capabilities. Each agent keeps its own customer memory.</p><div className="persona-cards">{agents.map(a => <button className={`persona-card ${a.config.id === agentID ? 'selected' : ''}`} key={a.config.id} aria-pressed={a.config.id === agentID} disabled={busy || starting} onClick={() => changeAgent(a.config.id)}><span className="persona-mark" style={{ background: a.config.branding.color }}>{a.config.branding.mark || a.config.name[0]}</span><span><strong>{a.config.organization}</strong><small>{a.config.name} · {a.config.role}</small></span><span className="selection-dot"/></button>)}</div>
+            </section>
+            <section className="controls" aria-label="Session setup"><h3>{agent?.config.industry === 'hospital' ? 'Demo patient' : 'Demo customer'}</h3><label>Demo identity<select aria-label="Demo identity" value={userID} disabled={busy || starting} onChange={e => { reset(); setUserID(e.target.value); }}>{agent?.users.map(u => <option key={u.id} value={u.id}>{u.id} · {u.name} — {u.description}</option>)}</select></label><p className="scenario-note">{user?.description}</p><button className="primary full-width" disabled={!agent || !userID || busy || starting} onClick={start}>{starting ? 'Starting…' : session ? 'New session' : 'Start session'}</button><p className="quiet">All records are fictional. A new session clears the chat; long-term memory is preserved.</p></section>
+            <section><h3>Persona</h3><dl className="properties"><dt>Name</dt><dd>{agent?.config.name}</dd><dt>Role</dt><dd>{agent?.config.role}</dd>{Object.entries(agent?.config.persona || {}).map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{value}</dd></React.Fragment>)}</dl></section>
+
+          </div>
+          <div id="panel-activity" className="activity-content" role="tabpanel" aria-labelledby="tab-activity" hidden={tab !== 'activity'}>
+            <section><div className="section-heading"><h3>Memory</h3><span className="pill">{agent?.memory}</span></div><p className="metric">{memories?.data.count ?? 0}<small> relevant memories retrieved</small></p>{memories?.data.memories?.map((m, i) => <p className="memory" key={i}>{m.text}</p>)}<p className="quiet">Namespace: {agent?.config.memory.namespace || '—'}</p></section>
+            <section><h3>Tools <span className="count">{calls.length}</span></h3>{calls.length ? calls.slice(-8).map(e => <div className="tool-row" key={e.id}><code>{e.data.tool}</code><span className={e.type === 'tool.failed' ? 'failed' : ''}>{e.type === 'tool.failed' ? 'failed · ' : ''}{e.data.duration_ms} ms</span></div>) : <p className="muted">Tool calls will appear here.</p>}{pending.map(p => <details key={p.id}><summary>Pending: {p.tool}</summary><pre>{JSON.stringify(p.arguments, null, 2)}</pre></details>)}</section>
+            <section><h3>LLM</h3><p className="provider-name">{agent?.llm}</p><div className="metrics"><div><b>{firstToken?.data.ttft_ms ?? '—'}<small> ms</small></b><span>Latest text TTFT</span></div><div><b>{tokens || '—'}</b><span>Reported tokens</span></div></div></section>
+            <section><h3>Event stream</h3><div className="trace">{displayEvents.length === 0 && <p className="muted">Start a conversation to inspect the runtime.</p>}{displayEvents.map(e => <details key={e.id}><summary><span>{e.type}</span><time>{new Date(e.time).toLocaleTimeString()}</time></summary><pre>{JSON.stringify(e.data, null, 2)}</pre></details>)}</div></section>
+          </div>
+          <div id="panel-capabilities" role="tabpanel" aria-labelledby="tab-capabilities" hidden={tab !== 'capabilities'}>
+            <section><h3>Skills & tools</h3><p className="muted">Capabilities loaded from this agent’s configuration.</p>{Object.entries(agent?.skills || {}).map(([id, s]) => <details className="skill" key={id}><summary><strong>{id}</strong><span>{s.tools.length} tools</span></summary><p>{s.description}</p>{s.tools.map(t => <div className="capability" key={t.name}><code>{t.name}</code>{t.mutation && <span className="pill">Confirmation</span>}<p>{t.description}</p></div>)}</details>)}</section>
+            <section><h3>Knowledge</h3>{agent?.config.knowledge.map(k => <p className="knowledge-file" key={k}>{k}</p>)}</section><section><h3>Memory isolation</h3><p className="muted">Organization → agent → namespace → selected user</p><code>{agent?.config.memory.namespace}</code></section>
+          </div>
+          <div id="panel-voice" role="tabpanel" aria-labelledby="tab-voice" hidden={tab !== 'voice'}><section><span className="pill">PHASE 2</span><h3 className="voice-heading">Voice workspace</h3><p className="muted">Speech connects to the same agent, tools and customer memory. The proposed speech services are listed below; neither has been connected yet.</p><dl className="properties"><dt>Conversation</dt><dd>Streaming text</dd><dt>STT candidate</dt><dd>Nemotron 3.5 ASR · 0.6B</dd><dt>TTS selected</dt><dd>Breeze TTS 2 · Q8</dd><dt>Status</dt><dd>Awaiting speech deployment</dd></dl></section></div>
         </div>
+        <div className="playground-footer"><span className="runtime-dot"/> One platform. Every experience.</div>
       </aside>
     </main>
-    <footer>Same runtime · Configurable skills · HTTP tools · Scoped memory <span>Future transports connect to the same agent API</span></footer>
   </div>;
+
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

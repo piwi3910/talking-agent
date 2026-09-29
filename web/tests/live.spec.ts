@@ -24,7 +24,7 @@ async function result(page: Page, tool: string): Promise<RecordItem[]> {
 async function confirm(page: Page, tool: string, id: string, acknowledgement: string) {
   const proposal = page.locator('.confirmation');
   await expect(proposal).toHaveCount(1);
-  await expect(proposal).toContainText(tool);
+  await expect(page.locator('.trace')).toContainText(tool);
   await expect(proposal).toContainText(id);
   await proposal.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Send ↗', exact: true })).toBeVisible({ timeout: 15_000 });
@@ -36,10 +36,11 @@ async function confirm(page: Page, tool: string, id: string, acknowledgement: st
 
 test('live hospital availability, confirmed booking, rescheduling and cancellation', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Agent', { exact: true }).selectOption('hospital-services');
+  await page.getByRole('button', { name: 'Crescent Hospital' }).click();
   await page.getByLabel('Demo identity', { exact: true }).selectOption('P018');
   await page.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'activity', exact: true }).click();
   const tomorrow = new Date(); tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   const date = tomorrow.toISOString().slice(0, 10);
   await send(page, `Find morning appointments with Dr. Ahmed on ${date}. Do not book yet.`);

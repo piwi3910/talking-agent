@@ -1,6 +1,14 @@
 backend:
   url_env: TELECOM_BACKEND_URL
 branding:
+  mark: "n"
+  tagline: "Life, better connected."
+  service_label: "LET’S GET YOU CONNECTED"
+  headline: "A little help. A better day."
+  description: "Your connection matters. We’re here to keep it that way."
+  welcome: "Internet playing up, a question about your bill, or something else? Tell me what’s going on."
+  disclaimer: "Please check important account details."
+  footer: "Here for your everyday connections."
   color: '#2764d8'
 future:
   avatar:
