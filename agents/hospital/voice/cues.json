@@ -1,0 +1,119 @@
+{
+  "reference_sha256": "1fefc6ac34d59db9dda43947b2ef20652f31e02e4697c952a894e2ebb51ed35d",
+  "cues": [
+    {
+      "id": "waiting-1",
+      "category": "waiting",
+      "text": "One moment.",
+      "duration_ms": 880
+    },
+    {
+      "id": "waiting-2",
+      "category": "waiting",
+      "text": "Just a moment.",
+      "duration_ms": 800
+    },
+    {
+      "id": "waiting-3",
+      "category": "waiting",
+      "text": "Let me check that.",
+      "duration_ms": 1600
+    },
+    {
+      "id": "waiting-4",
+      "category": "waiting",
+      "text": "Let me take a look.",
+      "duration_ms": 880
+    },
+    {
+      "id": "lookup-1",
+      "category": "lookup",
+      "text": "I'm checking the details.",
+      "duration_ms": 1280
+    },
+    {
+      "id": "lookup-2",
+      "category": "lookup",
+      "text": "I'm looking that up.",
+      "duration_ms": 1280
+    },
+    {
+      "id": "lookup-3",
+      "category": "lookup",
+      "text": "Let me check the information.",
+      "duration_ms": 1760
+    },
+    {
+      "id": "lookup-4",
+      "category": "lookup",
+      "text": "I'll take a look at that.",
+      "duration_ms": 1600
+    },
+    {
+      "id": "availability-1",
+      "category": "availability",
+      "text": "I'm checking availability.",
+      "duration_ms": 1920
+    },
+    {
+      "id": "availability-2",
+      "category": "availability",
+      "text": "Let me look at the available times.",
+      "duration_ms": 2160
+    },
+    {
+      "id": "availability-3",
+      "category": "availability",
+      "text": "I'm checking the appointment options.",
+      "duration_ms": 1600
+    },
+    {
+      "id": "listening-1",
+      "category": "listening",
+      "text": "I'm listening.",
+      "duration_ms": 1600
+    },
+    {
+      "id": "listening-2",
+      "category": "listening",
+      "text": "Go ahead.",
+      "duration_ms": 560
+    },
+    {
+      "id": "listening-3",
+      "category": "listening",
+      "text": "Take your time.",
+      "duration_ms": 960
+    },
+    {
+      "id": "acknowledge-1",
+      "category": "acknowledge",
+      "text": "Okay.",
+      "duration_ms": 1520
+    },
+    {
+      "id": "acknowledge-2",
+      "category": "acknowledge",
+      "text": "All right.",
+      "duration_ms": 560
+    },
+    {
+      "id": "acknowledge-3",
+      "category": "acknowledge",
+      "text": "Thanks for explaining.",
+      "duration_ms": 1120
+    },
+    {
+      "id": "interrupted-1",
+      "category": "interrupted",
+      "text": "Okay, I've stopped.",
+      "duration_ms": 1760
+    },
+    {
+      "id": "interrupted-2",
+      "category": "interrupted",
+      "text": "All right, I'll pause here.",
+      "duration_ms": 1280
+    }
+  ]
+}

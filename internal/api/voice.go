@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -15,6 +18,31 @@ import (
 )
 
 func (a *API) voiceRoutes(m *http.ServeMux) {
+	m.HandleFunc("GET /api/agents/{id}/voice-cues", func(w http.ResponseWriter, r *http.Request) {
+		c := a.Agents[r.PathValue("id")]
+		if c == nil {
+			fail(w, 404, "Unknown agent")
+			return
+		}
+		data, err := os.ReadFile(filepath.Join(c.Dir, "voice", "cues.json"))
+		if err != nil {
+			fail(w, 404, "No cues configured")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Write(data)
+	})
+	m.HandleFunc("GET /api/agents/{id}/voice-cues/{cue}", func(w http.ResponseWriter, r *http.Request) {
+		c := a.Agents[r.PathValue("id")]
+		cue := r.PathValue("cue")
+		if c == nil || !regexp.MustCompile(`^[a-z]+-[0-9]+$`).MatchString(cue) {
+			fail(w, 404, "Unknown cue")
+			return
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFile(w, r, filepath.Join(c.Dir, "voice", "cues", cue+".wav"))
+	})
 	m.HandleFunc("GET /api/agents/{id}/voice-reference", func(w http.ResponseWriter, r *http.Request) {
 		ref := a.Voices[r.PathValue("id")]
 		if ref == nil {

@@ -27,6 +27,7 @@ function App() {
   const [transcript, setTranscript] = useState('');
   const [micMuted, setMicMuted] = useState(false);
   const [spoken, setSpoken] = useState(true);
+  const [cuesOn,setCuesOn]=useState(true);
   const [browserMetrics, setBrowserMetrics] = useState<Record<string, number>>({});
   const [now, setNow] = useState(Date.now());
   const voice = useRef<Voice | null>(null);
@@ -72,6 +73,7 @@ function App() {
         const event = JSON.parse(e.data) as Event;
         if (event.id <= lastID.current) return;
         lastID.current = event.id;
+        voice.current?.event(event.type,event.turn_id||'',event.data.tool);
         setEvents(old => [...old, event].slice(-300));
         if (event.type === 'turn.started') { busyRef.current=true; setBusy(true); }
         if (event.type === 'agent.response.delta') {
@@ -116,8 +118,8 @@ function App() {
         if(busyRef.current){setMessage(text);setError('The previous reply is still stopping. Your transcript is ready to send.');return;}
         await sendRef.current(text);
       }
-    });
-    voice.current=v;v.enableOutput(spoken);
+    },agentID);
+    voice.current=v;v.enableOutput(spoken);v.enableCues(cuesOn);
     try{await v.start();}catch(e){if(voice.current===v){voice.current=null;setVoiceOn(false);setError(`Microphone unavailable: ${(e as Error).message}`);}}
   }
   const latest=(type:string)=>[...events].reverse().find(e=>e.type===type);
@@ -189,7 +191,7 @@ function App() {
             <section><h3>Skills & tools</h3><p className="muted">Capabilities loaded from this agent’s configuration.</p>{Object.entries(agent?.skills || {}).map(([id, s]) => <details className="skill" key={id}><summary><strong>{id}</strong><span>{s.tools.length} tools</span></summary><p>{s.description}</p>{s.tools.map(t => <div className="capability" key={t.name}><code>{t.name}</code>{t.mutation && <span className="pill">Confirmation</span>}<p>{t.description}</p></div>)}</details>)}</section>
             <section><h3>Knowledge</h3>{agent?.config.knowledge.map(k => <p className="knowledge-file" key={k}>{k}</p>)}</section><section><h3>Memory isolation</h3><p className="muted">Organization → agent → namespace → selected user</p><code>{agent?.config.memory.namespace}</code></section>
           </div>
-          <div id="panel-voice" role="tabpanel" aria-labelledby="tab-voice" hidden={tab !== 'voice'}><section><span className="pill">PHASE 2</span><h3 className="voice-heading">Voice workspace</h3><p className="muted">Turn on voice in the chat and allow microphone access. Speak naturally; a short pause sends your message. You can interrupt a spoken reply.</p><dl className="properties"><dt>Recognition</dt><dd>Nemotron 3.5 ASR · live PCM</dd><dt>Speech</dt><dd>Breeze TTS 2 · streamed PCM</dd><dt>Status</dt><dd>{voiceEnabled?voiceStatus:'Speech not configured'}</dd><dt>Language</dt><dd>English</dd><dt>Noise handling</dt><dd>Browser noise suppression + speech detection</dd><dt>End of turn</dt><dd>700 ms non-speech · Silero v6</dd></dl><p className="quiet">{agent?.config.name}’s fixed reference voice</p>{voiceEnabled && agentID && <audio key={agentID} controls preload="none" src={`/api/agents/${agentID}/voice-reference`} style={{width:"100%",marginTop:8}}/>}<label className="speech-toggle"><input type="checkbox" checked={spoken} onChange={e=>{setSpoken(e.target.checked);voice.current?.enableOutput(e.target.checked);}}/> Speak agent replies</label><p className="quiet">Headphones help avoid speaker echo triggering an interruption. Account changes still require the confirmation button. Each persona uses one fixed synthetic reference voice across all sentences.</p></section></div>
+          <div id="panel-voice" role="tabpanel" aria-labelledby="tab-voice" hidden={tab !== 'voice'}><section><span className="pill">PHASE 2</span><h3 className="voice-heading">Voice workspace</h3><p className="muted">Turn on voice in the chat and allow microphone access. Speak naturally; a short pause sends your message. You can interrupt a spoken reply.</p><dl className="properties"><dt>Recognition</dt><dd>Nemotron 3.5 ASR · live PCM</dd><dt>Speech</dt><dd>Breeze TTS 2 · streamed PCM</dd><dt>Status</dt><dd>{voiceEnabled?voiceStatus:'Speech not configured'}</dd><dt>Language</dt><dd>English</dd><dt>Noise handling</dt><dd>Browser noise suppression + speech detection</dd><dt>End of turn</dt><dd>700 ms non-speech · Silero v6</dd></dl><p className="quiet">{agent?.config.name}’s fixed reference voice</p>{voiceEnabled && agentID && <audio key={agentID} controls preload="none" src={`/api/agents/${agentID}/voice-reference`} style={{width:"100%",marginTop:8}}/>}<label className="speech-toggle"><input type="checkbox" checked={spoken} onChange={e=>{setSpoken(e.target.checked);voice.current?.enableOutput(e.target.checked);}}/> Speak agent replies</label><label className="speech-toggle"><input type="checkbox" checked={cuesOn} onChange={e=>{setCuesOn(e.target.checked);voice.current?.enableCues(e.target.checked);}}/> Brief prerecorded acknowledgements</label><p className="quiet">Headphones help avoid speaker echo triggering an interruption. Account changes still require the confirmation button. Each persona uses one fixed synthetic reference voice across all sentences.</p></section></div>
         </div>
         <div className="playground-footer"><span className="runtime-dot"/> One platform. Every experience.</div>
       </aside>

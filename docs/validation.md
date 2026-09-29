@@ -81,3 +81,9 @@ GPU process memory was approximately 4,194 MiB for Breeze and 1,277 MiB for Nemo
 - Both synthetic reference transcripts were checked with Nemotron ASR. Sara's reference is 6.88 seconds and was generated with an English/female/gentle-Arabic-accent instruction at guidance 4; Maya's reference is 6.64 seconds. Accent authenticity and timbre quality require human listening, not ASR verification.
 - Silero v6 (vad-web 0.0.31, locked ONNX runtime) replaces RMS-only triggering. Browser test played 10 seconds of deterministic hum/noise/clicks followed by speech: no transcription started during the checked noise interval; the subsequent utterance started one transcription and produced the expected words.
 - Standard microphone→partial/final transcript→real streamed speech test passed with the new detector. Models/WASM are served from KW, without a public CDN.
+
+## Neutral Sara, barge-in and prerecorded cues — 2026-09-29
+
+- Sara was regenerated as a neutral English female reference. Both personas have 19 prerecorded, reference-conditioned clips (38 total), versioned with their source transcript and reference hash.
+- Real browser microphone injection while real Breeze audio was playing stopped scheduled playback after 292 ms. The old agent turn was cancelled, late audio did not restart, and the recognized "Stop please" command did not create a new LLM request. This measures the browser pipeline with a synthetic microphone; real-room echo performance remains device dependent.
+- Regression tests cover cancellation before the first model token, cue category selection, suppression during user speech, immediate cue cancellation, cooldowns and disabled/closed behavior.
