@@ -17,6 +17,8 @@ kubectl --context "$KW_CONTEXT" apply -f "$script_dir/sync.yaml"
 kubectl --context "$KW_CONTEXT" -n "$KW_NAMESPACE" wait --for=condition=Ready repository/talking-agent --timeout=180s
 kubectl --context "$KW_CONTEXT" -n "$KW_NAMESPACE" wait --for="jsonpath={.status.deployedRevision}=$expected_revision" application/talking-agent --timeout=300s
 kubectl --context "$KW_CONTEXT" -n "$KW_NAMESPACE" wait --for=condition=Ready application/talking-agent --timeout=300s
+kubectl --context "$KW_CONTEXT" -n "$KW_NAMESPACE" rollout status deployment/enterprise-ai-demo --timeout=180s
+kubectl --context "$KW_CONTEXT" -n "$KW_NAMESPACE" wait --for="jsonpath={.status.state}=Healthy" application/talking-agent --timeout=180s
 kubectl --context "$KW_CONTEXT" -n "$KW_NAMESPACE" get applications,repositories,deployments,ingresses
 curl --fail --show-error --silent --retry 5 --retry-delay 2 --retry-all-errors --max-time 30 --cacert "$KW_CA_FILE" "https://$KW_HOST/api/health"
 printf '\nDemo URL: https://%s\n' "$KW_HOST"
