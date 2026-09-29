@@ -71,7 +71,7 @@ export class Voice {
   this.preRoll.push(pcm);if(this.preRoll.length>13)this.preRoll.shift();
   const playing=!!this.output.size||!!this.cues?.playing;
   const speaking=probability>(this.active ? 0.4 : 0.60);
-  if(speaking){if(this.speechFrames===0)this.firstSpeechAt=performance.now();this.lastSpeech=performance.now();this.speechFrames+=ms;}
+  if(speaking){if(this.speechFrames===0)this.firstSpeechAt=performance.now();this.lastSpeech=performance.now();this.speechFrames=Math.min(256,this.speechFrames+ms);}
   else{this.speechFrames=Math.max(0,this.speechFrames-ms*2);}
   // Duck at the first credible onset; commit without waiting for an STT result.
   if(playing&&this.gain)this.gain.gain.setTargetAtTime(this.speechFrames>=64?0.12:1,this.context!.currentTime,0.015);
@@ -110,7 +110,7 @@ export class Voice {
   }
  }
  finishInput(){
-  if(this.active&&this.socket?.readyState===WebSocket.OPEN){this.active=false;this.socket.send(JSON.stringify({type:'finish'}));this.cb.metric('Endpointing',performance.now()-this.lastSpeech);this.cb.status('Transcribing…');}
+  if(this.active&&this.socket?.readyState===WebSocket.OPEN){this.active=false;this.speechFrames=0;this.socket.send(JSON.stringify({type:'finish'}));this.cb.metric('Endpointing',performance.now()-this.lastSpeech);this.cb.status('Transcribing…');}
  }
  private resetInput(){this.active=false;const ws=this.socket;this.socket=undefined;ws?.close();this.preRoll=[];this.speechFrames=0;}
  mute(value:boolean){this.muted=value;this.media?.getAudioTracks().forEach(t=>t.enabled=!value);if(value)this.resetInput();this.cb.status(value?'Microphone muted':'Listening');}
