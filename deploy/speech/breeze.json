@@ -1,0 +1,35 @@
+{
+  "host": "0.0.0.0",
+  "port": 8080,
+  "backend": "cuda",
+  "device": 0,
+  "threads": 4,
+  "lazy_load": false,
+  "log_request_body": false,
+  "max_request_body_bytes": 16777216,
+  "live_ingest": {
+    "idle_timeout_ms": 15000,
+    "total_timeout_ms": 120000,
+    "max_body_bytes": 8388608,
+    "max_chunk_bytes": 65536
+  },
+  "models": [
+    {
+      "id": "breeze",
+      "family": "breeze_tts",
+      "path": "/models/breeze-tts-2-q8_0.gguf",
+      "task": "tts",
+      "mode": "streaming",
+      "session_options": {
+        "breeze_tts.reference_cache_slots": "2"
+      },
+      "default_request_options": {
+        "guidance_scale": "1",
+        "seed": "42",
+        "stream_frames_per_event": "8",
+        "stream_lookahead_margin": "4",
+        "instruction": "A warm, conversational voice with clear pronunciation and a natural, relaxed pace."
+      }
+    }
+  ]
+}

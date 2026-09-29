@@ -1,0 +1,225 @@
+{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "app.kubernetes.io/part-of": "enterprise-speech"
+    },
+    "name": "speech-release-32a84927db17"
+  },
+  "data": {
+    "dispatch.py": "\"\"\"Sync Job: deliver this release to the external DGX host over pinned SSH.\"\"\"\nimport io\nimport os\nfrom pathlib import Path\nimport shutil\nimport subprocess\nimport tarfile\n\nos.umask(0o077)\nshutil.copyfile('/credentials/id_ed25519', '/tmp/speech-key')\nbase = ['ssh', '-T', '-i', '/tmp/speech-key', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=/credentials/known_hosts', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4', 'piwi@192.168.10.246']\nrevision = os.environ['RELEASE_ID']\nassert len(revision) == 12 and all(c in '0123456789abcdef' for c in revision)\ndestination = '/home/piwi/enterprise-speech/releases/' + revision\npayload = io.BytesIO()\nwith tarfile.open(fileobj=payload, mode='w') as archive:\n    for name in ['host-deploy.py', 'models.json', 'compose.json', 'breeze.json', 'nemotron.json']:\n        archive.add('/release/' + name, arcname=name)\nsubprocess.run(base + [f'mkdir -p {destination} && tar -xf - -C {destination}'], input=payload.getvalue(), check=True)\nsubprocess.run(base + [f'python3 -u {destination}/host-deploy.py {destination}'], check=True)\n# Prove cluster-to-DGX reachability as well as remote local health.\nimport json, urllib.request\nfor port in [8092, 8093]:\n    with urllib.request.urlopen(f'http://192.168.10.246:{port}/health', timeout=10) as response:\n        print(f'Cluster health {port}:', response.read().decode(), flush=True)\nprint('Speech release deployed and reachable from KW.', flush=True)\n",
+    "host-deploy.py": "\"\"\"Idempotent installer for only the enterprise-speech Compose project.\"\"\"\nimport fcntl\nimport hashlib\nimport json\nfrom pathlib import Path\nimport shutil\nimport subprocess\nimport sys\nimport time\nimport urllib.request\n\nroot = Path('/home/piwi/enterprise-speech')\nrelease = Path(sys.argv[1]).resolve()\nif release.parent != root / 'releases':\n    raise SystemExit('Unexpected release directory')\nroot.mkdir(exist_ok=True)\nlock = (root / 'deploy.lock').open('w')\nfcntl.flock(lock, fcntl.LOCK_EX)\nmodels = root / 'models'\nmodels.mkdir(exist_ok=True)\nmanifest = json.loads((release / 'models.json').read_text())\n\ndef checksum(path):\n    h = hashlib.sha256()\n    with path.open('rb') as f:\n        for block in iter(lambda: f.read(8 << 20), b''):\n            h.update(block)\n    return h.hexdigest()\n\nfor item in manifest['files']:\n    destination = models / item['name']\n    if destination.exists() and checksum(destination) == item['sha256']:\n        print('Verified cached model:', item['name'], flush=True)\n        continue\n    if shutil.disk_usage(root).free < item['size'] + (12 << 30):\n        raise SystemExit('Insufficient disk headroom for speech download')\n    partial = destination.with_suffix('.partial')\n    url = f\"https://huggingface.co/{manifest['repository']}/resolve/{manifest['revision']}/{item['path']}?download=true\"\n    print('Downloading pinned model:', item['name'], flush=True)\n    subprocess.run(['curl', '--fail', '--location', '--silent', '--show-error', '--retry', '5', '--retry-delay', '3', '--connect-timeout', '20', '--max-time', '1800', '--continue-at', '-', '--output', str(partial), url], check=True)\n    if partial.stat().st_size != item['size'] or checksum(partial) != item['sha256']:\n        partial.unlink()\n        raise SystemExit('Model integrity verification failed; retry will download again')\n    partial.chmod(0o644)\n    partial.replace(destination)\n    print('Verified model:', item['name'], flush=True)\n\ncompose = ['docker', 'compose', '--project-name', 'enterprise-speech', '--file', str(release / 'compose.json')]\nsubprocess.run(compose + ['pull'], check=True)\nsubprocess.run(compose + ['up', '-d', '--wait', '--wait-timeout', '300'], check=True)\nfor port in [8092, 8093]:\n    with urllib.request.urlopen(f'http://192.168.10.246:{port}/v1/models', timeout=20) as response:\n        print('Loaded models:', response.read().decode(), flush=True)\n(root / 'current-release').write_text(str(release) + '\\n')\nsubprocess.run(compose + ['ps'], check=True)\n",
+    "models.json": "{\n  \"repository\": \"audio-cpp/audio.cpp-gguf\",\n  \"revision\": \"83c5d96c03023ff5a7712570d057ce26c8769f98\",\n  \"files\": [\n    {\n      \"name\": \"breeze-tts-2-q8_0.gguf\",\n      \"path\": \"Breeze-TTS-2-GGUF/breeze-tts-2-q8_0.gguf\",\n      \"sha256\": \"0de52d61560f9f6b2dfeca79f9100f8fce0c2b17c52ec30622e23e150df1ad88\",\n      \"size\": 5079668352\n    },\n    {\n      \"name\": \"nemotron-3.5-asr-streaming-0.6b-q8_0.gguf\",\n      \"path\": \"Nemotron-3.5-ASR-Streaming-0.6B-GGUF/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf\",\n      \"sha256\": \"c58b62c1bdd6c5d7b14b08126c5bd16c1289fee6e0d6ac0761dbd3aa6d714935\",\n      \"size\": 930625888\n    }\n  ]\n}\n",
+    "compose.json": "{\n  \"services\": {\n    \"breeze\": {\n      \"image\": \"ghcr.io/0xshug0/audio.cpp@sha256:3de68e87945ecddb6f835c72b958b2527655833f0540cd8b3fa0a1c5b22c9202\",\n      \"container_name\": \"enterprise-speech-breeze\",\n      \"command\": [\n        \"server\",\n        \"--config\",\n        \"/config/server.json\",\n        \"--no-ui\"\n      ],\n      \"restart\": \"unless-stopped\",\n      \"gpus\": \"all\",\n      \"ports\": [\n        \"192.168.10.246:8092:8080\"\n      ],\n      \"volumes\": [\n        \"/home/piwi/enterprise-speech/models:/models:ro\",\n        \"./breeze.json:/config/server.json:ro\"\n      ],\n      \"mem_limit\": \"16g\",\n      \"cpus\": 6,\n      \"shm_size\": \"1g\",\n      \"read_only\": true,\n      \"tmpfs\": [\n        \"/tmp:size=1073741824,mode=1777\"\n      ],\n      \"environment\": {\n        \"CUDA_CACHE_PATH\": \"/tmp/cuda-cache\"\n      },\n      \"security_opt\": [\n        \"no-new-privileges:true\"\n      ],\n      \"cap_drop\": [\n        \"ALL\"\n      ],\n      \"healthcheck\": {\n        \"test\": [\n          \"CMD\",\n          \"curl\",\n          \"--fail\",\n          \"--silent\",\n          \"http://127.0.0.1:8080/health\"\n        ],\n        \"interval\": \"15s\",\n        \"timeout\": \"5s\",\n        \"start_period\": \"120s\",\n        \"retries\": 5\n      },\n      \"logging\": {\n        \"driver\": \"json-file\",\n        \"options\": {\n          \"max-size\": \"10m\",\n          \"max-file\": \"3\"\n        }\n      },\n      \"labels\": {\n        \"app.kubernetes.io/managed-by\": \"kuvryn-sync\",\n        \"enterprise-ai-demo.component\": \"breeze\"\n      }\n    },\n    \"nemotron\": {\n      \"image\": \"ghcr.io/0xshug0/audio.cpp@sha256:3de68e87945ecddb6f835c72b958b2527655833f0540cd8b3fa0a1c5b22c9202\",\n      \"container_name\": \"enterprise-speech-nemotron\",\n      \"command\": [\n        \"server\",\n        \"--config\",\n        \"/config/server.json\",\n        \"--no-ui\"\n      ],\n      \"restart\": \"unless-stopped\",\n      \"gpus\": \"all\",\n      \"ports\": [\n        \"192.168.10.246:8093:8080\"\n      ],\n      \"volumes\": [\n        \"/home/piwi/enterprise-speech/models:/models:ro\",\n        \"./nemotron.json:/config/server.json:ro\"\n      ],\n      \"mem_limit\": \"8g\",\n      \"cpus\": 6,\n      \"shm_size\": \"1g\",\n      \"read_only\": true,\n      \"tmpfs\": [\n        \"/tmp:size=1073741824,mode=1777\"\n      ],\n      \"environment\": {\n        \"CUDA_CACHE_PATH\": \"/tmp/cuda-cache\"\n      },\n      \"security_opt\": [\n        \"no-new-privileges:true\"\n      ],\n      \"cap_drop\": [\n        \"ALL\"\n      ],\n      \"healthcheck\": {\n        \"test\": [\n          \"CMD\",\n          \"curl\",\n          \"--fail\",\n          \"--silent\",\n          \"http://127.0.0.1:8080/health\"\n        ],\n        \"interval\": \"15s\",\n        \"timeout\": \"5s\",\n        \"start_period\": \"120s\",\n        \"retries\": 5\n      },\n      \"logging\": {\n        \"driver\": \"json-file\",\n        \"options\": {\n          \"max-size\": \"10m\",\n          \"max-file\": \"3\"\n        }\n      },\n      \"labels\": {\n        \"app.kubernetes.io/managed-by\": \"kuvryn-sync\",\n        \"enterprise-ai-demo.component\": \"nemotron\"\n      }\n    }\n  }\n}\n",
+    "breeze.json": "{\n  \"host\": \"0.0.0.0\",\n  \"port\": 8080,\n  \"backend\": \"cuda\",\n  \"device\": 0,\n  \"threads\": 4,\n  \"lazy_load\": false,\n  \"log_request_body\": false,\n  \"max_request_body_bytes\": 16777216,\n  \"live_ingest\": {\n    \"idle_timeout_ms\": 15000,\n    \"total_timeout_ms\": 120000,\n    \"max_body_bytes\": 8388608,\n    \"max_chunk_bytes\": 65536\n  },\n  \"models\": [\n    {\n      \"id\": \"breeze\",\n      \"family\": \"breeze_tts\",\n      \"path\": \"/models/breeze-tts-2-q8_0.gguf\",\n      \"task\": \"tts\",\n      \"mode\": \"streaming\",\n      \"session_options\": {\n        \"breeze_tts.reference_cache_slots\": \"2\"\n      },\n      \"default_request_options\": {\n        \"guidance_scale\": \"1\",\n        \"seed\": \"42\",\n        \"stream_frames_per_event\": \"8\",\n        \"stream_lookahead_margin\": \"4\",\n        \"instruction\": \"A warm, conversational voice with clear pronunciation and a natural, relaxed pace.\"\n      }\n    }\n  ]\n}\n",
+    "nemotron.json": "{\n  \"host\": \"0.0.0.0\",\n  \"port\": 8080,\n  \"backend\": \"cuda\",\n  \"device\": 0,\n  \"threads\": 4,\n  \"lazy_load\": false,\n  \"log_request_body\": false,\n  \"max_request_body_bytes\": 16777216,\n  \"live_ingest\": {\n    \"idle_timeout_ms\": 15000,\n    \"total_timeout_ms\": 120000,\n    \"max_body_bytes\": 8388608,\n    \"max_chunk_bytes\": 65536\n  },\n  \"models\": [\n    {\n      \"id\": \"nemotron-3.5-asr\",\n      \"family\": \"nemotron_asr\",\n      \"path\": \"/models/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf\",\n      \"task\": \"asr\",\n      \"mode\": \"streaming\",\n      \"default_request_options\": {\n        \"language\": \"en-US\",\n        \"lookahead_tokens\": \"3\"\n      }\n    }\n  ]\n}\n"
+  }
+}
+---
+{
+  "apiVersion": "batch/v1",
+  "kind": "Job",
+  "metadata": {
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "app.kubernetes.io/part-of": "enterprise-speech"
+    },
+    "name": "speech-deploy-32a84927db17"
+  },
+  "spec": {
+    "backoffLimit": 2,
+    "activeDeadlineSeconds": 3600,
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "speech-deploy"
+        }
+      },
+      "spec": {
+        "restartPolicy": "Never",
+        "automountServiceAccountToken": false,
+        "securityContext": {
+          "runAsNonRoot": true,
+          "runAsUser": 10001,
+          "runAsGroup": 10001,
+          "fsGroup": 10001,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "containers": [
+          {
+            "name": "deploy",
+            "image": "192.168.10.131/enterprise-speech-deployer@sha256:fd37ef405204b1e6295fe438baaa03c17bf917916af211bf3a878ee53e534e1c",
+            "env": [
+              {
+                "name": "RELEASE_ID",
+                "value": "32a84927db17"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "50m",
+                "memory": "64Mi"
+              },
+              "limits": {
+                "cpu": "500m",
+                "memory": "128Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "readOnlyRootFilesystem": true,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "release",
+                "mountPath": "/release",
+                "readOnly": true
+              },
+              {
+                "name": "credentials",
+                "mountPath": "/credentials",
+                "readOnly": true
+              },
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "release",
+            "configMap": {
+              "name": "speech-release-32a84927db17"
+            }
+          },
+          {
+            "name": "credentials",
+            "secret": {
+              "secretName": "speech-dgx-ssh",
+              "defaultMode": 288
+            }
+          },
+          {
+            "name": "tmp",
+            "emptyDir": {}
+          }
+        ]
+      }
+    }
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "app.kubernetes.io/part-of": "enterprise-speech"
+    },
+    "name": "speech-tts"
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "http",
+        "port": 80,
+        "targetPort": 8092
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "discovery.k8s.io/v1",
+  "kind": "EndpointSlice",
+  "metadata": {
+    "name": "speech-tts-dgx",
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "kubernetes.io/service-name": "speech-tts",
+      "endpointslice.kubernetes.io/managed-by": "enterprise-speech-gitops"
+    }
+  },
+  "addressType": "IPv4",
+  "ports": [
+    {
+      "name": "http",
+      "protocol": "TCP",
+      "port": 8092
+    }
+  ],
+  "endpoints": [
+    {
+      "addresses": [
+        "192.168.10.246"
+      ],
+      "conditions": {
+        "ready": true
+      }
+    }
+  ]
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "app.kubernetes.io/part-of": "enterprise-speech"
+    },
+    "name": "speech-stt"
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "http",
+        "port": 80,
+        "targetPort": 8093
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "discovery.k8s.io/v1",
+  "kind": "EndpointSlice",
+  "metadata": {
+    "name": "speech-stt-dgx",
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "kubernetes.io/service-name": "speech-stt",
+      "endpointslice.kubernetes.io/managed-by": "enterprise-speech-gitops"
+    }
+  },
+  "addressType": "IPv4",
+  "ports": [
+    {
+      "name": "http",
+      "protocol": "TCP",
+      "port": 8093
+    }
+  ],
+  "endpoints": [
+    {
+      "addresses": [
+        "192.168.10.246"
+      ],
+      "conditions": {
+        "ready": true
+      }
+    }
+  ]
+}

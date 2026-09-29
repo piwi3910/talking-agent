@@ -1,0 +1,29 @@
+{
+  "host": "0.0.0.0",
+  "port": 8080,
+  "backend": "cuda",
+  "device": 0,
+  "threads": 4,
+  "lazy_load": false,
+  "log_request_body": false,
+  "max_request_body_bytes": 16777216,
+  "live_ingest": {
+    "idle_timeout_ms": 15000,
+    "total_timeout_ms": 120000,
+    "max_body_bytes": 8388608,
+    "max_chunk_bytes": 65536
+  },
+  "models": [
+    {
+      "id": "nemotron-3.5-asr",
+      "family": "nemotron_asr",
+      "path": "/models/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf",
+      "task": "asr",
+      "mode": "streaming",
+      "default_request_options": {
+        "language": "en-US",
+        "lookahead_tokens": "3"
+      }
+    }
+  ]
+}
