@@ -79,6 +79,28 @@ func (c *OpenAI) Chat(ctx context.Context, in Request, delta func(string)) (Resp
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	// Retry a completed but empty generation once. No text or tool request has
+	// reached the caller, so this cannot duplicate a visible response or action.
+	var usage Usage
+	for attempt := 0; attempt < 2; attempt++ {
+		out, err := c.chatOnce(ctx, in, delta)
+		usage.Prompt += out.Usage.Prompt
+		usage.Completion += out.Usage.Completion
+		usage.Total += out.Usage.Total
+		out.Usage = usage
+		if !errors.Is(err, errEmptyResponse) {
+			return out, err
+		}
+		if attempt == 1 {
+			return out, err
+		}
+	}
+	return Response{}, errEmptyResponse
+}
+
+var errEmptyResponse = errors.New("LLM returned no answer or tool calls; please try again")
+
+func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (Response, error) {
 	client := c.HTTP
 	if client == nil {
 		client = http.DefaultClient
@@ -171,6 +193,9 @@ func (c *OpenAI) Chat(ctx context.Context, in Request, delta func(string)) (Resp
 	}
 	if !finished {
 		return out, errors.New("LLM stream ended unexpectedly; not retrying a partial response")
+	}
+	if out.Message.Content == "" && len(out.Message.ToolCalls) == 0 {
+		return out, errEmptyResponse
 	}
 	return out, nil
 }

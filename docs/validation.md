@@ -19,3 +19,12 @@ KW deployment verification on 2026-09-29:
 - `https://agent.kw.watteel.lab` passes CA-verified TLS and the API health check.
 - All three Chromium end-to-end tests passed against that cluster URL, including streamed tools, confirmed mutations, cross-session memory, and emergency handling.
 - Persistent `kw` kubectl context and documented Sync/build workflows are configured for future deployments; credentials remain outside Git.
+
+## KW SDK integration (2026-09-29)
+
+- LLM transport now uses `github.com/azrtydxb/go-ai-sdk` v0.6.0; Go 1.26 build.
+- FastLLM model is `qwen3.5-9b`, with the existing Secret-backed API key.
+- Race tests and vet pass, including SDK tool-result conversion, streamed tool arguments, cancellation, pre-stream retries, safe gateway errors, and bounded empty-generation recovery.
+- Qwen's template rejects consecutive system messages. The adapter combines leading system instructions and memory into a single system message.
+- Live TLS-verified SSE checks on KW exercised telecom outage/network/Wi-Fi diagnostics and hospital doctor/appointment availability tools, with streamed final answers. No appointment or router mutations were requested during these checks.
+- One hospital generation returned no visible answer. Empty completed generations now receive one retry within the same deadline; a second empty generation produces an explicit error. Partial streams and tool execution are not retried by this recovery path.

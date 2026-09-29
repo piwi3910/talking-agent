@@ -115,3 +115,31 @@ func TestGatewayFailureIsSafeAndNotRetried(t *testing.T) {
 		t.Fatal(err, attempts)
 	}
 }
+
+func TestEmptyGenerationRecoveryIsBounded(t *testing.T) {
+	for _, recover := range []bool{true, false} {
+		t.Run(fmt.Sprint(recover), func(t *testing.T) {
+			attempts := 0
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				attempts++
+				if recover && attempts == 2 {
+					fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Recovered\"}}]}\n\n")
+				}
+				fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"total_tokens\":10}}\n\ndata: [DONE]\n\n")
+			}))
+			defer s.Close()
+			c := OpenAI{BaseURL: s.URL, Model: "test"}
+			var visible string
+			out, err := c.Chat(context.Background(), Request{}, func(s string) { visible += s })
+			if attempts != 2 || out.Usage.Total != 20 {
+				t.Fatal(attempts, out)
+			}
+			if recover && (err != nil || visible != "Recovered") {
+				t.Fatal(visible, err)
+			}
+			if !recover && (err == nil || visible != "") {
+				t.Fatal(visible, err)
+			}
+		})
+	}
+}
