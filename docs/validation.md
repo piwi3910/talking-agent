@@ -39,3 +39,10 @@ KW deployment verification on 2026-09-29:
 - Live score inspection identified unrelated telecom hits at vector similarity 0.36–0.42. A configurable cutoff now rejects those weak matches while preserving keyword hits and stronger semantic matches.
 - Final-release API checks returned the persisted morning preference for P006, zero memories for P007, and zero unrelated telecom memories for the Dr. Ahmed query. A direct preference question produced a streamed answer acknowledging mornings.
 - Remaining live-model limitation: Qwen3.5-9B occasionally completes an appointment-answer generation without visible text, including after the bounded retry. This is surfaced as an error. A direct gateway probe with thinking disabled produced incorrect calendar dates, so that setting was not adopted. These model-quality cases are not memory retrieval failures; do not describe every live appointment conversation as verified reliable.
+
+## Empty-answer recovery and confirmed actions
+
+- Added deterministic tests for current-turn tool-result recovery, no matching slots, failed tools, stale history, interrupted text, cancellation and upstream errors.
+- Reasoning-only/whitespace-only SDK streams are tested without exposing their reasoning content; generation counts, finish reason and total usage remain observable.
+- Confirmed booking tests prove that the backend acknowledgement does not invoke the model, failed writes cannot report success, and replay cannot duplicate a booking.
+- `web/tests/live.spec.ts` is an opt-in browser test covering availability, booking, rescheduling and cancellation for fictional P018, with explicit confirmation and exact backend timestamps. Enable with `LIVE_MODEL_TESTS=true`; the default scripted suite skips it.

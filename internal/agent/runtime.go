@@ -12,6 +12,7 @@ import (
 	"enterprise-ai-demo/internal/skills"
 	"enterprise-ai-demo/internal/telemetry"
 	"enterprise-ai-demo/internal/tools"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -119,6 +120,18 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		res := r.execute(ctx, s, p.Definition, p.Arguments, emit)
 		raw, _ := json.Marshal(res)
 		s.History = append(s.History, llm.Message{Role: "tool", ToolCallID: call.ID, Content: string(raw)})
+		if res.Error != nil {
+			fail(res.Error)
+			return
+		}
+		text := tools.FormatResult(res)
+		if text == "" {
+			fail(fmt.Errorf("backend returned no acknowledgement"))
+			return
+		}
+		emit("agent.response.grounded", map[string]any{"source": "confirmed_tool", "tools": []string{p.Tool}})
+		answer(text)
+		return
 	} else {
 		s.Pending = map[string]session.Pending{}
 		s.History = append(s.History, llm.Message{Role: "user", Content: query})
@@ -193,6 +206,13 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		max = 10
 	}
 	client := r.Clients[s.Agent.ID]
+	// Only the most recent tool batch from this turn may recover an empty
+	// generation. Never reuse stale history, failed results or skill activation.
+	type serviceResult struct {
+		name   string
+		result tools.Result
+	}
+	var latestResults []serviceResult
 	for iteration := 0; iteration < max; iteration++ {
 		if err := ctx.Err(); err != nil {
 			fail(err)
@@ -226,11 +246,29 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 			emit("agent.response.delta", map[string]any{"text": delta})
 		})
 		if err != nil {
-			emit("llm.failed", map[string]any{"message": err.Error(), "duration_ms": time.Since(begin).Milliseconds()})
+			emit("llm.failed", map[string]any{"message": err.Error(), "duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "diagnostics": response.Diagnostics})
+			if errors.Is(err, llm.ErrEmptyResponse) && first && strings.TrimSpace(response.Message.Content) == "" && len(response.Message.ToolCalls) == 0 && ctx.Err() == nil && len(latestResults) > 0 {
+				texts := []string{}
+				names := []string{}
+				for _, entry := range latestResults {
+					text := tools.FormatResult(entry.result)
+					if text == "" {
+						texts = nil
+						break
+					}
+					texts = append(texts, text)
+					names = append(names, entry.name)
+				}
+				if len(texts) > 0 {
+					emit("agent.response.recovered", map[string]any{"reason": "empty_model_response", "source": "tool_results", "tools": names})
+					answer(strings.Join(texts, "\n\n"))
+					return
+				}
+			}
 			fail(err)
 			return
 		}
-		emit("llm.completed", map[string]any{"duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "tool_calls": len(response.Message.ToolCalls)})
+		emit("llm.completed", map[string]any{"duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "tool_calls": len(response.Message.ToolCalls), "diagnostics": response.Diagnostics})
 		s.History = append(s.History, response.Message)
 		if len(response.Message.ToolCalls) == 0 {
 			emit("agent.response.completed", map[string]any{"text": response.Message.Content})
@@ -240,6 +278,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		if response.Message.Content != "" {
 			emit("agent.response.delta", map[string]any{"text": "\n\n"})
 		}
+		latestResults = nil
 		pending := false
 		for _, call := range response.Message.ToolCalls {
 			name := llm.DomainName(call.Function.Name)
@@ -270,6 +309,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 				pending = true
 			} else {
 				res = r.execute(ctx, s, d, args, emit)
+			}
+			if name != "skills.activate" || res.Error != nil {
+				latestResults = append(latestResults, serviceResult{name, res})
 			}
 			raw, _ := json.Marshal(res)
 			s.History = append(s.History, llm.Message{Role: "tool", ToolCallID: call.ID, Content: string(raw)})

@@ -143,3 +143,18 @@ func TestEmptyGenerationRecoveryIsBounded(t *testing.T) {
 		})
 	}
 }
+
+func TestReasoningAndWhitespaceAreNotAnAnswer(t *testing.T) {
+	attempts := 0
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"hidden\",\"content\":\" \\n\"},\"finish_reason\":\"stop\"}],\"usage\":{\"total_tokens\":10}}\n\ndata: [DONE]\n\n")
+	}))
+	defer s.Close()
+	c := OpenAI{BaseURL: s.URL, Model: "configured"}
+	text := ""
+	out, err := c.Chat(context.Background(), Request{}, func(v string) { text += v })
+	if err != ErrEmptyResponse || text != "" || attempts != 2 || out.Usage.Total != 20 || out.Diagnostics.ReasoningCharacters != 12 || out.Diagnostics.Generations != 2 || out.Diagnostics.FinishReason != "stop" {
+		t.Fatal(out, err, text, attempts)
+	}
+}

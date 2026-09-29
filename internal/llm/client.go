@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/azrtydxb/go-ai-sdk/ai"
 	"github.com/azrtydxb/go-ai-sdk/provider"
@@ -49,9 +50,15 @@ type Usage struct {
 	Completion int `json:"completion_tokens"`
 	Total      int `json:"total_tokens"`
 }
+type Diagnostics struct {
+	Generations         int    `json:"generations"`
+	ReasoningCharacters int    `json:"reasoning_characters"`
+	FinishReason        string `json:"finish_reason,omitempty"`
+}
 type Response struct {
-	Message Message
-	Usage   Usage
+	Message     Message
+	Usage       Usage
+	Diagnostics Diagnostics
 }
 type Client interface {
 	Chat(context.Context, Request, func(string)) (Response, error)
@@ -82,23 +89,29 @@ func (c *OpenAI) Chat(ctx context.Context, in Request, delta func(string)) (Resp
 	// Retry a completed but empty generation once. No text or tool request has
 	// reached the caller, so this cannot duplicate a visible response or action.
 	var usage Usage
+	var reasoningCharacters int
 	for attempt := 0; attempt < 2; attempt++ {
 		out, err := c.chatOnce(ctx, in, delta)
 		usage.Prompt += out.Usage.Prompt
 		usage.Completion += out.Usage.Completion
 		usage.Total += out.Usage.Total
 		out.Usage = usage
-		if !errors.Is(err, errEmptyResponse) {
+		reasoningCharacters += out.Diagnostics.ReasoningCharacters
+		out.Diagnostics.ReasoningCharacters = reasoningCharacters
+		out.Diagnostics.Generations = attempt + 1
+		if !errors.Is(err, ErrEmptyResponse) {
 			return out, err
 		}
 		if attempt == 1 {
 			return out, err
 		}
 	}
-	return Response{}, errEmptyResponse
+	return Response{}, ErrEmptyResponse
 }
 
-var errEmptyResponse = errors.New("LLM returned no answer or tool calls; please try again")
+// ErrEmptyResponse means a completed generation had no text or tool calls.
+// It never covers a partial stream, cancellation, or a provider rejection.
+var ErrEmptyResponse = errors.New("LLM returned no answer or tool calls; please try again")
 
 func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (Response, error) {
 	client := c.HTTP
@@ -166,11 +179,25 @@ func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (
 	out := Response{Message: Message{Role: "assistant"}}
 	finished := false
 	seen := map[string]bool{}
+	visible := false
+	var leading strings.Builder
 	for part := range stream.Parts() {
 		switch p := part.(type) {
+		case provider.ReasoningDelta:
+			out.Diagnostics.ReasoningCharacters += utf8.RuneCountInString(p.Text)
 		case provider.TextDelta:
 			out.Message.Content += p.Text
-			if delta != nil {
+			if !visible {
+				leading.WriteString(p.Text)
+				if strings.TrimSpace(p.Text) == "" {
+					continue
+				}
+				visible = true
+				if delta != nil {
+					delta(leading.String())
+				}
+				leading.Reset()
+			} else if delta != nil {
 				delta(p.Text)
 			}
 		case provider.ToolCallEnd:
@@ -181,11 +208,12 @@ func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (
 			seen[tc.ID] = true
 			out.Message.ToolCalls = append(out.Message.ToolCalls, Call{ID: tc.ID, Type: "function", Function: Function{Name: tc.Name, Arguments: string(tc.Args)}})
 		case provider.FinishPart:
+			out.Diagnostics.FinishReason = string(p.Reason)
+			out.Usage = Usage{Prompt: p.Usage.InputTokens, Completion: p.Usage.OutputTokens, Total: p.Usage.TotalTokens}
 			if p.Reason == provider.FinishLength || p.Reason == provider.FinishContentFilter || p.Reason == provider.FinishError {
 				return out, errors.New("LLM response truncated, filtered or failed")
 			}
 			finished = true
-			out.Usage = Usage{Prompt: p.Usage.InputTokens, Completion: p.Usage.OutputTokens, Total: p.Usage.TotalTokens}
 		}
 	}
 	if err := stream.Err(); err != nil {
@@ -194,8 +222,11 @@ func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (
 	if !finished {
 		return out, errors.New("LLM stream ended unexpectedly; not retrying a partial response")
 	}
+	if strings.TrimSpace(out.Message.Content) == "" {
+		out.Message.Content = ""
+	}
 	if out.Message.Content == "" && len(out.Message.ToolCalls) == 0 {
-		return out, errEmptyResponse
+		return out, ErrEmptyResponse
 	}
 	return out, nil
 }

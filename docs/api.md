@@ -45,6 +45,8 @@ Implemented event types:
 - `action.confirmation.required`
 - `safety.blocked`, `agent.error`
 - `agent.response.delta`, `agent.response.completed`
+- `agent.response.recovered` — an empty final generation was replaced by verified current-turn tool results
+- `agent.response.grounded` — a confirmed mutation was acknowledged directly from its successful backend response
 
 `llm.first_token` measures time to first emitted text for each model invocation. Tool-only responses have no text TTFT event. Usage contains provider-reported token counts; the offline provider reports none. `agent.response.delta` is append-only visible text, potentially including model preambles before tools. `agent.response.completed` marks a completed response, while `turn.completed` releases the UI send state even on errors or cancellation.
 
@@ -66,3 +68,5 @@ Future audio (`speech.*`, `vad.*`, `stt.*`, `tts.*`, `barge_in`) and avatar (`av
 `industry` and `user_id` are attached by the runtime, not supplied by the LLM. Each tool has its own closed input schema in `skills.yaml`; the catalog is also visible through `GET /api/agents`. A `Result` contains `summary`, typed `records`, and optionally `error: { code, message, retryable }`. `Record` has explicit ID, kind, name, status, description, user/related IDs, specialty, location, start, amount/currency, and value/unit fields. Empty results use an empty array. Ownership, known IDs, account state, insurance plans, date ranges, and appointment conflicts are validated by backend operations.
 
 The standalone mock service (`go run ./cmd/mock-backend`) listens on loopback `:8081` by default. Set `MOCK_BACKEND_URL` on the API to use it. Each agent can override this via its `backend.url` or configured `backend.url_env` variable. It is a trusted internal demo service, with no public authentication. Do not expose it as a public enterprise integration.
+
+LLM completion and failure events include `diagnostics.generations`, `diagnostics.reasoning_characters`, and `diagnostics.finish_reason`. Only counts are exposed; reasoning text is never sent to the frontend or reused as a user-facing answer. Failed generations include their reported token usage. A recovered response still records `llm.failed`, followed by `agent.response.recovered` and normal response/turn completion, without `agent.error`.

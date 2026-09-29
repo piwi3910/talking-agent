@@ -65,3 +65,11 @@ Telecom outages, restrictions, and physical line faults block equipment mutation
 Events have a version, monotonic session sequence, session ID, turn ID, timestamp, type, and structured data. The journal retains 1,000 events per session for SSE reconnect replay. JSON logs include event type and session/turn identifiers; full conversations and credentials are not logged. Debug event payloads intentionally contain fictional records and retrieved memory.
 
 A future WebSocket/WebRTC adapter can translate final recognized text into the same `Turn`, consume the same event sink for model text, and call session cancellation for barge-in. Speech/audio and avatar events can share the envelope without entering the agent loop. Voice/avatar settings are disabled declarations only; Phase 1 contains no placeholder engine or media dependency. Production authentication, durable journals, inference capacity management, tenant provisioning, and interface-specific consent belong in later adapters/services.
+
+## Grounded responses when generation is empty
+
+The SDK adapter recognizes completed reasoning-only or whitespace-only streams as empty, retries once within the original deadline, and never streams hidden reasoning as the answer. It exposes counts and finish reasons for diagnosis.
+
+If that retry is empty after successful service calls, the runtime formats only the most recent tool batch from the current turn. Failed calls, stale session history, skill activation alone, partial text, provider errors and cancelled requests cannot take this recovery path. Tool names and recovery reason are observable in `agent.response.recovered`. Exact service dates are rendered with Go's UTC calendar formatting.
+
+After operator confirmation, a successful mutation is acknowledged directly from the backend result (`agent.response.grounded`); no further model turn is required. Failure remains an error, and the consumed confirmation cannot replay the mutation. This shared behavior applies to both industries.
