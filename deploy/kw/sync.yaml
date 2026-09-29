@@ -33,7 +33,7 @@ spec:
     selfHeal: true
   deletionPolicy: Orphan
   health:
-    timeout: 5m
+    timeout: 30m
   history:
     limit: 5
   strategy:
@@ -41,4 +41,4 @@ spec:
     failurePolicy:
       action: rollback
       maxAttempts: 2
-      timeout: 5m
+      timeout: 30m
