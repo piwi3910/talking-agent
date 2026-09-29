@@ -1,6 +1,6 @@
 # Sales demo walkthrough
 
-Start with the default offline provider. Each scripted interaction invokes the same HTTP tools that a live model uses. Tool outputs and actual state changes are visible in the activity panel. A live model enables broader phrasing; offline action requests use the IDs shown in the conversation.
+The KW deployment uses Qwen3.5-9B and live NovaMem. For a local scripted walkthrough, use the default offline provider. Each scripted interaction invokes the same HTTP tools that a live model uses. Tool outputs and actual state changes are visible in the activity panel. A live model enables broader phrasing; offline action requests use the IDs shown in the conversation.
 
 ## Telecom
 
@@ -42,4 +42,4 @@ For the deterministic safety demonstration, start a fresh hospital session and s
 
 Open **Configuration & capabilities** before and after switching. The application process is unchanged. Both agents use the same Go runtime, inference interface, memory abstraction, skill framework, typed HTTP tools, and SSE envelope. Only configuration and business adapters differ. The disabled future voice/avatar configuration marks later interface adapters without introducing those dependencies now.
 
-Be explicit that the offline provider is scripted and that development memory survives sessions, not process restarts. Connect the real inference endpoint and NovaMem adapter before presenting those integrations as live.
+KW inference and NovaMem are live. After H6 emits `memory.store.completed`, the preference survives new sessions and app deployments. A different patient must not receive it. Local offline mode remains scripted, and its default in-memory store survives only sessions within one process.

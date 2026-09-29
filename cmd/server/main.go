@@ -72,8 +72,14 @@ func run() error {
 	case "in-memory":
 		mem = memory.New()
 	case "novamem":
-		mem = memory.NovaMemProvider{}
-		return memory.ErrNotConfigured
+		credentials, e := memory.LoadNovaMemCredentials(os.Getenv("NOVAMEM_CREDENTIALS_FILE"))
+		if e != nil {
+			return e
+		}
+		mem, e = memory.NewNovaMem(memory.NovaMemConfig{BaseURL: os.Getenv("NOVAMEM_BASE_URL"), Credentials: credentials, Timeout: 5 * time.Second})
+		if e != nil {
+			return e
+		}
 	default:
 		return fmt.Errorf("unknown MEMORY_PROVIDER")
 	}

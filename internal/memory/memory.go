@@ -37,7 +37,7 @@ type Provider interface {
 
 var ErrNotConfigured = errors.New("NovaMem is not configured: supply an adapter implementing the documented NovaMem interface")
 
-// No NovaMem wire protocol is assumed. Inject an adapter only once its real contract is available.
+// NovaMemProvider keeps the runtime independent of the concrete NovaMem SDK adapter.
 type NovaMemProvider struct{ Adapter Provider }
 
 func (n NovaMemProvider) Name() string { return "novamem" }

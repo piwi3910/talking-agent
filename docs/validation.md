@@ -10,7 +10,7 @@ Verified in the workspace on 2026-09-29 with Go 1.27.1 (Linux arm64) and Node.js
 
 The browser suite modifies mock state; restart the server (or separate mock process) for the original sales scenarios.
 
-Not exercised against external services: a live inference endpoint and live NovaMem. The OpenAI-compatible client is tested against controlled HTTP/SSE fixtures. NovaMem intentionally has no fabricated wire implementation. The Dockerfile has also been built successfully with KW’s ARM64 BuildKit service and the image published to Nexus. Docker Compose itself has not been exercised.
+The initial scripted validation used controlled HTTP/SSE fixtures. Later live inference and NovaMem checks are recorded below. The Dockerfile has also been built successfully with KW’s ARM64 BuildKit service and the image published to Nexus. Docker Compose itself has not been exercised.
 
 KW deployment verification on 2026-09-29:
 
@@ -28,3 +28,10 @@ KW deployment verification on 2026-09-29:
 - Qwen's template rejects consecutive system messages. The adapter combines leading system instructions and memory into a single system message.
 - Live TLS-verified SSE checks on KW exercised telecom outage/network/Wi-Fi diagnostics and hospital doctor/appointment availability tools, with streamed final answers. No appointment or router mutations were requested during these checks.
 - One hospital generation returned no visible answer. Empty completed generations now receive one retry within the same deadline; a second empty generation produces an explicit error. Partial streams and tool execution are not retried by this recovery path.
+
+## Live NovaMem integration (2026-09-29)
+
+- Official NovaMem Go client pinned to revision `523af7193caf`; actual KW API contract verified.
+- Forty separate NovaMem accounts provisioned for the twenty customers and twenty patients. No admin credential is mounted in the app.
+- Opt-in live suite passed against six separate validation accounts: durable write/read, exact-fact dedup, provider reconstruction, all five scope dimensions and cleanup of the test fact.
+- Unit tests reject unprovisioned identities, shared tokens, foreign metadata, degraded responses and rejected writes. Runtime tests verify that a failed lookup is explained to the model as unavailable rather than no history.

@@ -59,9 +59,9 @@ The implementation follows the [official OpenAI function-calling and streaming f
 
 ## NovaMem status
 
-`MemoryProvider` and `NovaMemProvider` are first-class integration boundaries. **A live NovaMem API contract was not supplied. No NovaMem HTTP API has been invented.** `MEMORY_PROVIDER=novamem` fails explicitly until a real adapter is wired in.
+KW now uses **live NovaMem** through its official Go client. Each complete tenant / organization / agent / namespace / user scope has a separate NovaMem account and token. Relevant facts are retrieved before LLM turns; allowlisted preferences and resolutions are stored asynchronously. Acknowledged memories persist across sessions and app restarts.
 
-Development uses `InMemoryProvider`, clearly labeled in the console. Memories survive **new sessions within the running process**, but reset when the server restarts. Telecom C001 starts with three fixture memories demonstrating recurring upstairs interference. Hospital preferences are created through conversation. This is not durable NovaMem persistence yet. See [NovaMem integration](docs/novamem.md).
+Local development still defaults to `InMemoryProvider`, which resets on restart. Session history and mock backend state remain process-local in both modes. See [NovaMem integration and provisioning](docs/novamem.md).
 
 ## Verify
 

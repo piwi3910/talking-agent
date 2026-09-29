@@ -36,12 +36,13 @@
           "runAsGroup": 10001,
           "seccompProfile": {
             "type": "RuntimeDefault"
-          }
+          },
+          "fsGroup": 10001
         },
         "containers": [
           {
             "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:4677493dd51aa3b7a234879220fc0e8666bbeebdd308f829e0952018d941def1",
+            "image": "192.168.10.131/enterprise-ai-demo@sha256:f8d43970e90b0b29b0b4749a34bb3acde603e9faeafeaf49b2814d7704a3eb9d",
             "imagePullPolicy": "IfNotPresent",
             "ports": [
               {
@@ -56,7 +57,7 @@
               },
               {
                 "name": "MEMORY_PROVIDER",
-                "value": "in-memory"
+                "value": "novamem"
               },
               {
                 "name": "MAX_ITERATIONS",
@@ -86,6 +87,14 @@
                     "key": "LLM_API_KEY"
                   }
                 }
+              },
+              {
+                "name": "NOVAMEM_BASE_URL",
+                "value": "http://novamem.novamem.svc.cluster.local:7778"
+              },
+              {
+                "name": "NOVAMEM_CREDENTIALS_FILE",
+                "value": "/run/secrets/novamem/credentials.json"
               }
             ],
             "resources": {
@@ -129,6 +138,22 @@
               },
               "periodSeconds": 15,
               "failureThreshold": 3
+            },
+            "volumeMounts": [
+              {
+                "name": "novamem-identities",
+                "mountPath": "/run/secrets/novamem",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "novamem-identities",
+            "secret": {
+              "secretName": "novamem-identities",
+              "defaultMode": 288
             }
           }
         ]

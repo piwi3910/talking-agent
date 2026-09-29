@@ -1,19 +1,45 @@
-# NovaMem integration boundary
+# NovaMem integration
 
-The live NovaMem contract is unknown in this workspace. `internal/memory` therefore exposes a provider contract and an explicit `NovaMemProvider{Adapter: ...}` wrapper, plus a development `InMemoryProvider`. Calling an unconfigured NovaMem provider returns `ErrNotConfigured`; selecting it at startup fails rather than silently substituting another store.
+KW uses the existing NovaMem service at `http://novamem.novamem.svc.cluster.local:7778` through its official Go client, `github.com/azrtydxb/novamem/clients/go`, pinned in `go.mod`. The adapter calls the documented `POST /v1/remember` and `POST /v1/search` operations. No invented protocol or conversation-history dump is used.
 
-```go
-type Provider interface {
-    Retrieve(context.Context, RetrieveRequest) ([]Memory, error)
-    Store(context.Context, Memory) error
-    Name() string
-}
+`internal/memory.Provider` remains the runtime boundary. `NewNovaMem` creates the SDK adapter; the process-local provider remains available for offline development. An unconfigured NovaMem provider fails explicitly rather than falling back silently.
+
+## Isolation
+
+Every complete `(tenant, organization, agent/domain, namespace, user)` tuple has a separate NovaMem user account and bearer token. NovaMem namespaces are organizational shelves, not authorization boundaries, so namespace filtering alone is insufficient.
+
+The trusted operator-selected identity determines the credential. The model cannot choose a token or memory scope. The adapter rejects missing identities, incomplete scopes, duplicate scopes and reused tokens. It also sends an explicit versioned namespace and validates returned scope metadata, namespace, source and project before any memory reaches the model.
+
+`ScopeKey` hashes length-prefixed UTF-8 scope fields using SHA-256. Length prefixes prevent ambiguous delimiter concatenation; the five readable scope fields are preserved in entry metadata. Neither credentials nor admin sessions reach the frontend or LLM.
+
+## Provisioning on KW
+
+Run `python3 deploy/kw/provision-memory.py` from the configured operator workstation. It discovers the app's agents and fictional users, reuses existing scoped tokens, and provisions only missing identities through NovaMem's admin API. It uses the cluster's existing bootstrap credential for a temporary cookie session, signs out afterwards, and never gives admin access to the app.
+
+Tokens are saved after each account creation to `enterprise-ai-demo/novamem-identities`, key `credentials.json`. They are mounted read-only in the app. They are not Git manifests or environment values printed in logs. Do not delete this Secret to reset a demo: lost tokens require deliberate credential recovery or rotation. A duplicate account with a missing token fails explicitly instead of creating another identity.
+
+The credential file is a JSON array of `{ "scope": { "tenant", "organization", "domain", "namespace", "user" }, "token": "..." }` records. Configure:
+
+```
+MEMORY_PROVIDER=novamem
+NOVAMEM_BASE_URL=http://novamem.novamem.svc.cluster.local:7778
+NOVAMEM_CREDENTIALS_FILE=/run/secrets/novamem/credentials.json
 ```
 
-`RetrieveRequest` includes a full `Scope`, query, and limit. `Memory` includes that scope, an extracted service fact, tags, and a creation timestamp. Scope has separate tenant, organization, domain/agent, namespace, and user fields; do not flatten them using ambiguous delimiter concatenation.
+Adding an agent or demo user requires provisioning its complete scope before using NovaMem. Changing a scope deliberately creates an isolated new memory identity; old data is not automatically migrated or deleted.
 
-Once the actual NovaMem SDK/API and credentials are available, implement a concrete adapter, map all scope dimensions into NovaMem's supported isolation/filter mechanism, preserve contexts/timeouts, and wire it in `cmd/server`. Do not introduce a guessed `/retrieve` or `/store` endpoint. The runtime and frontend do not need to change.
+## Storage and retrieval
 
-Before claiming a live integration, run the same isolation suite against a disposable NovaMem namespace, verify relevance limits, write/read behavior across process restarts, and exact error semantics. Define retention/deletion and credential provisioning for the deployment separately. The current UI explicitly identifies the development provider and the lack of durable persistence.
+The bounded asynchronous worker stores allowlisted preferences, recurring issues and successful resolutions. `Remember` is used for these already-extracted facts, not NovaMem's transcript extraction. Its content-hash dedup makes fixture replay and repeated facts idempotent. Seed memories belong only to fictional Telecom C001; hospital preferences are learned from explicit statements.
 
-Seed memories belong to fictional Telecom C001 only. Hospital morning preferences are learned from explicit statements. Memory writes happen on a bounded asynchronous worker; the console reports stored facts or failures. Starting a new session clears conversation history while preserving process-local facts. Restarting the process restores only seed memories.
+Retrieval requests at most five facts, with keyword/vector relevance and no recency-only weighting. Session history remains separate. Errors and degraded retrieval are reported as unavailable, never as proof that no prior history exists. Failed writes do not emit a successful storage event.
+
+Once acknowledged by NovaMem, facts survive app restarts. The pending write queue, conversations and mock backend state remain process-local. There is no automatic retention or bulk deletion policy in this demo; keep only fictional service facts. NovaMem's administrative deletion tools remain the operator's responsibility.
+
+## Validation
+
+Normal Go tests cover request scope, credential selection, every scope dimension, malicious cross-scope results, cancellation, degraded reads, rejected writes and reconstruction without local memory state.
+
+`deploy/kw/verify-memory.sh` provisions six dedicated validation accounts, runs the opt-in live contract suite and deletes only the fact created by that run. It checks NovaMem's real deduplication, retrieval after constructing a fresh provider, and isolation across all five dimensions. Validation tokens live in a separate Secret and are not mounted in the app.
+
+For deployment persistence, store “Mornings normally work better for me” as a hospital patient, wait for `memory.store.completed`, deploy a fresh app pod through Sync, then start a new session with the same patient and ask for another appointment. `memory.retrieval.completed` should contain the morning preference; a different patient and the telecom agent must not receive it.

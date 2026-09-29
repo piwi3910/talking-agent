@@ -199,3 +199,26 @@ func TestMultipleCallsAndBoundedLoop(t *testing.T) {
 		t.Fatal("loop error not observable")
 	}
 }
+
+func TestMemoryOutageIsNotEmptyHistory(t *testing.T) {
+	r, agents, _ := setup(t)
+	r.Memory = memory.NovaMemProvider{} // explicit outage, not a successful empty search
+	s := session.NewStore().Create(agents["hospital-services"], "P001")
+	called := false
+	r.Clients[s.Agent.ID] = testClient{respond: func(req llm.Request, delta func(string)) llm.Response {
+		called = true
+		if !strings.Contains(req.Messages[1].Content, "Memory lookup is currently unavailable") {
+			t.Fatal("model not told lookup failed")
+		}
+		return llm.Response{Message: llm.Message{Role: "assistant", Content: "I can help with current appointments."}}
+	}}
+	r.Run(context.Background(), s, "outage", Turn{Text: "Show appointments"})
+	failed, completed := false, false
+	for _, event := range s.Events.Since(0) {
+		failed = failed || event.Type == "memory.retrieval.failed"
+		completed = completed || event.Type == "memory.retrieval.completed"
+	}
+	if !called || !failed || completed {
+		t.Fatal(called, failed, completed)
+	}
+}
