@@ -95,3 +95,11 @@ Only fictional data and trusted operator-selected identities are supported. Auth
 Agent files are discovered at startup; switching loaded agents requires no restart or code changes. Editing configuration files or adding an agent requires restarting the server. No voice, STT/TTS, WebRTC, avatars, engines, or production UI is implemented.
 
 The live LLM adapter uses `github.com/azrtydxb/go-ai-sdk` v0.6.0 with its OpenAI-compatible provider. Go 1.26+ is required. Endpoint, model and credential environment variable remain configurable; the platform runtime owns tool execution and telemetry.
+
+For the live KW hospital flow (uses fictional P018 and ends by cancelling the test appointment):
+
+```sh
+DEMO_BASE_URL=https://agent.kw.watteel.lab DEMO_IGNORE_HTTPS_ERRORS=true LIVE_MODEL_TESTS=true npm --prefix web run test:e2e -- tests/live.spec.ts
+```
+
+The live test checks exact calendar dates and slot IDs, booking, rescheduling, cancellation, and operator confirmation. The original `demo.spec.ts` suite targets the offline scripted provider.
