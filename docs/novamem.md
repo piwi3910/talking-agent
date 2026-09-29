@@ -32,7 +32,7 @@ Adding an agent or demo user requires provisioning its complete scope before usi
 
 The bounded asynchronous worker stores allowlisted preferences, recurring issues and successful resolutions. `Remember` is used for these already-extracted facts, not NovaMem's transcript extraction. Its content-hash dedup makes fixture replay and repeated facts idempotent. Seed memories belong only to fictional Telecom C001; hospital preferences are learned from explicit statements.
 
-Retrieval requests at most five facts, with keyword/vector relevance and no recency-only weighting. Session history remains separate. Errors and degraded retrieval are reported as unavailable, never as proof that no prior history exists. Failed writes do not emit a successful storage event.
+Retrieval requests at most five facts, with keyword/vector relevance and no recency-only weighting. A result must have a keyword match or vector similarity of at least `NOVAMEM_MIN_VECTOR_SCORE` (default `0.5`, calibrated against the current KW embeddings). Weak semantic matches are excluded even when the search returns them; recalibrate this threshold if the embedding model changes. Session history remains separate. Errors and degraded retrieval are reported as unavailable, never as proof that no prior history exists. Failed writes do not emit a successful storage event.
 
 Once acknowledged by NovaMem, facts survive app restarts. The pending write queue, conversations and mock backend state remain process-local. There is no automatic retention or bulk deletion policy in this demo; keep only fictional service facts. NovaMem's administrative deletion tools remain the operator's responsibility.
 

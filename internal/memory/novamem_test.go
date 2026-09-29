@@ -59,7 +59,7 @@ func TestNovaMemIsolationAndRestart(t *testing.T) {
 			}
 			entries := stored[in.Namespace]
 			if len(entries) == 0 {
-				stored[in.Namespace] = []novamem.Entry{{ID: "one", Score: 1, Content: in.Content, Namespace: in.Namespace, Source: in.Source, Metadata: in.Metadata}}
+				stored[in.Namespace] = []novamem.Entry{{ID: "one", Score: 1, Signals: &novamem.Signals{Keyword: 1}, Content: in.Content, Namespace: in.Namespace, Source: in.Source, Metadata: in.Metadata}}
 			}
 			fmt.Fprint(w, `{"id":"one","deduplicated":true}`)
 		case "/v1/search":
@@ -175,5 +175,36 @@ func TestNovaMemWriteRejected(t *testing.T) {
 	p, _ := NewNovaMem(NovaMemConfig{BaseURL: s.URL, Credentials: []ScopedCredential{{scope, "token"}}, Timeout: time.Second})
 	if err := p.Store(context.Background(), Memory{Scope: scope, Text: "User prefers morning appointments."}); err == nil {
 		t.Fatal("false storage success")
+	}
+}
+
+func TestNovaMemFiltersWeakSemanticMatches(t *testing.T) {
+	scope := isolationScopes()[0]
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		entries := []novamem.Entry{}
+		for i, signal := range []novamem.Signals{{Vector: 0.42}, {Vector: 0.6}, {Keyword: 1, Vector: 0.3}} {
+			entries = append(entries, novamem.Entry{ID: fmt.Sprint(i), Score: 0.4, Content: fmt.Sprint(i), Namespace: ScopeKey(scope), Source: novaSource, Signals: &signal, Metadata: map[string]any{"enterprise_demo": novaMetadata{Version: 1, Scope: scope}}})
+		}
+		json.NewEncoder(w).Encode(novamem.Results{Entries: entries})
+	}))
+	defer s.Close()
+	for _, cutoff := range []float64{0.5, 0.7} {
+		p, err := NewNovaMem(NovaMemConfig{BaseURL: s.URL, Credentials: []ScopedCredential{{scope, "token"}}, MinVectorScore: &cutoff})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := p.Retrieve(context.Background(), RetrieveRequest{Scope: scope, Query: "appointment"})
+		want := 2
+		if cutoff == 0.7 {
+			want = 1
+		}
+		if err != nil || len(got) != want {
+			t.Fatal(got, err)
+		}
+		for _, m := range got {
+			if m.Text == "0" {
+				t.Fatal("weak unrelated memory leaked into context")
+			}
+		}
 	}
 }

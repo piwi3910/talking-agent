@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -26,13 +27,18 @@ type ScopedCredential struct {
 }
 
 type NovaMemConfig struct {
-	BaseURL     string
-	Credentials []ScopedCredential
-	HTTPClient  *http.Client
-	Timeout     time.Duration
+	// Nil uses 0.5; calibrate for the deployed embedding model.
+	MinVectorScore *float64
+	BaseURL        string
+	Credentials    []ScopedCredential
+	HTTPClient     *http.Client
+	Timeout        time.Duration
 }
 
-type novaAdapter struct{ clients map[Scope]*novamem.Client }
+type novaAdapter struct {
+	clients        map[Scope]*novamem.Client
+	minVectorScore float64
+}
 
 func validateScope(s Scope) error {
 	for _, value := range []string{s.Tenant, s.Organization, s.Domain, s.Namespace, s.User} {
@@ -75,7 +81,14 @@ func NewNovaMem(cfg NovaMemConfig) (NovaMemProvider, error) {
 	if cfg.BaseURL == "" || len(cfg.Credentials) == 0 {
 		return NovaMemProvider{}, ErrNotConfigured
 	}
-	a := &novaAdapter{clients: map[Scope]*novamem.Client{}}
+	minScore := 0.5
+	if cfg.MinVectorScore != nil {
+		minScore = *cfg.MinVectorScore
+	}
+	if math.IsNaN(minScore) || minScore < 0 || minScore > 1 {
+		return NovaMemProvider{}, errors.New("NovaMem minimum vector score must be 0–1")
+	}
+	a := &novaAdapter{clients: map[Scope]*novamem.Client{}, minVectorScore: minScore}
 	tokens := map[string]bool{}
 	for _, credential := range cfg.Credentials {
 		if err := validateScope(credential.Scope); err != nil {
@@ -170,7 +183,7 @@ func (a *novaAdapter) Retrieve(ctx context.Context, r RetrieveRequest) ([]Memory
 		if err != nil || json.Unmarshal(raw, &meta) != nil || meta.Version != 1 || meta.Scope != r.Scope || entry.Namespace != ScopeKey(r.Scope) || entry.Project != nil || entry.Source != novaSource {
 			return nil, errors.New("NovaMem returned a memory outside the requested scope or format")
 		}
-		if entry.Score <= 0 || strings.TrimSpace(entry.Content) == "" {
+		if entry.Score <= 0 || strings.TrimSpace(entry.Content) == "" || entry.Signals == nil || (entry.Signals.Keyword <= 0 && entry.Signals.Vector < a.minVectorScore) {
 			continue
 		}
 		if len(out) < limit {

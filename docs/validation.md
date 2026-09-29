@@ -35,3 +35,5 @@ KW deployment verification on 2026-09-29:
 - Forty separate NovaMem accounts provisioned for the twenty customers and twenty patients. No admin credential is mounted in the app.
 - Opt-in live suite passed against six separate validation accounts: durable write/read, exact-fact dedup, provider reconstruction, all five scope dimensions and cleanup of the test fact.
 - Unit tests reject unprovisioned identities, shared tokens, foreign metadata, degraded responses and rejected writes. Runtime tests verify that a failed lookup is explained to the model as unavailable rather than no history.
+- A hospital preference was stored through the public SSE API, the app pod was replaced through Sync (new UID confirmed), and P006 recalled it in a fresh conversation. P007 and Telecom C001 did not receive that preference.
+- Live score inspection identified unrelated telecom hits at vector similarity 0.36–0.42. A configurable cutoff now rejects those weak matches while preserving keyword hits and stronger semantic matches.

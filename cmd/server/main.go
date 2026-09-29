@@ -76,7 +76,15 @@ func run() error {
 		if e != nil {
 			return e
 		}
-		mem, e = memory.NewNovaMem(memory.NovaMemConfig{BaseURL: os.Getenv("NOVAMEM_BASE_URL"), Credentials: credentials, Timeout: 5 * time.Second})
+		var minScore *float64
+		if raw := os.Getenv("NOVAMEM_MIN_VECTOR_SCORE"); raw != "" {
+			score, parseErr := strconv.ParseFloat(raw, 64)
+			if parseErr != nil {
+				return fmt.Errorf("invalid NOVAMEM_MIN_VECTOR_SCORE")
+			}
+			minScore = &score
+		}
+		mem, e = memory.NewNovaMem(memory.NovaMemConfig{MinVectorScore: minScore, BaseURL: os.Getenv("NOVAMEM_BASE_URL"), Credentials: credentials, Timeout: 5 * time.Second})
 		if e != nil {
 			return e
 		}
