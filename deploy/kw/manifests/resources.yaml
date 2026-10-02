@@ -6,7 +6,7 @@
     "namespace": "enterprise-ai-demo",
     "labels": {
       "app.kubernetes.io/name": "enterprise-ai-demo",
-      "app.kubernetes.io/version": "phase2-voice-20260929"
+      "app.kubernetes.io/version": "sip-voice-settings-20261002"
     }
   },
   "spec": {
@@ -24,7 +24,7 @@
       "metadata": {
         "labels": {
           "app.kubernetes.io/name": "enterprise-ai-demo",
-          "app.kubernetes.io/version": "phase2-voice-20260929"
+          "app.kubernetes.io/version": "sip-voice-settings-20261002"
         },
         "annotations": {
           "enterprise-ai-demo/memory-persistence-check": "20260929-1"
@@ -45,7 +45,7 @@
         "containers": [
           {
             "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:a05fc46e7654b7fc743482748c3b33c4ad0b7872da221a60ef6f402eec7c4189",
+            "image": "192.168.10.131/enterprise-ai-demo@sha256:db8c726c8801674814d9bdad6e2a13b704fcdc4d27123624fa981ad55ca85bb9",
             "imagePullPolicy": "IfNotPresent",
             "ports": [
               {
@@ -54,6 +54,7 @@
               }
             ],
             "env": [
+ {"name":"PHONE_SETTINGS_FILE","value":"/app/var/phone-settings.json"},
  {"name":"LLM_DISABLE_THINKING","value":"true"},
  {"name":"STT_URL","value":"http://speech-stt.enterprise-ai-demo.svc.cluster.local"},
  {"name":"TTS_URL","value":"http://speech-tts.enterprise-ai-demo.svc.cluster.local"},
@@ -146,6 +147,7 @@
               "failureThreshold": 3
             },
             "volumeMounts": [
+ {"name":"phone-settings","mountPath":"/app/var"},
               {
                 "name": "novamem-identities",
                 "mountPath": "/run/secrets/novamem",
@@ -155,6 +157,7 @@
           }
         ],
         "volumes": [
+ {"name":"phone-settings","persistentVolumeClaim":{"claimName":"phone-settings"}},
           {
             "name": "novamem-identities",
             "secret": {

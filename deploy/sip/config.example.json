@@ -1,0 +1,14 @@
+{
+  "bind_host": "0.0.0.0",
+  "port": 5060,
+  "advertise_ip": "192.0.2.10",
+  "rtp_start": 10000,
+  "rtp_end": 10200,
+  "max_calls": 32,
+  "allowed_peers": ["192.0.2.20/32"],
+  "numbers": {
+    "500": "telecom-support",
+    "501": "hospital-services",
+    "502": "school-services"
+  }
+}

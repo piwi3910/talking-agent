@@ -59,3 +59,7 @@ DEMO_IGNORE_HTTPS_ERRORS=true LIVE_MODEL_TESTS=true npm --prefix web run test:e2
 ```
 
 The browser override accommodates the lab CA in an isolated test browser. Separately verify the real certificate with the CA-pinned curl command above. These tests modify fictional data; use a fresh deployment when reproducing the original scenarios.
+
+## Phone settings and SIP
+
+The `/settings` page assigns numbers and optional demo accounts per persona. Settings persist on the `phone-settings` PVC at `/app/var/phone-settings.json`, even when a new image restarts the pod. The namespace-scoped Sync bootstrap Role includes PVC management. See [Hello SIP integration](../sip/README.md) for listener networking and voice approvals.

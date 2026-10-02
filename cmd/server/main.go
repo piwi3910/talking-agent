@@ -13,6 +13,7 @@ import (
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/skills"
 	"enterprise-ai-demo/internal/speech"
+	"enterprise-ai-demo/internal/telephony"
 	"enterprise-ai-demo/internal/tools"
 	"fmt"
 	"log/slog"
@@ -177,7 +178,27 @@ func run() error {
 		voices[id] = ref
 	}
 	app := &api.API{Voices: voices, Speech: &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	var sipCfg telephony.Config
+	if path := os.Getenv("SIP_CONFIG_FILE"); path != "" {
+		sipCfg, err = telephony.Load(path, agents)
+		if err != nil {
+			return fmt.Errorf("SIP configuration: %w", err)
+		}
+	}
+	phoneSettings, err := telephony.OpenSettings(env("PHONE_SETTINGS_FILE", "var/phone-settings.json"), agents, sipCfg.Numbers)
+	if err != nil {
+		return fmt.Errorf("phone settings: %w", err)
+	}
+	app.PhoneSettings = phoneSettings
+	var sipDone chan error
+	if os.Getenv("SIP_CONFIG_FILE") != "" {
+		phone := &telephony.Server{Config: sipCfg, Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voices}
+		sipDone = make(chan error, 1)
+		go func() { sipDone <- phone.Run(ctx) }()
+		defer func() { stop(); <-sipDone }()
+	}
 	server := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
+	defer server.Close()
 	serverErrors := make(chan error, 1)
 	go func() {
 		slog.Info("demo ready", "address", server.Addr, "llm", mode, "memory", mem.Name())
@@ -185,6 +206,12 @@ func run() error {
 	}()
 	select {
 	case <-ctx.Done():
+	case e := <-sipDone:
+		// Preserve the result for the shutdown join.
+		sipDone <- e
+		if e != nil {
+			return e
+		}
 	case e := <-serverErrors:
 		if e != http.ErrServerClosed {
 			return e

@@ -79,3 +79,6 @@ func (s *Store) Create(a *config.Agent, user string) *Session {
 	return x
 }
 func (s *Store) Get(id string) *Session { s.mu.RLock(); defer s.mu.RUnlock(); return s.items[id] }
+
+// Delete releases a transport-owned session after its call worker finishes.
+func (s *Store) Delete(id string) { s.mu.Lock(); defer s.mu.Unlock(); delete(s.items, id) }

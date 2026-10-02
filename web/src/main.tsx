@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
 import { Voice } from './voice';
+import { PhoneSettings } from './phone-settings';
 
 type RecordItem = { id: string; name: string; description?: string };
 type Tool = { name: string; description: string; mutation: boolean };
@@ -20,7 +21,8 @@ function actionLabel(tool: string) {
   return labels[tool] || 'Confirm this change?';
 }
 function App() {
-  const [tab, setTab] = useState('personas');
+  const [tab, setTab] = useState(location.pathname === '/settings' ? 'settings' : 'personas');
+  function selectTab(value:string) { setTab(value); history.replaceState(null,'',value==='settings'?'/settings':'/'); }
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Voice off');
@@ -141,11 +143,11 @@ function App() {
   const displayEvents = events.filter(e => e.type !== 'agent.response.delta').slice(-60).reverse();
   const brand = agent?.config.branding || {};
   const user = agent?.users.find(u => u.id === userID);
-  const tabs = ['personas', 'activity', 'capabilities', 'voice'];
-  return <div className={`app ${playground ? '' : 'customer-only'}`} style={{ '--accent': brand.color || '#2764d8' } as React.CSSProperties}>
+  const tabs = ['personas', 'activity', 'capabilities', 'voice', 'settings'];
+  return <div className={`app ${playground ? '' : 'customer-only'} ${tab === 'settings' ? 'settings-page' : ''}`} style={{ '--accent': brand.color || '#2764d8' } as React.CSSProperties}>
     <main className="workspace">
       <section className="customer-experience" aria-label="Customer experience">
-        <header className="brand-header"><div className="brand-lockup"><div className="brand-icon" aria-hidden="true">{brand.mark || 'N'}</div><div><strong>{agent?.config.organization || 'Welcome'}</strong><span>{brand.tagline || 'Here to help'}</span></div></div><button className="playground-toggle" onClick={() => setPlayground(!playground)} aria-expanded={playground} aria-controls="playground">{playground ? 'Hide playground' : 'Open playground'} <span aria-hidden="true">☷</span></button></header>
+        <header className="brand-header"><div className="brand-lockup"><div className="brand-icon" aria-hidden="true">{brand.mark || 'N'}</div><div><strong>{agent?.config.organization || 'Welcome'}</strong><span>{brand.tagline || 'Here to help'}</span></div></div><button className="settings-link" onClick={()=>{setPlayground(true);selectTab('settings');}}>Settings</button><button className="playground-toggle" onClick={() => setPlayground(!playground)} aria-expanded={playground} aria-controls="playground">{playground ? 'Hide playground' : 'Open playground'} <span aria-hidden="true">☷</span></button></header>
         <div className="customer-stage">
           <div className="service-heading"><span className="eyebrow">{brand.service_label || 'CUSTOMER SUPPORT'}</span><h1>{brand.headline || 'How can we help you today?'}</h1><p>{brand.description || 'A little help, whenever you need it.'}</p></div>
           <section className="conversation" aria-label="Support chat">
@@ -170,8 +172,8 @@ function App() {
         </div>
       </section>
       <aside id="playground" className="playground" hidden={!playground} aria-label="Agent playground">
-        <div className="playground-header"><div><span className="eyebrow">OPERATOR WORKSPACE</span><h2>Agent playground</h2></div><span className="lab-badge">LAB</span></div>
-        <div className="tabs" role="tablist" aria-label="Playground tabs">{tabs.map(t => <button id={`tab-${t}`} key={t} role="tab" aria-selected={tab === t} aria-controls={`panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)} onKeyDown={e => { const offset = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (offset) { e.preventDefault(); const next = tabs[(tabs.indexOf(t) + offset + tabs.length) % tabs.length]; setTab(next); document.getElementById(`tab-${next}`)?.focus(); } }}>{t}</button>)}</div>
+        <div className="playground-header"><div><span className="eyebrow">OPERATOR WORKSPACE</span><h2>{tab === 'settings' ? 'Settings' : 'Agent playground'}</h2></div>{tab === 'settings' ? <button onClick={()=>selectTab('personas')}>Back to conversation</button> : <span className="lab-badge">LAB</span>}</div>
+        <div className="tabs" role="tablist" aria-label="Playground tabs">{tabs.map(t => <button id={`tab-${t}`} key={t} role="tab" aria-selected={tab === t} aria-controls={`panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => selectTab(t)} onKeyDown={e => { const offset = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (offset) { e.preventDefault(); const next = tabs[(tabs.indexOf(t) + offset + tabs.length) % tabs.length]; selectTab(next); document.getElementById(`tab-${next}`)?.focus(); } }}>{t}</button>)}</div>
         <section className="live-metrics" aria-label="Live latency metrics"><div className="section-heading"><h3>Live latency</h3><span className="pill">{busy?'RUNNING':'LATEST'}</span></div><div className="timing-grid">{liveMetrics.map(([name,value])=><div key={name}><span>{name}</span><b>{typeof value==='number'?`${Math.round(value)} ms`:'—'}</b></div>)}</div><details><summary>Browser audio timings</summary>{Object.entries(browserMetrics).map(([name,ms])=><div className="tool-row" key={name}><span>{name}</span><b>{ms} ms</b></div>)}<p className="quiet">Playback timing is a software estimate, not an acoustic measurement. Server values show the latest stage; tool timings are in Activity.</p></details></section>
         <div className="playground-content">
           <div id="panel-personas" role="tabpanel" aria-labelledby="tab-personas" hidden={tab !== 'personas'}>
@@ -191,6 +193,7 @@ function App() {
             <section><h3>Skills & tools</h3><p className="muted">Capabilities loaded from this agent’s configuration.</p>{Object.entries(agent?.skills || {}).map(([id, s]) => <details className="skill" key={id}><summary><strong>{id}</strong><span>{s.tools.length} tools</span></summary><p>{s.description}</p>{s.tools.map(t => <div className="capability" key={t.name}><code>{t.name}</code>{t.mutation && <span className="pill">Confirmation</span>}<p>{t.description}</p></div>)}</details>)}</section>
             <section><h3>Knowledge</h3>{agent?.config.knowledge.map(k => <p className="knowledge-file" key={k}>{k}</p>)}</section><section><h3>Memory isolation</h3><p className="muted">Organization → agent → namespace → selected user</p><code>{agent?.config.memory.namespace}</code></section>
           </div>
+          <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden={tab !== 'settings'}>{tab === 'settings' && <PhoneSettings personas={agents}/>}</div>
           <div id="panel-voice" role="tabpanel" aria-labelledby="tab-voice" hidden={tab !== 'voice'}><section><span className="pill">PHASE 2</span><h3 className="voice-heading">Voice workspace</h3><p className="muted">Turn on voice in the chat and allow microphone access. Speak naturally; a short pause sends your message. You can interrupt a spoken reply.</p><dl className="properties"><dt>Recognition</dt><dd>Nemotron 3.5 ASR · live PCM</dd><dt>Speech</dt><dd>Breeze TTS 2 · streamed PCM</dd><dt>Status</dt><dd>{voiceEnabled?voiceStatus:'Speech not configured'}</dd><dt>Language</dt><dd>English</dd><dt>Noise handling</dt><dd>Browser noise suppression + speech detection</dd><dt>End of turn</dt><dd>700 ms non-speech · Silero v6</dd></dl><p className="quiet">{agent?.config.name}’s fixed reference voice</p>{voiceEnabled && agentID && <audio key={agentID} controls preload="none" src={`/api/agents/${agentID}/voice-reference`} style={{width:"100%",marginTop:8}}/>}<label className="speech-toggle"><input type="checkbox" checked={spoken} onChange={e=>{setSpoken(e.target.checked);voice.current?.enableOutput(e.target.checked);}}/> Speak agent replies</label><label className="speech-toggle"><input type="checkbox" checked={cuesOn} onChange={e=>{setCuesOn(e.target.checked);voice.current?.enableCues(e.target.checked);}}/> Brief prerecorded acknowledgements</label><p className="quiet">Headphones help avoid speaker echo triggering an interruption. Account changes still require the confirmation button. Each persona uses one fixed synthetic reference voice across all sentences.</p></section></div>
         </div>
         <div className="playground-footer"><span className="runtime-dot"/> One platform. Every experience.</div>

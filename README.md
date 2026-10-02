@@ -115,3 +115,7 @@ Select **Willowbrook School** in the Personas tab to talk with Emma. The school 
 School tools cover family profiles, programs and annual tuition, application progress, admissions enquiries, campus tour availability/booking/cancellation, school information and reception messages. Twenty fictional families include a new applicant (F001) and an application awaiting documents (F002). Weekday tour slots are generated relative to startup; booking is atomic and cancellation checks family ownership. Demo records reset on rollout; NovaMem preferences persist. No real admission decisions, messages to school staff, document uploads or collection authorizations occur.
 
 Before deploying new identities, provision memory using `python3 deploy/kw/provision-memory.py --scopes-file <scopes.json>` with an array of tenant/organization/domain/namespace/user objects. This reuses existing cluster credentials without embedding secrets. School live UI verification: `SCHOOL_LIVE_TESTS=true DEMO_BASE_URL=https://agent.kw.watteel.lab npx playwright test tests/school.spec.ts` from `web/`.
+
+## SIP phones and Hello PBX
+
+The optional SIP/RTP endpoint routes configurable phone numbers to agents and creates an independent conversation per call. See [Hello integration and deployment configuration](deploy/sip/README.md).

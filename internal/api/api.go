@@ -7,6 +7,7 @@ import (
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/speech"
+	"enterprise-ai-demo/internal/telephony"
 	"enterprise-ai-demo/internal/tools"
 	"fmt"
 	"io"
@@ -21,17 +22,18 @@ import (
 )
 
 type API struct {
-	Voices      map[string]*speech.Reference
-	Speech      *speech.Client
-	VoiceActive sync.Map
-	Runtime     *agent.Runtime
-	Agents      map[string]*config.Agent
-	Sessions    *session.Store
-	BackendURL  string
-	BackendURLs map[string]string
-	Root        context.Context
-	Workers     sync.WaitGroup
-	WebDir      string
+	PhoneSettings *telephony.Settings
+	Voices        map[string]*speech.Reference
+	Speech        *speech.Client
+	VoiceActive   sync.Map
+	Runtime       *agent.Runtime
+	Agents        map[string]*config.Agent
+	Sessions      *session.Store
+	BackendURL    string
+	BackendURLs   map[string]string
+	Root          context.Context
+	Workers       sync.WaitGroup
+	WebDir        string
 }
 
 func write(w http.ResponseWriter, status int, v any) {
@@ -80,6 +82,7 @@ func (a *API) users(ctx context.Context, config *config.Agent) ([]tools.Record, 
 func (a *API) Handler() http.Handler {
 	m := http.NewServeMux()
 	a.voiceRoutes(m)
+	a.settingsRoutes(m)
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]string{"status": "ok", "memory": a.Runtime.Memory.Name()})
 	})

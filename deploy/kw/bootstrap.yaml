@@ -11,7 +11,7 @@ metadata:
   namespace: enterprise-ai-demo
 rules:
   - apiGroups: [""]
-    resources: [services, configmaps]
+    resources: [services, configmaps, persistentvolumeclaims]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [apps]
     resources: [deployments]
