@@ -6,7 +6,7 @@
     "namespace": "enterprise-ai-demo",
     "labels": {
       "app.kubernetes.io/name": "enterprise-ai-demo",
-      "app.kubernetes.io/version": "sip-voice-settings-20261002"
+      "app.kubernetes.io/version": "sip-gateway-settings-20261002"
     }
   },
   "spec": {
@@ -24,7 +24,7 @@
       "metadata": {
         "labels": {
           "app.kubernetes.io/name": "enterprise-ai-demo",
-          "app.kubernetes.io/version": "sip-voice-settings-20261002"
+          "app.kubernetes.io/version": "sip-gateway-settings-20261002"
         },
         "annotations": {
           "enterprise-ai-demo/memory-persistence-check": "20260929-1"
@@ -45,7 +45,7 @@
         "containers": [
           {
             "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:db8c726c8801674814d9bdad6e2a13b704fcdc4d27123624fa981ad55ca85bb9",
+            "image": "192.168.10.131/enterprise-ai-demo@sha256:8723d1d0a12f4da376b270c3453bbbea1c703191635d5f1cbd7cf2fbfca1e2c3",
             "imagePullPolicy": "IfNotPresent",
             "ports": [
               {
@@ -54,6 +54,9 @@
               }
             ],
             "env": [
+ {"name":"SIP_TRUSTED_FORWARDERS","value":"192.168.10.101/32,192.168.10.102/32,192.168.10.103/32,192.168.10.104/32,192.168.10.105/32,192.168.10.106/32,192.168.10.107/32,192.168.10.108/32"},
+ {"name":"SIP_ADVERTISE_IP","value":"192.168.10.142"},
+ {"name":"SIP_GATEWAY_FILE","value":"/app/var/sip-gateway.json"},
  {"name":"PHONE_SETTINGS_FILE","value":"/app/var/phone-settings.json"},
  {"name":"LLM_DISABLE_THINKING","value":"true"},
  {"name":"STT_URL","value":"http://speech-stt.enterprise-ai-demo.svc.cluster.local"},

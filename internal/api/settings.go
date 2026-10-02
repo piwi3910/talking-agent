@@ -7,6 +7,50 @@ import (
 )
 
 func (a *API) settingsRoutes(m *http.ServeMux) {
+	m.HandleFunc("GET /api/settings/sip", func(w http.ResponseWriter, r *http.Request) {
+		if a.PhoneGateway == nil {
+			fail(w, 503, "Gateway unavailable")
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		write(w, 200, a.PhoneGateway.Snapshot())
+	})
+	m.HandleFunc("POST /api/settings/sip", func(w http.ResponseWriter, r *http.Request) {
+		if a.PhoneGateway == nil {
+			fail(w, 503, "Gateway unavailable")
+			return
+		}
+		var in telephony.GatewayConfig
+		if decode(w, r, &in) != nil {
+			fail(w, 400, "Invalid gateway settings")
+			return
+		}
+		if err := a.PhoneGateway.Save(in); err != nil {
+			fail(w, 400, err.Error())
+			return
+		}
+		write(w, 200, a.PhoneGateway.Snapshot())
+	})
+	for _, action := range []string{"connect", "disconnect"} {
+		m.HandleFunc("POST /api/settings/sip/"+action, func(w http.ResponseWriter, r *http.Request) {
+			if a.PhoneGateway == nil {
+				fail(w, 503, "Gateway unavailable")
+				return
+			}
+			var err error
+			if action == "connect" {
+				err = a.PhoneGateway.Connect()
+			} else {
+				err = a.PhoneGateway.Disconnect()
+			}
+			if err != nil {
+				fail(w, 400, err.Error())
+				return
+			}
+			write(w, 200, a.PhoneGateway.Snapshot())
+		})
+	}
+
 	m.HandleFunc("GET /api/settings/phone", func(w http.ResponseWriter, r *http.Request) {
 		if a.PhoneSettings == nil {
 			fail(w, 503, "Phone settings unavailable")

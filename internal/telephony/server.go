@@ -21,6 +21,8 @@ import (
 )
 
 type Server struct {
+	Ready     func(*sipgo.UserAgent) error
+	Stopping  func()
 	Settings  *Settings
 	Config    Config
 	Agents    map[string]*config.Agent
@@ -115,12 +117,20 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if s.Ready != nil {
+		if err := s.Ready(ua); err != nil {
+			return err
+		}
+	}
 	if s.Settings != nil {
 		s.Settings.SetEnabled(true)
 		defer s.Settings.SetEnabled(false)
 	}
 	slog.Info("SIP ready", "port", s.Config.Port, "routes", len(s.Config.Numbers), "max_calls", s.Config.MaxCalls)
 	<-ctx.Done()
+	if s.Stopping != nil {
+		s.Stopping()
+	}
 	s.lifecycle.Lock()
 	s.closing = true
 	s.lifecycle.Unlock()

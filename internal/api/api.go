@@ -22,6 +22,7 @@ import (
 )
 
 type API struct {
+	PhoneGateway  *telephony.Gateway
 	PhoneSettings *telephony.Settings
 	Voices        map[string]*speech.Reference
 	Speech        *speech.Client

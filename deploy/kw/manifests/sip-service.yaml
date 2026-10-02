@@ -1,0 +1,1241 @@
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "talking-agent-sip",
+    "namespace": "enterprise-ai-demo",
+    "labels": {
+      "app.kubernetes.io/name": "enterprise-ai-demo",
+      "lb.kw.watteel.lab/announcer": "cilium"
+    },
+    "annotations": {
+      "lbipam.cilium.io/ips": "192.168.10.142"
+    }
+  },
+  "spec": {
+    "type": "LoadBalancer",
+    "loadBalancerClass": "io.cilium/l2-announcer",
+    "externalTrafficPolicy": "Cluster",
+    "allocateLoadBalancerNodePorts": false,
+    "selector": {
+      "app.kubernetes.io/name": "enterprise-ai-demo"
+    },
+    "ports": [
+      {
+        "name": "sip-udp",
+        "protocol": "UDP",
+        "port": 5060,
+        "targetPort": 5060
+      },
+      {
+        "name": "sip-tcp",
+        "protocol": "TCP",
+        "port": 5060,
+        "targetPort": 5060
+      },
+      {
+        "name": "rtp-10000",
+        "protocol": "UDP",
+        "port": 10000,
+        "targetPort": 10000
+      },
+      {
+        "name": "rtp-10001",
+        "protocol": "UDP",
+        "port": 10001,
+        "targetPort": 10001
+      },
+      {
+        "name": "rtp-10002",
+        "protocol": "UDP",
+        "port": 10002,
+        "targetPort": 10002
+      },
+      {
+        "name": "rtp-10003",
+        "protocol": "UDP",
+        "port": 10003,
+        "targetPort": 10003
+      },
+      {
+        "name": "rtp-10004",
+        "protocol": "UDP",
+        "port": 10004,
+        "targetPort": 10004
+      },
+      {
+        "name": "rtp-10005",
+        "protocol": "UDP",
+        "port": 10005,
+        "targetPort": 10005
+      },
+      {
+        "name": "rtp-10006",
+        "protocol": "UDP",
+        "port": 10006,
+        "targetPort": 10006
+      },
+      {
+        "name": "rtp-10007",
+        "protocol": "UDP",
+        "port": 10007,
+        "targetPort": 10007
+      },
+      {
+        "name": "rtp-10008",
+        "protocol": "UDP",
+        "port": 10008,
+        "targetPort": 10008
+      },
+      {
+        "name": "rtp-10009",
+        "protocol": "UDP",
+        "port": 10009,
+        "targetPort": 10009
+      },
+      {
+        "name": "rtp-10010",
+        "protocol": "UDP",
+        "port": 10010,
+        "targetPort": 10010
+      },
+      {
+        "name": "rtp-10011",
+        "protocol": "UDP",
+        "port": 10011,
+        "targetPort": 10011
+      },
+      {
+        "name": "rtp-10012",
+        "protocol": "UDP",
+        "port": 10012,
+        "targetPort": 10012
+      },
+      {
+        "name": "rtp-10013",
+        "protocol": "UDP",
+        "port": 10013,
+        "targetPort": 10013
+      },
+      {
+        "name": "rtp-10014",
+        "protocol": "UDP",
+        "port": 10014,
+        "targetPort": 10014
+      },
+      {
+        "name": "rtp-10015",
+        "protocol": "UDP",
+        "port": 10015,
+        "targetPort": 10015
+      },
+      {
+        "name": "rtp-10016",
+        "protocol": "UDP",
+        "port": 10016,
+        "targetPort": 10016
+      },
+      {
+        "name": "rtp-10017",
+        "protocol": "UDP",
+        "port": 10017,
+        "targetPort": 10017
+      },
+      {
+        "name": "rtp-10018",
+        "protocol": "UDP",
+        "port": 10018,
+        "targetPort": 10018
+      },
+      {
+        "name": "rtp-10019",
+        "protocol": "UDP",
+        "port": 10019,
+        "targetPort": 10019
+      },
+      {
+        "name": "rtp-10020",
+        "protocol": "UDP",
+        "port": 10020,
+        "targetPort": 10020
+      },
+      {
+        "name": "rtp-10021",
+        "protocol": "UDP",
+        "port": 10021,
+        "targetPort": 10021
+      },
+      {
+        "name": "rtp-10022",
+        "protocol": "UDP",
+        "port": 10022,
+        "targetPort": 10022
+      },
+      {
+        "name": "rtp-10023",
+        "protocol": "UDP",
+        "port": 10023,
+        "targetPort": 10023
+      },
+      {
+        "name": "rtp-10024",
+        "protocol": "UDP",
+        "port": 10024,
+        "targetPort": 10024
+      },
+      {
+        "name": "rtp-10025",
+        "protocol": "UDP",
+        "port": 10025,
+        "targetPort": 10025
+      },
+      {
+        "name": "rtp-10026",
+        "protocol": "UDP",
+        "port": 10026,
+        "targetPort": 10026
+      },
+      {
+        "name": "rtp-10027",
+        "protocol": "UDP",
+        "port": 10027,
+        "targetPort": 10027
+      },
+      {
+        "name": "rtp-10028",
+        "protocol": "UDP",
+        "port": 10028,
+        "targetPort": 10028
+      },
+      {
+        "name": "rtp-10029",
+        "protocol": "UDP",
+        "port": 10029,
+        "targetPort": 10029
+      },
+      {
+        "name": "rtp-10030",
+        "protocol": "UDP",
+        "port": 10030,
+        "targetPort": 10030
+      },
+      {
+        "name": "rtp-10031",
+        "protocol": "UDP",
+        "port": 10031,
+        "targetPort": 10031
+      },
+      {
+        "name": "rtp-10032",
+        "protocol": "UDP",
+        "port": 10032,
+        "targetPort": 10032
+      },
+      {
+        "name": "rtp-10033",
+        "protocol": "UDP",
+        "port": 10033,
+        "targetPort": 10033
+      },
+      {
+        "name": "rtp-10034",
+        "protocol": "UDP",
+        "port": 10034,
+        "targetPort": 10034
+      },
+      {
+        "name": "rtp-10035",
+        "protocol": "UDP",
+        "port": 10035,
+        "targetPort": 10035
+      },
+      {
+        "name": "rtp-10036",
+        "protocol": "UDP",
+        "port": 10036,
+        "targetPort": 10036
+      },
+      {
+        "name": "rtp-10037",
+        "protocol": "UDP",
+        "port": 10037,
+        "targetPort": 10037
+      },
+      {
+        "name": "rtp-10038",
+        "protocol": "UDP",
+        "port": 10038,
+        "targetPort": 10038
+      },
+      {
+        "name": "rtp-10039",
+        "protocol": "UDP",
+        "port": 10039,
+        "targetPort": 10039
+      },
+      {
+        "name": "rtp-10040",
+        "protocol": "UDP",
+        "port": 10040,
+        "targetPort": 10040
+      },
+      {
+        "name": "rtp-10041",
+        "protocol": "UDP",
+        "port": 10041,
+        "targetPort": 10041
+      },
+      {
+        "name": "rtp-10042",
+        "protocol": "UDP",
+        "port": 10042,
+        "targetPort": 10042
+      },
+      {
+        "name": "rtp-10043",
+        "protocol": "UDP",
+        "port": 10043,
+        "targetPort": 10043
+      },
+      {
+        "name": "rtp-10044",
+        "protocol": "UDP",
+        "port": 10044,
+        "targetPort": 10044
+      },
+      {
+        "name": "rtp-10045",
+        "protocol": "UDP",
+        "port": 10045,
+        "targetPort": 10045
+      },
+      {
+        "name": "rtp-10046",
+        "protocol": "UDP",
+        "port": 10046,
+        "targetPort": 10046
+      },
+      {
+        "name": "rtp-10047",
+        "protocol": "UDP",
+        "port": 10047,
+        "targetPort": 10047
+      },
+      {
+        "name": "rtp-10048",
+        "protocol": "UDP",
+        "port": 10048,
+        "targetPort": 10048
+      },
+      {
+        "name": "rtp-10049",
+        "protocol": "UDP",
+        "port": 10049,
+        "targetPort": 10049
+      },
+      {
+        "name": "rtp-10050",
+        "protocol": "UDP",
+        "port": 10050,
+        "targetPort": 10050
+      },
+      {
+        "name": "rtp-10051",
+        "protocol": "UDP",
+        "port": 10051,
+        "targetPort": 10051
+      },
+      {
+        "name": "rtp-10052",
+        "protocol": "UDP",
+        "port": 10052,
+        "targetPort": 10052
+      },
+      {
+        "name": "rtp-10053",
+        "protocol": "UDP",
+        "port": 10053,
+        "targetPort": 10053
+      },
+      {
+        "name": "rtp-10054",
+        "protocol": "UDP",
+        "port": 10054,
+        "targetPort": 10054
+      },
+      {
+        "name": "rtp-10055",
+        "protocol": "UDP",
+        "port": 10055,
+        "targetPort": 10055
+      },
+      {
+        "name": "rtp-10056",
+        "protocol": "UDP",
+        "port": 10056,
+        "targetPort": 10056
+      },
+      {
+        "name": "rtp-10057",
+        "protocol": "UDP",
+        "port": 10057,
+        "targetPort": 10057
+      },
+      {
+        "name": "rtp-10058",
+        "protocol": "UDP",
+        "port": 10058,
+        "targetPort": 10058
+      },
+      {
+        "name": "rtp-10059",
+        "protocol": "UDP",
+        "port": 10059,
+        "targetPort": 10059
+      },
+      {
+        "name": "rtp-10060",
+        "protocol": "UDP",
+        "port": 10060,
+        "targetPort": 10060
+      },
+      {
+        "name": "rtp-10061",
+        "protocol": "UDP",
+        "port": 10061,
+        "targetPort": 10061
+      },
+      {
+        "name": "rtp-10062",
+        "protocol": "UDP",
+        "port": 10062,
+        "targetPort": 10062
+      },
+      {
+        "name": "rtp-10063",
+        "protocol": "UDP",
+        "port": 10063,
+        "targetPort": 10063
+      },
+      {
+        "name": "rtp-10064",
+        "protocol": "UDP",
+        "port": 10064,
+        "targetPort": 10064
+      },
+      {
+        "name": "rtp-10065",
+        "protocol": "UDP",
+        "port": 10065,
+        "targetPort": 10065
+      },
+      {
+        "name": "rtp-10066",
+        "protocol": "UDP",
+        "port": 10066,
+        "targetPort": 10066
+      },
+      {
+        "name": "rtp-10067",
+        "protocol": "UDP",
+        "port": 10067,
+        "targetPort": 10067
+      },
+      {
+        "name": "rtp-10068",
+        "protocol": "UDP",
+        "port": 10068,
+        "targetPort": 10068
+      },
+      {
+        "name": "rtp-10069",
+        "protocol": "UDP",
+        "port": 10069,
+        "targetPort": 10069
+      },
+      {
+        "name": "rtp-10070",
+        "protocol": "UDP",
+        "port": 10070,
+        "targetPort": 10070
+      },
+      {
+        "name": "rtp-10071",
+        "protocol": "UDP",
+        "port": 10071,
+        "targetPort": 10071
+      },
+      {
+        "name": "rtp-10072",
+        "protocol": "UDP",
+        "port": 10072,
+        "targetPort": 10072
+      },
+      {
+        "name": "rtp-10073",
+        "protocol": "UDP",
+        "port": 10073,
+        "targetPort": 10073
+      },
+      {
+        "name": "rtp-10074",
+        "protocol": "UDP",
+        "port": 10074,
+        "targetPort": 10074
+      },
+      {
+        "name": "rtp-10075",
+        "protocol": "UDP",
+        "port": 10075,
+        "targetPort": 10075
+      },
+      {
+        "name": "rtp-10076",
+        "protocol": "UDP",
+        "port": 10076,
+        "targetPort": 10076
+      },
+      {
+        "name": "rtp-10077",
+        "protocol": "UDP",
+        "port": 10077,
+        "targetPort": 10077
+      },
+      {
+        "name": "rtp-10078",
+        "protocol": "UDP",
+        "port": 10078,
+        "targetPort": 10078
+      },
+      {
+        "name": "rtp-10079",
+        "protocol": "UDP",
+        "port": 10079,
+        "targetPort": 10079
+      },
+      {
+        "name": "rtp-10080",
+        "protocol": "UDP",
+        "port": 10080,
+        "targetPort": 10080
+      },
+      {
+        "name": "rtp-10081",
+        "protocol": "UDP",
+        "port": 10081,
+        "targetPort": 10081
+      },
+      {
+        "name": "rtp-10082",
+        "protocol": "UDP",
+        "port": 10082,
+        "targetPort": 10082
+      },
+      {
+        "name": "rtp-10083",
+        "protocol": "UDP",
+        "port": 10083,
+        "targetPort": 10083
+      },
+      {
+        "name": "rtp-10084",
+        "protocol": "UDP",
+        "port": 10084,
+        "targetPort": 10084
+      },
+      {
+        "name": "rtp-10085",
+        "protocol": "UDP",
+        "port": 10085,
+        "targetPort": 10085
+      },
+      {
+        "name": "rtp-10086",
+        "protocol": "UDP",
+        "port": 10086,
+        "targetPort": 10086
+      },
+      {
+        "name": "rtp-10087",
+        "protocol": "UDP",
+        "port": 10087,
+        "targetPort": 10087
+      },
+      {
+        "name": "rtp-10088",
+        "protocol": "UDP",
+        "port": 10088,
+        "targetPort": 10088
+      },
+      {
+        "name": "rtp-10089",
+        "protocol": "UDP",
+        "port": 10089,
+        "targetPort": 10089
+      },
+      {
+        "name": "rtp-10090",
+        "protocol": "UDP",
+        "port": 10090,
+        "targetPort": 10090
+      },
+      {
+        "name": "rtp-10091",
+        "protocol": "UDP",
+        "port": 10091,
+        "targetPort": 10091
+      },
+      {
+        "name": "rtp-10092",
+        "protocol": "UDP",
+        "port": 10092,
+        "targetPort": 10092
+      },
+      {
+        "name": "rtp-10093",
+        "protocol": "UDP",
+        "port": 10093,
+        "targetPort": 10093
+      },
+      {
+        "name": "rtp-10094",
+        "protocol": "UDP",
+        "port": 10094,
+        "targetPort": 10094
+      },
+      {
+        "name": "rtp-10095",
+        "protocol": "UDP",
+        "port": 10095,
+        "targetPort": 10095
+      },
+      {
+        "name": "rtp-10096",
+        "protocol": "UDP",
+        "port": 10096,
+        "targetPort": 10096
+      },
+      {
+        "name": "rtp-10097",
+        "protocol": "UDP",
+        "port": 10097,
+        "targetPort": 10097
+      },
+      {
+        "name": "rtp-10098",
+        "protocol": "UDP",
+        "port": 10098,
+        "targetPort": 10098
+      },
+      {
+        "name": "rtp-10099",
+        "protocol": "UDP",
+        "port": 10099,
+        "targetPort": 10099
+      },
+      {
+        "name": "rtp-10100",
+        "protocol": "UDP",
+        "port": 10100,
+        "targetPort": 10100
+      },
+      {
+        "name": "rtp-10101",
+        "protocol": "UDP",
+        "port": 10101,
+        "targetPort": 10101
+      },
+      {
+        "name": "rtp-10102",
+        "protocol": "UDP",
+        "port": 10102,
+        "targetPort": 10102
+      },
+      {
+        "name": "rtp-10103",
+        "protocol": "UDP",
+        "port": 10103,
+        "targetPort": 10103
+      },
+      {
+        "name": "rtp-10104",
+        "protocol": "UDP",
+        "port": 10104,
+        "targetPort": 10104
+      },
+      {
+        "name": "rtp-10105",
+        "protocol": "UDP",
+        "port": 10105,
+        "targetPort": 10105
+      },
+      {
+        "name": "rtp-10106",
+        "protocol": "UDP",
+        "port": 10106,
+        "targetPort": 10106
+      },
+      {
+        "name": "rtp-10107",
+        "protocol": "UDP",
+        "port": 10107,
+        "targetPort": 10107
+      },
+      {
+        "name": "rtp-10108",
+        "protocol": "UDP",
+        "port": 10108,
+        "targetPort": 10108
+      },
+      {
+        "name": "rtp-10109",
+        "protocol": "UDP",
+        "port": 10109,
+        "targetPort": 10109
+      },
+      {
+        "name": "rtp-10110",
+        "protocol": "UDP",
+        "port": 10110,
+        "targetPort": 10110
+      },
+      {
+        "name": "rtp-10111",
+        "protocol": "UDP",
+        "port": 10111,
+        "targetPort": 10111
+      },
+      {
+        "name": "rtp-10112",
+        "protocol": "UDP",
+        "port": 10112,
+        "targetPort": 10112
+      },
+      {
+        "name": "rtp-10113",
+        "protocol": "UDP",
+        "port": 10113,
+        "targetPort": 10113
+      },
+      {
+        "name": "rtp-10114",
+        "protocol": "UDP",
+        "port": 10114,
+        "targetPort": 10114
+      },
+      {
+        "name": "rtp-10115",
+        "protocol": "UDP",
+        "port": 10115,
+        "targetPort": 10115
+      },
+      {
+        "name": "rtp-10116",
+        "protocol": "UDP",
+        "port": 10116,
+        "targetPort": 10116
+      },
+      {
+        "name": "rtp-10117",
+        "protocol": "UDP",
+        "port": 10117,
+        "targetPort": 10117
+      },
+      {
+        "name": "rtp-10118",
+        "protocol": "UDP",
+        "port": 10118,
+        "targetPort": 10118
+      },
+      {
+        "name": "rtp-10119",
+        "protocol": "UDP",
+        "port": 10119,
+        "targetPort": 10119
+      },
+      {
+        "name": "rtp-10120",
+        "protocol": "UDP",
+        "port": 10120,
+        "targetPort": 10120
+      },
+      {
+        "name": "rtp-10121",
+        "protocol": "UDP",
+        "port": 10121,
+        "targetPort": 10121
+      },
+      {
+        "name": "rtp-10122",
+        "protocol": "UDP",
+        "port": 10122,
+        "targetPort": 10122
+      },
+      {
+        "name": "rtp-10123",
+        "protocol": "UDP",
+        "port": 10123,
+        "targetPort": 10123
+      },
+      {
+        "name": "rtp-10124",
+        "protocol": "UDP",
+        "port": 10124,
+        "targetPort": 10124
+      },
+      {
+        "name": "rtp-10125",
+        "protocol": "UDP",
+        "port": 10125,
+        "targetPort": 10125
+      },
+      {
+        "name": "rtp-10126",
+        "protocol": "UDP",
+        "port": 10126,
+        "targetPort": 10126
+      },
+      {
+        "name": "rtp-10127",
+        "protocol": "UDP",
+        "port": 10127,
+        "targetPort": 10127
+      },
+      {
+        "name": "rtp-10128",
+        "protocol": "UDP",
+        "port": 10128,
+        "targetPort": 10128
+      },
+      {
+        "name": "rtp-10129",
+        "protocol": "UDP",
+        "port": 10129,
+        "targetPort": 10129
+      },
+      {
+        "name": "rtp-10130",
+        "protocol": "UDP",
+        "port": 10130,
+        "targetPort": 10130
+      },
+      {
+        "name": "rtp-10131",
+        "protocol": "UDP",
+        "port": 10131,
+        "targetPort": 10131
+      },
+      {
+        "name": "rtp-10132",
+        "protocol": "UDP",
+        "port": 10132,
+        "targetPort": 10132
+      },
+      {
+        "name": "rtp-10133",
+        "protocol": "UDP",
+        "port": 10133,
+        "targetPort": 10133
+      },
+      {
+        "name": "rtp-10134",
+        "protocol": "UDP",
+        "port": 10134,
+        "targetPort": 10134
+      },
+      {
+        "name": "rtp-10135",
+        "protocol": "UDP",
+        "port": 10135,
+        "targetPort": 10135
+      },
+      {
+        "name": "rtp-10136",
+        "protocol": "UDP",
+        "port": 10136,
+        "targetPort": 10136
+      },
+      {
+        "name": "rtp-10137",
+        "protocol": "UDP",
+        "port": 10137,
+        "targetPort": 10137
+      },
+      {
+        "name": "rtp-10138",
+        "protocol": "UDP",
+        "port": 10138,
+        "targetPort": 10138
+      },
+      {
+        "name": "rtp-10139",
+        "protocol": "UDP",
+        "port": 10139,
+        "targetPort": 10139
+      },
+      {
+        "name": "rtp-10140",
+        "protocol": "UDP",
+        "port": 10140,
+        "targetPort": 10140
+      },
+      {
+        "name": "rtp-10141",
+        "protocol": "UDP",
+        "port": 10141,
+        "targetPort": 10141
+      },
+      {
+        "name": "rtp-10142",
+        "protocol": "UDP",
+        "port": 10142,
+        "targetPort": 10142
+      },
+      {
+        "name": "rtp-10143",
+        "protocol": "UDP",
+        "port": 10143,
+        "targetPort": 10143
+      },
+      {
+        "name": "rtp-10144",
+        "protocol": "UDP",
+        "port": 10144,
+        "targetPort": 10144
+      },
+      {
+        "name": "rtp-10145",
+        "protocol": "UDP",
+        "port": 10145,
+        "targetPort": 10145
+      },
+      {
+        "name": "rtp-10146",
+        "protocol": "UDP",
+        "port": 10146,
+        "targetPort": 10146
+      },
+      {
+        "name": "rtp-10147",
+        "protocol": "UDP",
+        "port": 10147,
+        "targetPort": 10147
+      },
+      {
+        "name": "rtp-10148",
+        "protocol": "UDP",
+        "port": 10148,
+        "targetPort": 10148
+      },
+      {
+        "name": "rtp-10149",
+        "protocol": "UDP",
+        "port": 10149,
+        "targetPort": 10149
+      },
+      {
+        "name": "rtp-10150",
+        "protocol": "UDP",
+        "port": 10150,
+        "targetPort": 10150
+      },
+      {
+        "name": "rtp-10151",
+        "protocol": "UDP",
+        "port": 10151,
+        "targetPort": 10151
+      },
+      {
+        "name": "rtp-10152",
+        "protocol": "UDP",
+        "port": 10152,
+        "targetPort": 10152
+      },
+      {
+        "name": "rtp-10153",
+        "protocol": "UDP",
+        "port": 10153,
+        "targetPort": 10153
+      },
+      {
+        "name": "rtp-10154",
+        "protocol": "UDP",
+        "port": 10154,
+        "targetPort": 10154
+      },
+      {
+        "name": "rtp-10155",
+        "protocol": "UDP",
+        "port": 10155,
+        "targetPort": 10155
+      },
+      {
+        "name": "rtp-10156",
+        "protocol": "UDP",
+        "port": 10156,
+        "targetPort": 10156
+      },
+      {
+        "name": "rtp-10157",
+        "protocol": "UDP",
+        "port": 10157,
+        "targetPort": 10157
+      },
+      {
+        "name": "rtp-10158",
+        "protocol": "UDP",
+        "port": 10158,
+        "targetPort": 10158
+      },
+      {
+        "name": "rtp-10159",
+        "protocol": "UDP",
+        "port": 10159,
+        "targetPort": 10159
+      },
+      {
+        "name": "rtp-10160",
+        "protocol": "UDP",
+        "port": 10160,
+        "targetPort": 10160
+      },
+      {
+        "name": "rtp-10161",
+        "protocol": "UDP",
+        "port": 10161,
+        "targetPort": 10161
+      },
+      {
+        "name": "rtp-10162",
+        "protocol": "UDP",
+        "port": 10162,
+        "targetPort": 10162
+      },
+      {
+        "name": "rtp-10163",
+        "protocol": "UDP",
+        "port": 10163,
+        "targetPort": 10163
+      },
+      {
+        "name": "rtp-10164",
+        "protocol": "UDP",
+        "port": 10164,
+        "targetPort": 10164
+      },
+      {
+        "name": "rtp-10165",
+        "protocol": "UDP",
+        "port": 10165,
+        "targetPort": 10165
+      },
+      {
+        "name": "rtp-10166",
+        "protocol": "UDP",
+        "port": 10166,
+        "targetPort": 10166
+      },
+      {
+        "name": "rtp-10167",
+        "protocol": "UDP",
+        "port": 10167,
+        "targetPort": 10167
+      },
+      {
+        "name": "rtp-10168",
+        "protocol": "UDP",
+        "port": 10168,
+        "targetPort": 10168
+      },
+      {
+        "name": "rtp-10169",
+        "protocol": "UDP",
+        "port": 10169,
+        "targetPort": 10169
+      },
+      {
+        "name": "rtp-10170",
+        "protocol": "UDP",
+        "port": 10170,
+        "targetPort": 10170
+      },
+      {
+        "name": "rtp-10171",
+        "protocol": "UDP",
+        "port": 10171,
+        "targetPort": 10171
+      },
+      {
+        "name": "rtp-10172",
+        "protocol": "UDP",
+        "port": 10172,
+        "targetPort": 10172
+      },
+      {
+        "name": "rtp-10173",
+        "protocol": "UDP",
+        "port": 10173,
+        "targetPort": 10173
+      },
+      {
+        "name": "rtp-10174",
+        "protocol": "UDP",
+        "port": 10174,
+        "targetPort": 10174
+      },
+      {
+        "name": "rtp-10175",
+        "protocol": "UDP",
+        "port": 10175,
+        "targetPort": 10175
+      },
+      {
+        "name": "rtp-10176",
+        "protocol": "UDP",
+        "port": 10176,
+        "targetPort": 10176
+      },
+      {
+        "name": "rtp-10177",
+        "protocol": "UDP",
+        "port": 10177,
+        "targetPort": 10177
+      },
+      {
+        "name": "rtp-10178",
+        "protocol": "UDP",
+        "port": 10178,
+        "targetPort": 10178
+      },
+      {
+        "name": "rtp-10179",
+        "protocol": "UDP",
+        "port": 10179,
+        "targetPort": 10179
+      },
+      {
+        "name": "rtp-10180",
+        "protocol": "UDP",
+        "port": 10180,
+        "targetPort": 10180
+      },
+      {
+        "name": "rtp-10181",
+        "protocol": "UDP",
+        "port": 10181,
+        "targetPort": 10181
+      },
+      {
+        "name": "rtp-10182",
+        "protocol": "UDP",
+        "port": 10182,
+        "targetPort": 10182
+      },
+      {
+        "name": "rtp-10183",
+        "protocol": "UDP",
+        "port": 10183,
+        "targetPort": 10183
+      },
+      {
+        "name": "rtp-10184",
+        "protocol": "UDP",
+        "port": 10184,
+        "targetPort": 10184
+      },
+      {
+        "name": "rtp-10185",
+        "protocol": "UDP",
+        "port": 10185,
+        "targetPort": 10185
+      },
+      {
+        "name": "rtp-10186",
+        "protocol": "UDP",
+        "port": 10186,
+        "targetPort": 10186
+      },
+      {
+        "name": "rtp-10187",
+        "protocol": "UDP",
+        "port": 10187,
+        "targetPort": 10187
+      },
+      {
+        "name": "rtp-10188",
+        "protocol": "UDP",
+        "port": 10188,
+        "targetPort": 10188
+      },
+      {
+        "name": "rtp-10189",
+        "protocol": "UDP",
+        "port": 10189,
+        "targetPort": 10189
+      },
+      {
+        "name": "rtp-10190",
+        "protocol": "UDP",
+        "port": 10190,
+        "targetPort": 10190
+      },
+      {
+        "name": "rtp-10191",
+        "protocol": "UDP",
+        "port": 10191,
+        "targetPort": 10191
+      },
+      {
+        "name": "rtp-10192",
+        "protocol": "UDP",
+        "port": 10192,
+        "targetPort": 10192
+      },
+      {
+        "name": "rtp-10193",
+        "protocol": "UDP",
+        "port": 10193,
+        "targetPort": 10193
+      },
+      {
+        "name": "rtp-10194",
+        "protocol": "UDP",
+        "port": 10194,
+        "targetPort": 10194
+      },
+      {
+        "name": "rtp-10195",
+        "protocol": "UDP",
+        "port": 10195,
+        "targetPort": 10195
+      },
+      {
+        "name": "rtp-10196",
+        "protocol": "UDP",
+        "port": 10196,
+        "targetPort": 10196
+      },
+      {
+        "name": "rtp-10197",
+        "protocol": "UDP",
+        "port": 10197,
+        "targetPort": 10197
+      },
+      {
+        "name": "rtp-10198",
+        "protocol": "UDP",
+        "port": 10198,
+        "targetPort": 10198
+      },
+      {
+        "name": "rtp-10199",
+        "protocol": "UDP",
+        "port": 10199,
+        "targetPort": 10199
+      }
+    ],
+    "loadBalancerSourceRanges": [
+      "192.168.10.0/24"
+    ]
+  }
+}

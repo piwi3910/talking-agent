@@ -190,6 +190,17 @@ func run() error {
 		return fmt.Errorf("phone settings: %w", err)
 	}
 	app.PhoneSettings = phoneSettings
+	gateway, err := telephony.OpenGateway(ctx, env("SIP_GATEWAY_FILE", "var/sip-gateway.json"), os.Getenv("SIP_ADVERTISE_IP"), telephony.Server{Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voices})
+	if err != nil {
+		return fmt.Errorf("gateway settings: %w", err)
+	}
+	app.PhoneGateway = gateway
+	defer gateway.Close()
+	if gateway.Snapshot().Config.AutoConnect && os.Getenv("SIP_CONFIG_FILE") == "" {
+		if err := gateway.Connect(); err != nil {
+			slog.Warn("SIP reconnect failed", "error", err)
+		}
+	}
 	var sipDone chan error
 	if os.Getenv("SIP_CONFIG_FILE") != "" {
 		phone := &telephony.Server{Config: sipCfg, Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voices}

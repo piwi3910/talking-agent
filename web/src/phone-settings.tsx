@@ -1,3 +1,4 @@
+import { SIPGateway } from './sip-gateway';
 import React, { useEffect, useState } from 'react';
 
 type Persona = { config: { id: string; name: string; organization: string }; users: { id: string; name: string }[] };
@@ -25,8 +26,8 @@ export function PhoneSettings({ personas }: { personas: Persona[] }) {
   const next={...settings,personas:Object.fromEntries(Object.entries(settings.personas).map(([id,p])=>[id,{...p,numbers:(numbers[id]||'').split(/[\n,]/).map(n=>n.trim()).filter(Boolean)}]))};
   try { adopt(await request(next)); setNotice('Phone settings saved. New calls use these assignments; current calls continue.'); } catch(e) { setError((e as Error).message); } finally { setSaving(false); }
  }
- return <section className="phone-settings" aria-label="Phone settings">
-  <div className="section-heading"><h3>Phone settings</h3><span className="pill">{settings?.enabled?'SIP ready':'SIP not connected'}</span></div>
+ return <><SIPGateway personas={personas}/><section className="phone-settings" aria-label="Phone settings">
+  <div className="section-heading"><h3>Phone settings</h3><span className="pill">{settings?.enabled?'Phone listener ready':'Phone listener stopped'}</span></div>
   <p className="muted">Give each persona its own phone numbers or extensions. Multiple phones can call different personas—or the same persona—at the same time.</p>
   {loading&&<p role="status">Loading phone settings…</p>}
   {error&&<p className="error" role="alert">{error}</p>}
@@ -44,5 +45,5 @@ export function PhoneSettings({ personas }: { personas: Persona[] }) {
   </fieldset></form>}
   <button type="button" disabled={saving||loading} onClick={()=>{setNotice('');void load();}}>Reload saved settings</button>
   <p className="quiet">Your PBX must route each number to this agent service. You can interrupt replies and say “stop.” Changes are read aloud for a spoken “confirm” or “cancel.”</p>
- </section>;
+ </section></>;
 }

@@ -46,3 +46,34 @@ SIP and RTP require dedicated networking, independently of the HTTPS ingress at 
 Run `CGO_ENABLED=0 go test ./...`. The telephony tests establish actual UDP/TCP dialogs, process simultaneous calls to different agents, transcribe caller audio, stream replies, approve mutations by voice, interrupt playback independently, reject invalid destinations and reclaim capacity on BYE. Settings tests cover restart persistence, duplicate numbers, stale edits, account scope validation and write failures. Browser tests verify the settings page, saves, reloads and mobile layout. If a C compiler is available, also run the race detector. Local test listeners are fixtures; delivery remains the KW cluster.
 
 After Sync reports the intended revision Healthy and Synced, verify pinned TLS, HTTP health and the browser conversation/SSE path. Real two-handset tests need Hello running with its routes and reachable SIP/RTP networking.
+
+### Gateway settings in the browser
+
+Open `/settings` to set the gateway IP, SIP port (usually 5060), UDP/TCP,
+connection mode and the agent's advertised SIP/RTP address. Save the persona
+numbers first. **Connect** saves gateway settings, starts the SIP listeners and
+checks the gateway. Status is based on actual SIP OPTIONS responses (trunk mode)
+or successful REGISTER responses for every configured persona. Errors retry;
+Disconnect stops retries, unregisters extensions and ends active calls. Connected
+configuration is read-only until Disconnect. The connection resumes on restart.
+
+In registration mode, configure each persona's extension and gateway SIP password.
+The extension must also appear in that persona's phone numbers. Registration
+does not disable trunk routing: unregistered personas and additional numbers
+can still receive trunk-routed calls from the same PBX. These credentials
+authenticate to the PBX; callers never enter a code. Passwords are write-only in the
+API and stored in the existing persistent volume with file mode 0600, outside Git.
+Blank passwords with `password_saved=true` preserve saved credentials; clear that
+flag to remove them. Registration refresh follows the gateway's granted expiry,
+including Min-Expires negotiation. All configured personas are attempted even if
+another registration fails.
+
+KW publishes SIP UDP/TCP 5060 and media UDP 10000–10199 on **192.168.10.142** through
+`talking-agent-sip`. The LAN source range is 192.168.10.0/24. Cilium L2 forwarding
+may replace the gateway source with a cluster node address, so
+`SIP_TRUSTED_FORWARDERS` explicitly lists those eight nodes. This means the KW
+endpoint trusts the permitted LAN, rather than authenticating a single gateway
+by its original source IP through that forwarding path. On deployments preserving
+the original source, leave this variable empty for strict gateway-only source
+validation. If the PBX lives on another subnet, update the reviewed Service source
+ranges in Sync and the advertised address as needed. HTTPS does not proxy RTP.
