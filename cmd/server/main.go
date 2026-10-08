@@ -118,6 +118,15 @@ func run() error {
 		}
 		backendURLs[id] = endpoint
 		runtime.Executors[id] = tools.HTTPExecutor{BaseURL: endpoint, Client: &http.Client{Timeout: 10 * time.Second}}
+		if len(a.MCP) > 0 {
+			m, e := tools.NewMCP(a.MCP, runtime.Executors[id])
+			if e != nil {
+				return fmt.Errorf("agent %s: %w", id, e)
+			}
+			defer m.Close()
+			go m.Warm(ctx)
+			runtime.Executors[id] = m
+		}
 
 		catalog, e := skills.Load(a.Dir)
 		if e != nil {

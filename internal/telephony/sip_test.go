@@ -9,7 +9,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -207,7 +209,7 @@ func TestSIPConcurrentCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 25 {
-		if _, err := output.Write(bytes.Repeat([]byte{g711.EncodeUlawFrame(3000)}, 160)); err != nil {
+		if _, err := output.Write(voicedPacket(output)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -228,7 +230,7 @@ func TestSIPConcurrentCalls(t *testing.T) {
 	sendUtterance := func(w io.Writer) {
 		t.Helper()
 		for range 25 {
-			if _, err := w.Write(bytes.Repeat([]byte{g711.EncodeUlawFrame(3000)}, 160)); err != nil {
+			if _, err := w.Write(voicedPacket(w)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -313,7 +315,7 @@ prompted:
 	// The new caller speech cancels synthesis before ASR has finalized "stop".
 	transcripts <- "stop"
 	for range 8 {
-		if _, err := output.Write(bytes.Repeat([]byte{g711.EncodeUlawFrame(3000)}, 160)); err != nil {
+		if _, err := output.Write(voicedPacket(output)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -323,7 +325,7 @@ prompted:
 		t.Fatal("speech onset did not cancel old playback")
 	}
 	for range 17 {
-		if _, err := output.Write(bytes.Repeat([]byte{g711.EncodeUlawFrame(3000)}, 160)); err != nil {
+		if _, err := output.Write(voicedPacket(output)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -366,4 +368,34 @@ type phoneExecutor struct{ mutations chan tools.Request }
 func (e phoneExecutor) Execute(ctx context.Context, d tools.Definition, r tools.Request, emit telemetry.Sink) tools.Result {
 	e.mutations <- r
 	return tools.Result{Summary: "Your plan has been changed."}
+}
+
+var voice struct {
+	sync.Mutex
+	g711    []byte
+	cursors map[io.Writer]int
+}
+
+// voicedPacket returns the next 20 ms of recorded, continuously voiced speech as
+// G.711 for one caller (looped), so the call tests exercise the real VAD instead
+// of a constant tone. Each caller keeps its own position.
+func voicedPacket(w io.Writer) []byte {
+	voice.Lock()
+	defer voice.Unlock()
+	if voice.g711 == nil {
+		pcm, err := os.ReadFile("../audio/testdata/speech_a.raw")
+		if err != nil {
+			panic(err)
+		}
+		// 27 packets from the first, uninterrupted phrase of the recording.
+		voice.g711 = g711.EncodeUlaw(pcm)[320 : 320+27*160]
+		voice.cursors = map[io.Writer]int{}
+	}
+	out := make([]byte, 160)
+	pos := voice.cursors[w]
+	for i := range out {
+		out[i] = voice.g711[(pos+i)%len(voice.g711)]
+	}
+	voice.cursors[w] = (pos + 160) % len(voice.g711)
+	return out
 }

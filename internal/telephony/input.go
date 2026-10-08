@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 
+	"enterprise-ai-demo/internal/audio"
+
 	"github.com/zaf/g711"
 )
 
@@ -50,11 +52,23 @@ func (p *pcmStream) push(b []byte) bool {
 
 // captureLive continuously reads RTP, including during replies. A credible speech
 // onset starts live ASR and cancels the previous turn before recognition finishes.
+// Speech is found by a spectral VAD against an adaptive noise floor (see
+// audio.VAD): 128 ms of sustained speech is an onset, 700 ms of non-speech ends
+// the utterance. The 8 kHz line audio is converted to 16 kHz for ASR with a
+// polyphase interpolator rather than sample repetition.
 func captureLive(ctx context.Context, r io.Reader, pt uint8, start func() *pcmStream) {
+	const (
+		onsetSamples   = 1024 // 128 ms of speech at 8 kHz
+		silenceSamples = 5600 // 700 ms of non-speech
+		maxSamples     = 8000 * 55
+	)
 	buf := make([]byte, 2048)
 	var pre [][]byte
 	var stream *pcmStream
 	onset, silence, total := 0, 0, 0
+	vad := audio.NewVAD()
+	up8to16 := audio.Up8kTo16k()
+	var samples, wide []int16
 	defer func() {
 		if stream != nil {
 			close(stream.chunks)
@@ -75,33 +89,33 @@ func captureLive(ctx context.Context, r io.Reader, pt uint8, start func() *pcmSt
 		if pt == 8 {
 			pcm = g711.DecodeAlaw(buf[:n])
 		}
-		var energy int64
-		for i := 0; i < len(pcm); i += 2 {
-			v := int64(int16(binary.LittleEndian.Uint16(pcm[i:])))
-			if v < 0 {
-				v = -v
-			}
-			energy += v
+		samples = samples[:0]
+		for i := 0; i+1 < len(pcm); i += 2 {
+			samples = append(samples, int16(binary.LittleEndian.Uint16(pcm[i:])))
 		}
-		voiced := energy/int64(n) > 450
-		up := make([]byte, len(pcm)*2)
-		for i := 0; i < len(pcm); i += 2 {
-			copy(up[i*2:], pcm[i:i+2])
-			copy(up[i*2+2:], pcm[i:i+2])
+		vad.Process(samples, func(voiced bool) {
+			switch {
+			case voiced:
+				onset += audio.VADFrame
+				silence = 0
+			default:
+				onset = 0
+				silence += audio.VADFrame
+			}
+		})
+		wide = up8to16.Process(wide[:0], samples)
+		up := make([]byte, len(wide)*2)
+		for i, s := range wide {
+			binary.LittleEndian.PutUint16(up[i*2:], uint16(s))
 		}
 		if stream == nil {
 			pre = append(pre, up)
 			for len(pre) > 1 && bufferedSamples(pre) > 2400 {
 				pre = pre[1:]
 			}
-			if voiced {
-				onset += n
-			} else {
-				onset = 0
-			}
-			if onset < 1024 {
+			if onset < onsetSamples {
 				continue
-			} // at least 128 ms of sustained speech
+			}
 			stream = start()
 			total = 0
 			silence = 0
@@ -121,15 +135,11 @@ func captureLive(ctx context.Context, r io.Reader, pt uint8, start func() *pcmSt
 			close(stream.chunks)
 			stream = nil
 			pre = nil
+			onset = 0
 			continue
 		}
 		total += n
-		if voiced {
-			silence = 0
-		} else {
-			silence += n
-		}
-		if silence >= 5600 || total >= 8000*55 {
+		if silence >= silenceSamples || total >= maxSamples {
 			close(stream.chunks)
 			stream = nil
 			pre = nil

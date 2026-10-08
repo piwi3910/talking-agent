@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"sync"
 	"time"
 
 	"enterprise-ai-demo/internal/agent"
+	"enterprise-ai-demo/internal/audio"
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/speech"
@@ -139,9 +141,17 @@ func (s *Server) Run(ctx context.Context) error {
 	return nil
 }
 
-// playback averages 24 kHz PCM into 8 kHz G.711, preserving arbitrary HTTP chunk boundaries.
+// playback low-pass filters and decimates 24 kHz PCM into 8 kHz G.711 with a
+// polyphase resampler, preserving arbitrary HTTP chunk boundaries.
 func playback(ctx context.Context, w io.Writer, pt uint8, synth func(func([]byte) error) error) error {
 	var pending, encoded []byte
+	var samples, resampled []int16
+	down := audio.Down24kTo8k()
+	// The filter delays the signal by a fixed number of output samples. Dropping
+	// that many at the start (and flushing as many at the end) keeps the output
+	// time-aligned and exactly 1/3 of the input length, so no extra packet appears.
+	delay := int(math.Round(down.Delay().Seconds() * 8000))
+	skip := delay
 	emitFrame := func(frame []byte) error {
 		select {
 		case <-ctx.Done():
@@ -154,18 +164,19 @@ func playback(ctx context.Context, w io.Writer, pt uint8, synth func(func([]byte
 		}
 		return err
 	}
-	err := synth(func(chunk []byte) error {
-		pending = append(pending, chunk...)
-		consumed := 0
-		for consumed+6 <= len(pending) {
-			v := int32(int16(binary.LittleEndian.Uint16(pending[consumed:]))) + int32(int16(binary.LittleEndian.Uint16(pending[consumed+2:]))) + int32(int16(binary.LittleEndian.Uint16(pending[consumed+4:])))
-			sample := int16(v / 3)
+	// encode turns 8 kHz samples into G.711 and emits every complete 20 ms frame.
+	encode := func(pcm []int16) error {
+		if skip > 0 {
+			n := min(skip, len(pcm))
+			skip -= n
+			pcm = pcm[n:]
+		}
+		for _, sample := range pcm {
 			b := g711.EncodeUlawFrame(sample)
 			if pt == 8 {
 				b = g711.EncodeAlawFrame(sample)
 			}
 			encoded = append(encoded, b)
-			consumed += 6
 			if len(encoded) == 160 {
 				if err := emitFrame(encoded); err != nil {
 					return err
@@ -173,14 +184,28 @@ func playback(ctx context.Context, w io.Writer, pt uint8, synth func(func([]byte
 				encoded = encoded[:0]
 			}
 		}
-		pending = append(pending[:0], pending[consumed:]...)
 		return nil
+	}
+	err := synth(func(chunk []byte) error {
+		pending = append(pending, chunk...)
+		samples = samples[:0]
+		consumed := 0
+		for ; consumed+2 <= len(pending); consumed += 2 {
+			samples = append(samples, int16(binary.LittleEndian.Uint16(pending[consumed:])))
+		}
+		pending = append(pending[:0], pending[consumed:]...)
+		resampled = down.Process(resampled[:0], samples)
+		return encode(resampled)
 	})
 	if err != nil {
 		return err
 	}
-	if len(pending)%2 != 0 {
+	if len(pending) != 0 {
 		return fmt.Errorf("speech returned truncated PCM sample")
+	}
+	// Flush the filter tail (its group delay) so the last syllable is not clipped.
+	if err := encode(down.Process(resampled[:0], make([]int16, delay*3))); err != nil {
+		return err
 	}
 	if len(encoded) > 0 {
 		silence := g711.EncodeUlawFrame(0)
