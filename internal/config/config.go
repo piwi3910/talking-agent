@@ -32,8 +32,11 @@ type Agent struct {
 		Rules     []memory.Rule `yaml:"rules" json:"rules"`
 		Namespace string        `yaml:"namespace" json:"namespace"`
 	} `yaml:"memory" json:"memory"`
-	Skills    []string `yaml:"skills" json:"skills"`
-	Knowledge []string `yaml:"knowledge" json:"knowledge"`
+	Skills []string `yaml:"skills" json:"skills"`
+	// MCP lists the Model Context Protocol servers this agent may call. Only
+	// tools named in a server's allow_tools are ever offered or executed.
+	MCP       []MCPServer `yaml:"mcp" json:"mcp,omitempty"`
+	Knowledge []string    `yaml:"knowledge" json:"knowledge"`
 	Safety    struct {
 		Emergency        []string `yaml:"emergency" json:"emergency"`
 		Response         string   `yaml:"response" json:"response"`
@@ -44,6 +47,53 @@ type Agent struct {
 	Branding map[string]string          `yaml:"branding" json:"branding"`
 	Prompt   string                     `yaml:"-" json:"-"`
 	Dir      string                     `yaml:"-" json:"-"`
+}
+
+// MCPServer configures one Streamable HTTP MCP server for an agent. Secrets are
+// always read from environment variables, never from the YAML file.
+type MCPServer struct {
+	Name       string   `yaml:"name" json:"name"`
+	URL        string   `yaml:"url" json:"url"`
+	URLEnv     string   `yaml:"url_env" json:"url_env,omitempty"`
+	AllowTools []string `yaml:"allow_tools" json:"allow_tools"`
+	Auth       MCPAuth  `yaml:"auth" json:"auth"`
+}
+
+// MCPAuth selects "none" (default), "bearer" or "client_credentials".
+type MCPAuth struct {
+	Type            string   `yaml:"type" json:"type"`
+	TokenEnv        string   `yaml:"token_env" json:"token_env,omitempty"`
+	TokenURL        string   `yaml:"token_url" json:"token_url,omitempty"`
+	ClientID        string   `yaml:"client_id" json:"client_id,omitempty"`
+	ClientSecretEnv string   `yaml:"client_secret_env" json:"client_secret_env,omitempty"`
+	Scopes          []string `yaml:"scopes" json:"scopes,omitempty"`
+}
+
+func (a *Agent) validateMCP() error {
+	seen := map[string]bool{}
+	for _, s := range a.MCP {
+		if s.Name == "" || strings.ContainsAny(s.Name, ".:_ ") || seen[s.Name] {
+			return fmt.Errorf("invalid or duplicate mcp server name %q", s.Name)
+		}
+		seen[s.Name] = true
+		if s.URL == "" && s.URLEnv == "" {
+			return fmt.Errorf("mcp server %s needs url or url_env", s.Name)
+		}
+		switch s.Auth.Type {
+		case "", "none":
+		case "bearer":
+			if s.Auth.TokenEnv == "" {
+				return fmt.Errorf("mcp server %s: bearer auth needs token_env", s.Name)
+			}
+		case "client_credentials":
+			if s.Auth.TokenURL == "" || s.Auth.ClientID == "" || s.Auth.ClientSecretEnv == "" {
+				return fmt.Errorf("mcp server %s: client_credentials needs token_url, client_id and client_secret_env", s.Name)
+			}
+		default:
+			return fmt.Errorf("mcp server %s: unknown auth type %q", s.Name, s.Auth.Type)
+		}
+	}
+	return nil
 }
 
 func Load(root string) (map[string]*Agent, error) {
@@ -68,6 +118,9 @@ func Load(root string) (map[string]*Agent, error) {
 		}
 		if _, ok := out[a.ID]; ok {
 			return nil, fmt.Errorf("duplicate agent %s", a.ID)
+		}
+		if e := a.validateMCP(); e != nil {
+			return nil, fmt.Errorf("%s: %w", p, e)
 		}
 		for _, rule := range a.Memory.Rules {
 			if _, e := regexp.Compile(rule.Pattern); e != nil {

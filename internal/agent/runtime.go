@@ -235,6 +235,14 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 				offered = append(offered, llm.Tool{Type: "function", Function: llm.ToolFunction{Name: llm.WireName(d.Name), Description: d.Description, Parameters: d.Input}})
 			}
 		}
+		// Runtime-discovered tools (MCP) are allow-listed per agent in config,
+		// so they are offered without a skill activation round trip.
+		if src, ok := r.executorFor(s.Agent.ID).(tools.DefinitionSource); ok {
+			for _, d := range src.Definitions(ctx) {
+				defs[d.Name] = d
+				offered = append(offered, llm.Tool{Type: "function", Function: llm.ToolFunction{Name: llm.WireName(d.Name), Description: d.Description, Parameters: d.Input}})
+			}
+		}
 		offered = append(offered, llm.Tool{Type: "function", Function: llm.ToolFunction{Name: llm.WireName("skills.activate"), Description: "Load tools and instructions for a relevant business skill", Parameters: tools.Schema{Type: "object", Properties: map[string]tools.Property{"skill_id": {Type: "string", Enum: ids}}, Required: []string{"skill_id"}}}})
 		messages := []llm.Message{{Role: "system", Content: base + instructions}, {Role: "system", Content: memoryText}}
 		messages = append(messages, s.History...)
@@ -350,11 +358,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 	trim(s)
 }
 func (r *Runtime) execute(ctx context.Context, s *session.Session, d tools.Definition, args map[string]string, emit telemetry.Sink) tools.Result {
-	executor := r.Tools
-	if specific := r.Executors[s.Agent.ID]; specific != nil {
-		executor = specific
-	}
-	out := executor.Execute(ctx, d, tools.Request{Industry: s.Agent.Industry, UserID: s.UserID, Name: d.Name, Arguments: args}, emit)
+	out := r.executorFor(s.Agent.ID).Execute(ctx, d, tools.Request{Industry: s.Agent.Industry, UserID: s.UserID, Name: d.Name, Arguments: args}, emit)
 	if effect := d.MemoryEffect; out.Error == nil && effect != nil && strings.Contains(out.Summary, effect.Contains) {
 		text := effect.Text
 		for key, value := range args {
@@ -363,6 +367,12 @@ func (r *Runtime) execute(ctx context.Context, s *session.Session, d tools.Defin
 		r.remember(memory.Memory{Scope: Scope(s), Text: text, Tags: effect.Tags}, emit)
 	}
 	return out
+}
+func (r *Runtime) executorFor(agentID string) tools.Executor {
+	if specific := r.Executors[agentID]; specific != nil {
+		return specific
+	}
+	return r.Tools
 }
 func trim(s *session.Session) {
 	count := 0
