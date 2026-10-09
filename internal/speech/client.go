@@ -240,11 +240,14 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 		body = qwen3Body(text, v)
 	}
 	raw, _ := json.Marshal(body)
+	trace(ctx, "upstream.request", map[string]any{"base": base, "request_bytes": len(raw)})
 	resp, err := c.do(ctx, strings.TrimRight(base, "/")+"/v1/audio/speech", bytes.NewReader(raw))
 	if err != nil {
+		trace(ctx, "upstream.error", map[string]any{"error": err.Error()})
 		return err
 	}
 	defer resp.Body.Close()
+	trace(ctx, "upstream.headers", map[string]any{"status": resp.StatusCode})
 	buf := make([]byte, 8192)
 	total := 0
 	for {

@@ -75,6 +75,7 @@
                           "name": "VOICE_CUES_DIR",
                           "value": "/app/var/voice-cues",
                         },
+                        { "name": "TRACE_DIR", "value": "/app/var/traces" },
                         { "name": "LLM_DISABLE_THINKING", "value": "true" },
                         {
                           "name": "STT_URL",

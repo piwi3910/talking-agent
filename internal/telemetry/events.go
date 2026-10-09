@@ -17,14 +17,23 @@ type Event struct {
 }
 type Sink func(string, any)
 type Journal struct {
-	mu      sync.Mutex
-	events  []Event
+	mu     sync.Mutex
+	events []Event
+	// Hook, when set before the first Emit, observes every event.
+	Hook    func(Event)
 	seq     uint64
 	session string
 }
 
 func New(id string) *Journal { return &Journal{session: id} }
 func (j *Journal) Emit(turn, kind string, data any) Event {
+	e := j.emit(turn, kind, data)
+	if j.Hook != nil {
+		j.Hook(e)
+	}
+	return e
+}
+func (j *Journal) emit(turn, kind string, data any) Event {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.seq++
