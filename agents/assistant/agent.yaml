@@ -24,7 +24,7 @@
     },
   "skills": ["conversation"],
   "knowledge": [],
-  "voice": { "default": "preset-vivian" },
+  "voice": { "default": "preset-nova" },
   "future": { "voice": { "enabled": true }, "avatar": { "enabled": false } },
   "branding":
     {

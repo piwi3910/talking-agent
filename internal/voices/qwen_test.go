@@ -147,7 +147,7 @@ func TestDesignedBuiltinRendersOneSampleAndThenIsCloned(t *testing.T) {
 	pending := s.pending("preset-amelia")
 	s.mu.RUnlock()
 	// Offline, only the designed voices need a sample: a preset speaker is stable.
-	if len(missing) != 5 || !pending {
+	if len(missing) != 6 || !pending {
 		t.Fatalf("%v pending=%v", missing, pending)
 	}
 	if st := s.Snapshot().Cues["a"]; st.State != "queued" {
@@ -160,7 +160,7 @@ func TestDesignedBuiltinRendersOneSampleAndThenIsCloned(t *testing.T) {
 		t.Fatal("cues must wait for the designed voice's sample")
 	}
 	s.regenPresets(context.Background(), missing)
-	if n := tts.count(speech.ModelQwen3Design); n != 5 || tts.count(speech.ModelQwen3Custom) != 0 {
+	if n := tts.count(speech.ModelQwen3Design); n != 6 || tts.count(speech.ModelQwen3Custom) != 0 {
 		t.Fatalf("%d design renders", n)
 	}
 	v = s.Resolve("a")

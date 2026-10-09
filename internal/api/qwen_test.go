@@ -112,7 +112,7 @@ func TestQwen3ReportsProviderAndBuiltinVoices(t *testing.T) {
 			presets++
 		}
 	}
-	if snap.Provider != "qwen3" || presets != 14 {
+	if snap.Provider != "qwen3" || presets != 15 {
 		t.Fatalf("%+v presets=%d", snap, presets)
 	}
 	var info struct{ TTS string }

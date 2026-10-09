@@ -195,7 +195,7 @@ func TestVoiceSettingsStatusCodes(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	var snap voices.Snapshot
-	if err = json.NewDecoder(resp.Body).Decode(&snap); err != nil || resp.Header.Get("Cache-Control") != "no-store" || snap.Revision != 1 || len(snap.Voices) != 15 {
+	if err = json.NewDecoder(resp.Body).Decode(&snap); err != nil || resp.Header.Get("Cache-Control") != "no-store" || snap.Revision != 1 || len(snap.Voices) != 16 {
 		t.Fatalf("%v %+v", err, snap)
 	}
 }

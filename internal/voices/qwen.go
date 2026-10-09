@@ -67,6 +67,7 @@ var builtinVoices = []builtinVoice{
 	{slug: "sophie", name: "Sophie", label: "designed, energetic", design: "An energetic, cheerful young woman in her early twenties with a lively British accent. Enthusiastic, upbeat and quick, smiling as she speaks, like an outgoing outreach coordinator."},
 	{slug: "emma", name: "Emma", label: "designed, warm American", design: "A warm, kind American woman in her early forties with a native General American accent. Relaxed, patient and conversational, like a caring school coordinator."},
 	{slug: "sara", name: "Sara", label: "designed, relaxed American", design: "A confident, easygoing American woman in her late twenties with a slightly husky, relaxed voice and a native General American accent. Friendly and upbeat, like a helpful support specialist."},
+	{slug: "nova", name: "Nova", label: "designed, bright and professional", design: "A friendly, articulate woman in her early thirties with a clear, neutral international English accent. Bright, natural and professional, with a medium pitch and an even, conversational pace, like a capable presenter or news anchor. Warm but never breathy or flirtatious."},
 }
 
 func presetVoices() []Voice {
