@@ -27,10 +27,6 @@ type job struct {
 	force       bool
 }
 
-// original reports whether the persona uses its own reference voice, whose cues are baked.
-func (s *Store) original(agentID string) bool {
-	return s.personas[agentID].VoiceID == "ref-"+agentID && s.refs[agentID] != nil
-}
 func (s *Store) voice(agentID string) speech.Voice {
 	p := s.personas[agentID]
 	return s.resolve(s.effectiveVoiceID(agentID), p.Direction)
@@ -49,17 +45,14 @@ func (s *Store) count(agentID string) int {
 
 // needed reports whether the persona's current cue set has to be rendered.
 func (s *Store) needed(agentID string) bool {
-	// A design voice still waiting for its sample renders once the sample exists.
-	if s.unavailable(s.personas[agentID].VoiceID) {
+	// A voice still waiting for its sample renders once the sample exists.
+	if id := s.personas[agentID].VoiceID; s.unavailable(id) || s.pending(id) {
 		return false
 	}
-	return !s.original(agentID) && s.count(agentID) > 0 && !s.ready(agentID, s.key(agentID))
+	return s.count(agentID) > 0 && !s.ready(agentID, s.key(agentID))
 }
 func (s *Store) status(agentID string) CueStatus {
 	total := s.count(agentID)
-	if s.original(agentID) {
-		return CueStatus{State: "original", Done: total, Total: total}
-	}
 	key := s.key(agentID)
 	if j := s.jobs[agentID]; j != nil && j.key == key {
 		return CueStatus{State: j.state, Done: j.done, Total: total, Error: j.err}
@@ -70,16 +63,14 @@ func (s *Store) status(agentID string) CueStatus {
 	return CueStatus{State: "queued", Total: total}
 }
 
-// CueDir returns the directory of the active cue set (baked or rendered), or
-// false while there is none: cues stay muted until a rendered set is complete.
+// CueDir returns the directory of the active cue set, or false while there is
+// none: cues stay muted until a rendered set is complete. The cue wording ships
+// with each agent, but the audio is always rendered in the persona's own voice.
 func (s *Store) CueDir(agentID string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.agents[agentID] == nil {
 		return "", false
-	}
-	if s.original(agentID) {
-		return filepath.Join(s.agents[agentID].Dir, "voice"), true
 	}
 	key := s.key(agentID)
 	return s.setDir(agentID, key), s.ready(agentID, key)
@@ -117,9 +108,6 @@ func (s *Store) Force(agentID string) (Snapshot, error) {
 	defer s.mu.Unlock()
 	if s.agents[agentID] == nil {
 		return Snapshot{}, fmt.Errorf("unknown persona %s", agentID)
-	}
-	if s.original(agentID) {
-		return Snapshot{}, fmt.Errorf("%s uses its original voice; its cues are fixed", agentID)
 	}
 	if s.count(agentID) == 0 {
 		return Snapshot{}, fmt.Errorf("%s has no cue manifest", agentID)

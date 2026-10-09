@@ -1,1 +1,0 @@
-Emma uses the same synthetic General American English reference and general reception cues as Sara. No real person is impersonated. Voice settings remain independently configurable in this agent directory.

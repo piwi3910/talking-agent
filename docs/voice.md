@@ -10,9 +10,11 @@ The LLM still uses go-ai-sdk v0.6.0. KW uses gateway model `qwen3-6-35b-a3b`. `L
 
 `GET /api/voice` reports configuration. A session-scoped same-origin WebSocket at `/api/sessions/{id}/transcribe` accepts 16 kHz mono signed PCM16 binary frames and a text `{"type":"finish"}` command. The server streams the upload into audio.cpp while forwarding partial/final transcripts. Captures are limited to 60 seconds, connections to 70 seconds, and frames to 64 KiB. Only a finalized utterance is submitted to the existing message API; account mutations retain explicit click confirmation.
 
-`POST /api/sessions/{id}/speech` accepts bounded `text` and `turn_id` and proxies streamed Breeze PCM16 at 24 kHz. Browser sentence segmentation starts synthesis before the entire agent turn finishes. Playback and next-phrase synthesis overlap, with bounded queued text/audio. Cancellation aborts synthesis, clears scheduled playback and cancels an in-flight agent turn on barge-in. Old turn deltas cannot restart interrupted speech. Changing identity or persona releases capture and playback.
+`POST /api/sessions/{id}/speech` accepts bounded `text` and `turn_id` and proxies streamed Qwen3-TTS PCM16 at 24 kHz. Browser sentence segmentation starts synthesis before the entire agent turn finishes. Playback and next-phrase synthesis overlap, with bounded queued text/audio. Cancellation aborts synthesis, clears scheduled playback and cancels an in-flight agent turn on barge-in. Old turn deltas cannot restart interrupted speech. Changing identity or persona releases capture and playback.
 
-Speech services are server-side `STT_URL` and `TTS_URL`; no inference credentials or internal endpoint URLs go to the browser. The audio.cpp streaming protocol has its own small Go adapter because it is different from a buffered speech-generation call. Style instructions come from `persona.voice_style`. Each agent config selects a fixed synthetic WAV and transcript under `voice/`; every phrase sends the same reference to Breeze, preserving speaker identity across sentence requests.
+Speech services are server-side `STT_URL` and `TTS_URL`; no inference credentials or internal endpoint URLs go to the browser. The audio.cpp streaming protocol has its own small Go adapter because it is different from a buffered speech-generation call. Each agent config names its default voice (`voice.default`, for example `preset-amelia`) and `persona.voice_style` seeds its delivery direction. Every voice is cloned from a stored reference sample: presets and voices designed in code are rendered once (CustomVoice or VoiceDesign) and then cloned, so a persona keeps one speaker identity across sentence requests. Users can add designed voices from a description, or clone their own voice, in Settings. The stage directions `(laugh)`, `(sigh)`, `(cough)` and `(clears throat)` are dropped before synthesis.
+
+Phone calls use the same voice. The 24 kHz PCM is averaged down to 8 kHz and encoded as G.711 in 20 ms frames.
 
 ## Streaming behavior
 
@@ -28,8 +30,7 @@ Sync pruning is disabled for this app: generated EndpointSlices inherit its Serv
 
 VAD/ONNX assets are pinned by the npm lockfile and copied to the app during build; the browser does not depend on a public CDN. Voice startup loads the detector once. Asset preparation also runs before Vite development.
 
-Sara’s synthetic reference was regenerated with an explicit native General American English female voice direction and a different seed after the neutral-English design still sounded accented to the operator. All Sara cues were regenerated from that reference. Cue URLs include the reference revision to avoid stale cached audio. Breeze officially supports English and Chinese. The Voice tab has a reference preview for subjective listening review.
-
+Each agent ships the wording of its cues (`voice/cues.json`) but no audio. The server renders the cue set in the persona's current voice in the background, after speech is idle, and keeps cues muted until the set is complete. Changing a persona's voice renders a new set. Cue URLs include the render generation to avoid stale cached audio. The Voice tab previews the persona's current voice for subjective listening review.
 
 ## Prerecorded conversational cues
 

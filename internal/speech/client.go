@@ -15,14 +15,15 @@ import (
 	"time"
 )
 
-// TTS providers. Breeze is the default and what local runs and tests use.
+// TTS providers. Both speak Qwen3-TTS.
 const (
-	ProviderBreeze = "breeze"
-	ProviderQwen3  = "qwen3"
-	// ProviderOmni streams Qwen3-TTS Base clones from a vLLM-Omni server. Presets
-	// and designed voices are rendered once through the audio.cpp worker at
-	// RenderURL and then cloned from that sample.
+	// ProviderOmni (the server default) streams Qwen3-TTS Base clones from a
+	// vLLM-Omni server. Presets and designed voices are rendered once through the
+	// audio.cpp worker at RenderURL and then cloned from that sample.
 	ProviderOmni = "omni"
+	// ProviderQwen3 renders every phrase offline on the audio.cpp worker at
+	// TTSURL: presets, designs and clones, without streaming. It is the zero value.
+	ProviderQwen3 = "qwen3"
 )
 
 // Qwen3-TTS model ids served by the audio.cpp worker.
@@ -40,7 +41,7 @@ type Client struct {
 	STTURL, TTSURL string
 	HTTP           *http.Client
 
-	// Provider selects the TTS request format: "breeze" (default), "qwen3" or "omni".
+	// Provider selects the TTS request format: "omni" or "qwen3" (the zero value).
 	Provider string
 
 	// RenderURL is the audio.cpp Qwen3-TTS worker that renders preset and design
@@ -52,17 +53,8 @@ type Client struct {
 
 func (c *Client) Enabled() bool { return c != nil && c.STTURL != "" && c.TTSURL != "" }
 
-// Qwen3 reports whether synthesis uses the Qwen3-TTS model family (audio.cpp or
-// vLLM-Omni): presets and designs, no inline vocal events.
-func (c *Client) Qwen3() bool {
-	return c != nil && (c.Provider == ProviderQwen3 || c.Provider == ProviderOmni)
-}
-
 // Omni reports whether clone voices stream from the vLLM-Omni server.
 func (c *Client) Omni() bool { return c != nil && c.Provider == ProviderOmni }
-
-// EventsSupported reports whether the TTS model understands inline vocal events.
-func (c *Client) EventsSupported() bool { return !c.Qwen3() }
 
 // Live is the number of live (caller-facing) syntheses currently in flight.
 func (c *Client) Live() int64 {
@@ -157,16 +149,12 @@ func (c *Client) Transcribe(ctx context.Context, audio io.Reader, emit func(stri
 	return nil
 }
 
-// Voice is the resolved voice for one phrase. For Breeze it is a reference
-// clone, a natural-language design instruction, or both; Guidance is sent as-is.
-// Model, Speaker and Instruct are used by Qwen3-TTS only: Model is one of the
-// ModelQwen3* ids (empty means Base with a Reference, otherwise CustomVoice),
-// Speaker names a CustomVoice preset and Instruct is a style or, for the design
-// model, the voice description.
+// Voice is the resolved voice for one phrase. Model is one of the ModelQwen3*
+// ids (empty means Base with a Reference, otherwise CustomVoice), Speaker names
+// a CustomVoice preset and Instruct is a style or, for the design model, the
+// voice description.
 type Voice struct {
-	Instruction string
-	Reference   *Reference
-	Guidance    string
+	Reference *Reference
 
 	Model    string
 	Speaker  string
@@ -248,21 +236,8 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 		body = qwen3Body(text, v)
 	case c.Omni():
 		body = omniBody(text, v.Reference)
-	case c.Qwen3():
-		body = qwen3Body(text, v)
 	default:
-		options := map[string]string{"seed": "42"}
-		if v.Instruction != "" {
-			options["instruction"] = v.Instruction
-		}
-		if v.Guidance != "" {
-			options["guidance_scale"] = v.Guidance
-		}
-		body = map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": options}
-		if v.Reference != nil {
-			body["voice_ref"] = map[string]string{"type": "base64", "data": v.Reference.AudioBase64}
-			body["reference_text"] = v.Reference.Text
-		}
+		body = qwen3Body(text, v)
 	}
 	raw, _ := json.Marshal(body)
 	resp, err := c.do(ctx, strings.TrimRight(base, "/")+"/v1/audio/speech", bytes.NewReader(raw))

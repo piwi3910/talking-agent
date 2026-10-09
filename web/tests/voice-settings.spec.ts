@@ -65,12 +65,12 @@ const baseSnapshot = () => ({
     },
   ],
   personas: {
-    telecom: { voice_id: "ref-telecom", direction: "Warm", events: true },
-    school: { voice_id: "ref-school", direction: "", events: true },
+    telecom: { voice_id: "ref-telecom", direction: "Warm" },
+    school: { voice_id: "ref-school", direction: "" },
   },
   cues: {
-    telecom: { state: "original", done: 0, total: 19, error: "" },
-    school: { state: "original", done: 0, total: 19, error: "" },
+    telecom: { state: "ready", done: 0, total: 19, error: "" },
+    school: { state: "ready", done: 0, total: 19, error: "" },
   },
 });
 type Snapshot = ReturnType<typeof baseSnapshot>;
@@ -238,22 +238,16 @@ test.describe("voice settings UI (mocked API)", () => {
       .getByRole("combobox", { name: "Voice for Sara" })
       .selectOption("british-gent");
     await panel.getByLabel("Delivery direction for Sara").fill("Slow");
-    await panel
-      .getByLabel("Natural vocal events", { exact: false })
-      .first()
-      .uncheck();
     await save.click();
     await expect(panel.getByText("Voice settings saved")).toBeVisible();
     expect(state.posts[0].revision).toBe(3);
     expect(state.posts[0].personas.telecom).toEqual({
       voice_id: "british-gent",
       direction: "Slow",
-      events: false,
     });
     expect(state.posts[0].personas.school).toEqual({
       voice_id: "ref-school",
       direction: "",
-      events: true,
     });
     expect(
       state.posts[0].voices.every(
@@ -296,7 +290,7 @@ test.describe("voice settings UI (mocked API)", () => {
     ).toBeDisabled();
     await expect(
       panel.getByRole("button", { name: "Generate cues for Tom" }),
-    ).toBeDisabled(); // original
+    ).toBeEnabled();
     state.snapshot.cues.telecom = {
       state: "rendering",
       done: 7,

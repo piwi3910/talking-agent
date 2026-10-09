@@ -54,15 +54,29 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, filepath.Join(dir, "cues", cue+".wav"))
 	})
-	m.HandleFunc("GET /api/agents/{id}/voice-reference", func(w http.ResponseWriter, r *http.Request) {
-		ref := a.Voices.Reference(r.PathValue("id"))
+	m.HandleFunc("GET /api/agents/{id}/voice", func(w http.ResponseWriter, r *http.Request) {
+		c := a.Agents[r.PathValue("id")]
+		if c == nil {
+			fail(w, 404, "Unknown agent")
+			return
+		}
+		id, name, ref := a.Voices.Current(c.ID)
+		w.Header().Set("Cache-Control", "no-store")
+		write(w, 200, map[string]any{"voice_id": id, "name": name, "sample": ref != nil})
+	})
+	m.HandleFunc("GET /api/agents/{id}/voice-sample", func(w http.ResponseWriter, r *http.Request) {
+		if a.Agents[r.PathValue("id")] == nil {
+			fail(w, 404, "Unknown agent")
+			return
+		}
+		_, _, ref := a.Voices.Current(r.PathValue("id"))
 		if ref == nil {
-			fail(w, 404, "No voice reference configured")
+			fail(w, 404, "No voice sample yet")
 			return
 		}
 		wav, err := base64.StdEncoding.DecodeString(ref.AudioBase64)
 		if err != nil {
-			fail(w, 500, "Invalid voice reference")
+			fail(w, 500, "Invalid voice sample")
 			return
 		}
 		w.Header().Set("Content-Type", "audio/wav")
@@ -70,11 +84,9 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 		w.Write(wav)
 	})
 	m.HandleFunc("GET /api/voice", func(w http.ResponseWriter, r *http.Request) {
-		tts := "Breeze TTS 2"
+		tts := "Qwen3-TTS 1.7B"
 		if a.Speech.Omni() {
 			tts = "Qwen3-TTS 1.7B (streaming)"
-		} else if a.Speech.Qwen3() {
-			tts = "Qwen3-TTS 1.7B"
 		}
 		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": "Nemotron 3.5 ASR", "tts": tts, "input_sample_rate": 16000, "output_sample_rate": 24000})
 	})
@@ -250,9 +262,9 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	first := true
 	bytes := 0
-	voice, events := a.Voices.Resolve(s.Agent.ID)
+	voice := a.Voices.Resolve(s.Agent.ID)
 	// Only the audio text is normalised; the chat text stays as written.
-	text := speech.Spoken(speech.VocalEvents(in.Text, events && a.Speech.EventsSupported()))
+	text := speech.Spoken(in.Text)
 	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(text), "reference_voice": voice.Reference != nil})
 	w.Header().Set("Content-Type", "audio/pcm")
 	w.Header().Set("X-Audio-Sample-Rate", "24000")

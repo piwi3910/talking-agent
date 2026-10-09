@@ -112,7 +112,7 @@ func TestOmniRendersPresetsAndDesignsOnTheRenderWorker(t *testing.T) {
 	if err := c.SynthesizeBackground(context.Background(), "Hi.", Voice{Model: ModelQwen3Custom}, func([]byte) error { return nil }); err == nil {
 		t.Fatal("render without TTS_RENDER_URL succeeded")
 	}
-	if !c.Qwen3() || c.EventsSupported() || !c.Omni() {
-		t.Fatal("omni must behave as a Qwen3 provider without vocal events")
+	if !c.Omni() || (&Client{}).Omni() {
+		t.Fatal("only the omni provider streams clones; the zero value is offline")
 	}
 }

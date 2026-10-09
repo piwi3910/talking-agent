@@ -108,6 +108,16 @@ function App() {
     history.replaceState(null, "", value === "settings" ? "/settings" : "/");
   }
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  // Model names reported by the server, so the panel never hardcodes them.
+  const [speechInfo, setSpeechInfo] = useState<{ stt?: string; tts?: string }>(
+    {},
+  );
+  // The selected persona's current voice, reloaded whenever the Voice tab opens.
+  const [agentVoice, setAgentVoice] = useState<{
+    voice_id: string;
+    name: string;
+    sample: boolean;
+  } | null>(null);
   const [voiceOn, setVoiceOn] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("Voice off");
   const [transcript, setTranscript] = useState("");
@@ -122,8 +132,11 @@ function App() {
   const busyRef = useRef(false);
   const sendRef = useRef<(text: string) => Promise<void>>(async () => {});
   useEffect(() => {
-    api<{ enabled: boolean }>("/voice")
-      .then((x) => setVoiceEnabled(x.enabled))
+    api<{ enabled: boolean; stt?: string; tts?: string }>("/voice")
+      .then((x) => {
+        setVoiceEnabled(x.enabled);
+        setSpeechInfo({ stt: x.stt, tts: x.tts });
+      })
       .catch(() => {});
     const timer = setInterval(() => setNow(Date.now()), 100);
     return () => {
@@ -150,6 +163,19 @@ function App() {
   const source = useRef<EventSource | null>(null);
   const lastID = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (tab !== "voice" || !agentID) return;
+    let current = true;
+    setAgentVoice(null);
+    api<{ voice_id: string; name: string; sample: boolean }>(
+      `/agents/${agentID}/voice`,
+    )
+      .then((x) => current && setAgentVoice(x))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [tab, agentID]);
   const agent = agents.find((a) => a.config.id === agentID);
   const openingMode = agent?.config.persona?.opening;
   const opens = openingMode === "inbound" || openingMode === "outbound";
@@ -1082,9 +1108,9 @@ function App() {
                 </p>
                 <dl className="properties">
                   <dt>Recognition</dt>
-                  <dd>Nemotron 3.5 ASR · live PCM</dd>
+                  <dd>{speechInfo.stt ?? "Speech recognition"} · live PCM</dd>
                   <dt>Speech</dt>
-                  <dd>Breeze TTS 2 · streamed PCM</dd>
+                  <dd>{speechInfo.tts ?? "Speech synthesis"} · streamed PCM</dd>
                   <dt>Status</dt>
                   <dd>
                     {voiceEnabled ? voiceStatus : "Speech not configured"}
@@ -1097,14 +1123,15 @@ function App() {
                   <dd>700 ms non-speech · Silero v6</dd>
                 </dl>
                 <p className="quiet">
-                  {agent?.config.name}’s fixed reference voice
+                  {agent?.config.name}’s voice
+                  {agentVoice?.name ? `: ${agentVoice.name}` : ""}
                 </p>
-                {voiceEnabled && agentID && (
+                {voiceEnabled && agentID && agentVoice?.sample && (
                   <audio
-                    key={agentID}
+                    key={`${agentID}:${agentVoice.voice_id}`}
                     controls
                     preload="none"
-                    src={`/api/agents/${agentID}/voice-reference`}
+                    src={`/api/agents/${agentID}/voice-sample?voice=${encodeURIComponent(agentVoice.voice_id)}`}
                     style={{ width: "100%", marginTop: 8 }}
                   />
                 )}
@@ -1133,8 +1160,8 @@ function App() {
                 <p className="quiet">
                   Headphones help avoid speaker echo triggering an interruption.
                   Account changes still require the confirmation button. Each
-                  persona uses one fixed synthetic reference voice across all
-                  sentences.
+                  persona speaks with one voice across all sentences; change it
+                  under Settings.
                 </p>
               </section>
             </div>

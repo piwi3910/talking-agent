@@ -86,26 +86,16 @@ func (f *fakeQwen) client() *speech.Client {
 	return &speech.Client{STTURL: f.URL, TTSURL: f.URL, Provider: speech.ProviderQwen3}
 }
 
-func TestPresetsAreListedOnlyUnderQwen3AndResolveToTheSpeaker(t *testing.T) {
+func TestPresetsAreListedForEveryProviderAndResolveToTheSpeaker(t *testing.T) {
 	f := newFixture(t)
-	breeze := f.open(t, &speech.Client{STTURL: "http://x", TTSURL: "http://x"})
-	for _, v := range breeze.Snapshot().Voices {
-		if v.Kind == KindPreset || strings.HasPrefix(v.ID, "preset-") {
-			t.Fatalf("preset listed under breeze: %+v", v)
-		}
-	}
-	if _, err := breeze.Save(request(breeze, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-ryan"} })); err == nil {
-		t.Fatal("preset assignment accepted under breeze")
-	}
-	if snap := breeze.Snapshot(); snap.Provider != "breeze" || !snap.Capabilities.VocalEvents {
-		t.Fatalf("%+v", snap)
-	}
-
 	tts := newFakeQwen(t)
 	s := f.open(t, tts.client())
 	snap := s.Snapshot()
-	if snap.Provider != "qwen3" || snap.Capabilities.VocalEvents {
-		t.Fatalf("%q %+v", snap.Provider, snap.Capabilities)
+	if snap.Provider != "qwen3" {
+		t.Fatalf("%q", snap.Provider)
+	}
+	if nil2 := f.open(t, &speech.Client{STTURL: "http://x", TTSURL: "http://x"}); nil2.Snapshot().Provider != "qwen3" {
+		t.Fatal("the zero provider must be the offline Qwen3 worker")
 	}
 	names := map[string]string{}
 	for _, v := range snap.Voices {
@@ -116,20 +106,20 @@ func TestPresetsAreListedOnlyUnderQwen3AndResolveToTheSpeaker(t *testing.T) {
 			names[v.ID] = v.Name
 		}
 	}
-	if len(names) != 9 || names["preset-ryan"] != "Ryan (preset, English)" || names["preset-vivian"] != "Vivian (preset, multilingual)" || names["preset-uncle-fu"] != "Uncle Fu (preset, multilingual)" {
+	if len(names) != len(builtinVoices) || names["preset-ryan"] != "Ryan (preset, English)" || names["preset-vivian"] != "Vivian (preset, multilingual)" || names["preset-uncle-fu"] != "Uncle Fu (preset, multilingual)" || names["preset-amelia"] != "Amelia (designed, warm British)" {
 		t.Fatalf("%v", names)
 	}
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
-		in.Personas["a"] = Persona{VoiceID: "preset-uncle-fu", Direction: "Speak softly.", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "preset-uncle-fu", Direction: "Speak softly."}
 		in.Personas["b"] = Persona{VoiceID: "preset-aiden"}
 	})); err != nil {
 		t.Fatal(err)
 	}
-	v, events := s.Resolve("a")
-	if v.Model != speech.ModelQwen3Custom || v.Speaker != "Uncle_Fu" || v.Instruct != "Speak softly." || v.Reference != nil || events {
-		t.Fatalf("%+v events=%v", v, events)
+	v := s.Resolve("a")
+	if v.Model != speech.ModelQwen3Custom || v.Speaker != "Uncle_Fu" || v.Instruct != "Speak softly." || v.Reference != nil {
+		t.Fatalf("%+v", v)
 	}
-	if v, _ = s.Resolve("b"); v.Speaker != "Aiden" || v.Instruct != "" {
+	if v = s.Resolve("b"); v.Speaker != "Aiden" || v.Instruct != "" {
 		t.Fatalf("%+v", v)
 	}
 	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-nobody"} })); err == nil {
@@ -140,16 +130,108 @@ func TestPresetsAreListedOnlyUnderQwen3AndResolveToTheSpeaker(t *testing.T) {
 	}
 }
 
-func TestQwen3BuiltinAndCloneUseBaseAndIgnoreDirection(t *testing.T) {
+func TestDesignedBuiltinRendersOneSampleAndThenIsCloned(t *testing.T) {
+	f := newFixture(t)
+	tts := newFakeQwen(t)
+	s := f.open(t, tts.client())
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-amelia"} })); err != nil {
+		t.Fatal(err)
+	}
+	// Before the sample exists the description renders offline.
+	v := s.Resolve("a")
+	if v.Model != speech.ModelQwen3Design || !strings.Contains(v.Instruct, "British") {
+		t.Fatalf("%+v", v)
+	}
+	s.mu.RLock()
+	missing := s.missingPresets()
+	pending := s.pending("preset-amelia")
+	s.mu.RUnlock()
+	// Offline, only the designed voices need a sample: a preset speaker is stable.
+	if len(missing) != 5 || !pending {
+		t.Fatalf("%v pending=%v", missing, pending)
+	}
+	if st := s.Snapshot().Cues["a"]; st.State != "queued" {
+		t.Fatalf("%+v", st)
+	}
+	s.mu.RLock()
+	needed := s.needed("a")
+	s.mu.RUnlock()
+	if needed {
+		t.Fatal("cues must wait for the designed voice's sample")
+	}
+	s.regenPresets(context.Background(), missing)
+	if n := tts.count(speech.ModelQwen3Design); n != 5 || tts.count(speech.ModelQwen3Custom) != 0 {
+		t.Fatalf("%d design renders", n)
+	}
+	v = s.Resolve("a")
+	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != presetSampleText {
+		t.Fatalf("%+v", v)
+	}
+	// A restart keeps the stored samples; an edited description invalidates one.
+	again := f.open(t, tts.client())
+	again.mu.RLock()
+	left := again.missingPresets()
+	again.mu.RUnlock()
+	if len(left) != 0 {
+		t.Fatalf("%v", left)
+	}
+	if err := os.WriteFile(filepath.Join(again.cloneDir("preset-amelia"), designDescFile), []byte("an older description"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	stale := f.open(t, tts.client())
+	stale.mu.RLock()
+	left = stale.missingPresets()
+	stale.mu.RUnlock()
+	if len(left) != 1 || left[0] != "preset-amelia" {
+		t.Fatalf("%v", left)
+	}
+}
+
+func TestFailedBuiltinSamplesAreRetriedUntilTheyRender(t *testing.T) {
+	old := presetRetry
+	presetRetry = 10 * time.Millisecond
+	defer func() { presetRetry = old }()
+	f := newFixture(t)
+	tts := newFakeQwen(t)
+	tts.failing = true
+	s := f.open(t, tts.client())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.mu.RLock()
+	missing := s.missingPresets()
+	s.mu.RUnlock()
+	done := make(chan struct{})
+	go func() { s.regenPresets(ctx, missing); close(done) }()
+	time.Sleep(50 * time.Millisecond)
+	tts.mu.Lock()
+	tts.failing = false
+	tts.mu.Unlock()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("builtin samples were not retried")
+	}
+	s.mu.RLock()
+	left := s.missingPresets()
+	s.mu.RUnlock()
+	if len(left) != 0 {
+		t.Fatalf("%v", left)
+	}
+}
+
+func TestQwen3CloneUsesBaseAndIgnoresDirection(t *testing.T) {
 	f := newFixture(t)
 	s := f.open(t, newFakeQwen(t).client())
+	if _, err := s.CreateClone(cloneRequest(s, "mine", "Hello there.")); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
-		in.Personas["a"] = Persona{VoiceID: "ref-a", Direction: "Be brisk.", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "mine", Direction: "Be brisk."}
 	})); err != nil {
 		t.Fatal(err)
 	}
-	v, _ := s.Resolve("a")
-	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.AudioBase64 != "audio-a" || v.Instruct != "" || v.Instruction != "" {
+	v := s.Resolve("a")
+	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != "Hello there." || v.Instruct != "" {
 		t.Fatalf("%+v", v)
 	}
 }
@@ -160,7 +242,7 @@ func TestSavingADesignVoiceRendersOneSampleThenEveryPhraseUsesBase(t *testing.T)
 	s := f.open(t, tts.client())
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
 		in.Voices = []Custom{{ID: "gent", Name: "Gent", Description: "  Deep and slow.  "}}
-		in.Personas["a"] = Persona{VoiceID: "gent", Direction: "Be brisk.", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "gent", Direction: "Be brisk."}
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -169,9 +251,9 @@ func TestSavingADesignVoiceRendersOneSampleThenEveryPhraseUsesBase(t *testing.T)
 		t.Fatalf("%+v", calls)
 	}
 	for i := 0; i < 3; i++ {
-		v, events := s.Resolve("a")
-		if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != designSampleText || v.Reference.AudioBase64 == "" || events {
-			t.Fatalf("%+v events=%v", v, events)
+		v := s.Resolve("a")
+		if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != designSampleText || v.Reference.AudioBase64 == "" {
+			t.Fatalf("%+v", v)
 		}
 	}
 	if tts.count(speech.ModelQwen3Design) != 1 {
@@ -199,9 +281,9 @@ func TestSavingADesignVoiceRendersOneSampleThenEveryPhraseUsesBase(t *testing.T)
 	}
 
 	// A restart keeps the sample: no render, same reference.
-	before, _ := s.Resolve("a")
+	before := s.Resolve("a")
 	restarted := f.open(t, tts.client())
-	after, _ := restarted.Resolve("a")
+	after := restarted.Resolve("a")
 	if after.Reference == nil || after.Reference.AudioBase64 != before.Reference.AudioBase64 || tts.count(speech.ModelQwen3Design) != 2 {
 		t.Fatalf("sample lost across restart: %+v", after)
 	}
@@ -242,7 +324,7 @@ func TestFailedDesignRenderPersistsNothing(t *testing.T) {
 			t.Fatalf("failed save kept a voice: %+v", v)
 		}
 	}
-	if snap.Revision != 0 || snap.Personas["a"].VoiceID != "ref-a" {
+	if snap.Revision != 0 || snap.Personas["a"].VoiceID != "preset-ryan" {
 		t.Fatalf("failed save changed state: %+v", snap)
 	}
 	if _, statErr := os.Stat(filepath.Join(f.dir, "var", "voices.json")); !os.IsNotExist(statErr) {
@@ -267,9 +349,9 @@ func TestMissingDesignSampleFallsBackThenIsRegeneratedAtStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	restarted := f.open(t, tts.client())
-	// Until the sample exists the persona uses its builtin voice and the app keeps working.
-	v, _ := restarted.Resolve("a")
-	if v.Reference == nil || v.Reference.AudioBase64 != "audio-a" {
+	// Until the sample exists the persona uses its default voice and the app keeps working.
+	v := restarted.Resolve("a")
+	if v.Model != speech.ModelQwen3Custom || v.Speaker != "Ryan" {
 		t.Fatalf("no fallback: %+v", v)
 	}
 	if !voiceUnavailable(restarted.Snapshot(), "gent") {
@@ -285,7 +367,7 @@ func TestMissingDesignSampleFallsBackThenIsRegeneratedAtStart(t *testing.T) {
 	for voiceUnavailable(restarted.Snapshot(), "gent") && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if v, _ = restarted.Resolve("a"); v.Reference == nil || v.Reference.Text != designSampleText {
+	if v = restarted.Resolve("a"); v.Reference == nil || v.Reference.Text != designSampleText {
 		t.Fatalf("not regenerated: %+v", v)
 	}
 	if tts.count(speech.ModelQwen3Design) != 2 {
@@ -312,40 +394,18 @@ func TestQwen3PreviewSources(t *testing.T) {
 	if v, err = s.Preview("gent", "", ""); err != nil || v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != designSampleText {
 		t.Fatalf("%+v %v", v, err)
 	}
-	if v, err = s.Preview("ref-a", "", ""); err != nil || v.Model != speech.ModelQwen3Base || v.Reference.AudioBase64 != "audio-a" {
-		t.Fatalf("%+v %v", v, err)
-	}
-}
-
-func TestQwen3StripsEventsAndSkipsThePromptAddendum(t *testing.T) {
-	f := newFixture(t)
-	s := f.open(t, newFakeQwen(t).client())
-	if p := s.Snapshot().Personas["a"]; !p.Events {
-		t.Fatalf("events should default to true: %+v", p)
-	}
-	if _, events := s.Resolve("a"); events {
-		t.Fatal("events allowed under qwen3 although the persona has them on")
-	}
-	if got := s.PromptAddendum("a"); got != "" {
-		t.Fatalf("addendum under qwen3: %q", got)
-	}
-	// What callers do with the flag: every allowlisted event is removed.
-	_, events := s.Resolve("a")
-	if got := speech.VocalEvents("Sure (laugh) thing (sigh).", events); got != "Sure thing ." {
-		t.Fatalf("%q", got)
-	}
 }
 
 func TestCueKeyDiffersBetweenProviders(t *testing.T) {
 	f := newFixture(t)
-	breeze := f.open(t, &speech.Client{STTURL: "http://x", TTSURL: "http://x"})
-	qwen := f.open(t, &speech.Client{STTURL: "http://x", TTSURL: "http://x", Provider: speech.ProviderQwen3})
+	offline := f.open(t, &speech.Client{STTURL: "http://x", TTSURL: "http://x", Provider: speech.ProviderQwen3})
+	omni := f.open(t, &speech.Client{STTURL: "http://x", TTSURL: "http://x", RenderURL: "http://x", Provider: speech.ProviderOmni})
 	ref := &speech.Reference{AudioBase64: "x", Text: "t"}
 	v := speech.Voice{Reference: ref, Model: speech.ModelQwen3Base}
-	if breeze.cueKey(v) == qwen.cueKey(v) {
+	if offline.cueKey(v) == omni.cueKey(v) {
 		t.Fatal("provider is not part of the cue key")
 	}
-	seen := map[string]string{qwen.cueKey(v): "base"}
+	seen := map[string]string{offline.cueKey(v): "base"}
 	for name, other := range map[string]speech.Voice{
 		"model":     {Reference: ref, Model: speech.ModelQwen3Custom},
 		"speaker":   {Model: speech.ModelQwen3Custom, Speaker: "Ryan"},
@@ -354,47 +414,33 @@ func TestCueKeyDiffersBetweenProviders(t *testing.T) {
 		"reference": {Reference: &speech.Reference{AudioBase64: "y", Text: "t"}, Model: speech.ModelQwen3Base},
 		"text":      {Reference: &speech.Reference{AudioBase64: "x", Text: "u"}, Model: speech.ModelQwen3Base},
 	} {
-		k := qwen.cueKey(other)
+		k := offline.cueKey(other)
 		if prev, dup := seen[k]; dup {
 			t.Fatalf("%s collides with %s", name, prev)
 		}
 		seen[k] = name
 	}
-	// Breeze keys are the ones sets were rendered under before this change.
-	if breeze.cueKey(v) != cueKey(v) {
-		t.Fatal("breeze cue key changed")
-	}
 }
 
-func TestSwitchingProviderRerendersNonOriginalCues(t *testing.T) {
-	f := newFixture(t)
-	breezeTTS := newFakeTTS(t)
-	s := f.open(t, &speech.Client{STTURL: breezeTTS.URL, TTSURL: breezeTTS.URL})
+func TestSwitchingProviderRerendersCues(t *testing.T) {
+	f := newFixture(t).only("a")
+	offlineTTS := newFakeTTS(t)
+	s := f.open(t, &speech.Client{STTURL: offlineTTS.URL, TTSURL: offlineTTS.URL})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
 	waitState(t, s, "a", "ready")
-	breezeKey := s.key("a")
-	// Same data, now served by qwen3: the old set no longer matches.
-	qwenTTS := newFakeQwen(t)
-	q := f.open(t, qwenTTS.client())
-	if q.key("a") == breezeKey || q.ready("a", q.key("a")) {
-		t.Fatal("breeze cue set reused under qwen3")
-	}
-	if st := q.Snapshot().Cues["a"]; st.State != "queued" {
-		t.Fatalf("%+v", st)
-	}
-	// Baked originals are untouched.
-	if st := q.Snapshot().Cues["b"]; st.State != "original" {
-		t.Fatalf("%+v", st)
+	offlineKey := s.key("a")
+	// Same data, now served by omni: the old set no longer matches.
+	omniTTS := newFakeQwen(t)
+	q := f.open(t, &speech.Client{STTURL: omniTTS.URL, TTSURL: omniTTS.URL, RenderURL: omniTTS.URL, Provider: speech.ProviderOmni})
+	if q.key("a") == offlineKey || q.ready("a", q.key("a")) {
+		t.Fatal("offline cue set reused under omni")
 	}
 }
 
 func TestCueRendererYieldsToLiveSpeech(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	var mu sync.Mutex
 	var inputs []string
 	liveGate := make(chan struct{})
@@ -439,9 +485,6 @@ func TestCueRendererYieldsToLiveSpeech(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	s.Start(ctx)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
 	waitState(t, s, "a", "rendering")
 	time.Sleep(700 * time.Millisecond)
 	if n := cues(); n != 0 {
@@ -462,27 +505,27 @@ func TestOmniPresetsRenderOnceThenCloneTheStoredSample(t *testing.T) {
 	tts := newFakeQwen(t)
 	c := &speech.Client{STTURL: tts.URL, TTSURL: tts.URL, RenderURL: tts.URL, Provider: speech.ProviderOmni}
 	s := f.open(t, c)
-	if snap := s.Snapshot(); snap.Provider != "omni" || snap.Capabilities.VocalEvents {
-		t.Fatalf("%q %+v", snap.Provider, snap.Capabilities)
+	if snap := s.Snapshot(); snap.Provider != "omni" {
+		t.Fatalf("%q", snap.Provider)
 	}
 	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-aiden", Direction: "Softly."} })); err != nil {
 		t.Fatal(err)
 	}
 	// Before the sample exists the preset renders offline.
-	if v, _ := s.Resolve("a"); v.Model != speech.ModelQwen3Custom || v.Speaker != "Aiden" {
+	if v := s.Resolve("a"); v.Model != speech.ModelQwen3Custom || v.Speaker != "Aiden" {
 		t.Fatalf("%+v", v)
 	}
 	s.mu.RLock()
 	missing := s.missingPresets()
 	s.mu.RUnlock()
-	if len(missing) != 9 {
+	if len(missing) != len(builtinVoices) {
 		t.Fatalf("%v", missing)
 	}
 	s.regenPresets(context.Background(), missing)
-	if n := tts.count("qwen3-tts-custom"); n != 9 {
+	if n := tts.count("qwen3-tts-custom"); n != 9 || tts.count("qwen3-tts-design") != len(builtinVoices)-9 {
 		t.Fatalf("%d renders", n)
 	}
-	v, _ := s.Resolve("a")
+	v := s.Resolve("a")
 	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != presetSampleText || v.Reference.AudioBase64 == "" {
 		t.Fatalf("%+v", v)
 	}
@@ -497,7 +540,7 @@ func TestOmniPresetsRenderOnceThenCloneTheStoredSample(t *testing.T) {
 	if len(left) != 0 {
 		t.Fatalf("%v", left)
 	}
-	if v, _ := again.Resolve("a"); v.Reference == nil || v.Reference.Text != presetSampleText {
+	if v := again.Resolve("a"); v.Reference == nil || v.Reference.Text != presetSampleText {
 		t.Fatalf("%+v", v)
 	}
 }

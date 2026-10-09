@@ -3,8 +3,6 @@
 package voices
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,7 +50,6 @@ type Voice struct {
 type Persona struct {
 	VoiceID   string `json:"voice_id"`
 	Direction string `json:"direction"`
-	Events    bool   `json:"events"`
 }
 type CueStatus struct {
 	State string `json:"state"`
@@ -61,17 +58,12 @@ type CueStatus struct {
 	Error string `json:"error"`
 }
 
-// Capabilities tells the UI what the active TTS model supports.
-type Capabilities struct {
-	VocalEvents bool `json:"vocal_events"`
-}
 type Snapshot struct {
-	Revision     uint64               `json:"revision"`
-	Provider     string               `json:"provider"`
-	Capabilities Capabilities         `json:"capabilities"`
-	Voices       []Voice              `json:"voices"`
-	Personas     map[string]Persona   `json:"personas"`
-	Cues         map[string]CueStatus `json:"cues"`
+	Revision uint64               `json:"revision"`
+	Provider string               `json:"provider"`
+	Voices   []Voice              `json:"voices"`
+	Personas map[string]Persona   `json:"personas"`
+	Cues     map[string]CueStatus `json:"cues"`
 }
 
 // Custom is the editable part of a voice; builtin voices are derived at startup.
@@ -103,7 +95,6 @@ type Store struct {
 	cueDir   string
 	tts      *speech.Client
 	agents   map[string]*config.Agent
-	refs     map[string]*speech.Reference
 	builtin  []Voice
 	manifest map[string][]byte // baked cues.json per agent
 	revision uint64
@@ -115,14 +106,13 @@ type Store struct {
 
 	cloneRoot string                       // <root>/<id>/reference.wav|txt, a sibling of the cue dir
 	clones    map[string]*speech.Reference // loaded clone references by voice id
-	designs   map[string]*designSample     // qwen3: rendered sample of each design voice, by voice id
-	presets   map[string]*speech.Reference // omni: rendered sample of each preset voice, by voice id
+	designs   map[string]*designSample     // rendered sample of each design voice, by voice id
+	presets   map[string]*speech.Reference // rendered sample of each builtin voice that streams from one, by voice id
 }
 
 // Open loads saved settings and removes render leftovers from a previous run.
-// refs holds each agent's reference voice (nil entries are agents without one).
-func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]*speech.Reference, tts *speech.Client) (*Store, error) {
-	s := &Store{path: path, cueDir: cueDir, tts: tts, agents: agents, refs: refs, manifest: map[string][]byte{}, personas: map[string]Persona{}, jobs: map[string]*job{}, wake: make(chan struct{}, 1),
+func Open(path, cueDir string, agents map[string]*config.Agent, tts *speech.Client) (*Store, error) {
+	s := &Store{path: path, cueDir: cueDir, tts: tts, agents: agents, builtin: presetVoices(), manifest: map[string][]byte{}, personas: map[string]Persona{}, jobs: map[string]*job{}, wake: make(chan struct{}, 1),
 		cloneRoot: filepath.Join(filepath.Dir(cueDir), "voices"), clones: map[string]*speech.Reference{}, designs: map[string]*designSample{}, presets: map[string]*speech.Reference{}}
 	ids := make([]string, 0, len(agents))
 	for id := range agents {
@@ -131,20 +121,12 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 	sort.Strings(ids)
 	for _, id := range ids {
 		a := agents[id]
-		if refs[id] != nil {
-			name := a.Persona["name"]
-			if name == "" {
-				name = a.Name
-			}
-			s.builtin = append(s.builtin, Voice{ID: "ref-" + id, Name: name + " (original)", Builtin: true, Kind: KindBuiltin})
-		}
 		if raw, err := os.ReadFile(filepath.Join(a.Dir, "voice", "cues.json")); err == nil {
 			s.manifest[id] = raw
 		}
-	}
-	if tts.Qwen3() {
-		// Preset speakers only exist for Qwen3-TTS CustomVoice.
-		s.builtin = append(s.builtin, presetVoices()...)
+		if d := a.Voice.Default; d != "" && !s.hasVoice(nil, d) {
+			slog.Warn("agent default voice is not a builtin voice; using the first builtin", "agent", id, "voice", d)
+		}
 	}
 	for _, id := range ids {
 		s.personas[id] = s.defaultPersona(id)
@@ -156,16 +138,25 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 			return nil, fmt.Errorf("voice settings: %w", err)
 		}
 		s.revision, s.custom = d.Revision, s.loadClones(d.Voices)
+		migrated := false
 		for id, p := range d.Personas {
 			if agents[id] == nil {
 				// A persona can vanish with its agent; never fail startup over it.
 				slog.Warn("dropping saved voice settings for unknown persona", "persona", id)
 				continue
 			}
+			if strings.HasPrefix(p.VoiceID, legacyRefPrefix) {
+				// The agent's own reference sample was a voice of the previous TTS
+				// model. Move the persona to the agent's current default, with that
+				// voice's delivery.
+				slog.Info("moving persona from its retired reference voice to its default", "persona", id, "voice", p.VoiceID)
+				p = s.defaultPersona(id)
+				migrated = true
+			}
 			s.personas[id] = p
 		}
 		if err = s.validate(s.custom, s.personas, nil); err != nil {
-			// A builtin voice can vanish when a reference is removed; fall back to the default.
+			// A voice can vanish; fall back to the default.
 			for id, p := range s.personas {
 				if !s.hasVoice(s.custom, p.VoiceID) {
 					slog.Warn("saved voice does not exist; using the default", "persona", id, "voice", p.VoiceID)
@@ -176,6 +167,18 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 			if err = s.validate(s.custom, s.personas, nil); err != nil {
 				return nil, fmt.Errorf("voice settings: %w", err)
 			}
+		}
+		if migrated {
+			// Persist the move so the browser sees a new revision. A failure only
+			// means it is redone at the next start.
+			out, merr := json.MarshalIndent(disk{Revision: s.revision + 1, Voices: s.custom, Personas: s.personas}, "", "  ")
+			if merr == nil {
+				merr = writeAtomic(path, out)
+			}
+			if merr != nil {
+				slog.Warn("could not store migrated voice settings", "error", merr)
+			}
+			s.revision++
 		}
 	} else if !os.IsNotExist(err) {
 		return nil, err
@@ -196,10 +199,16 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 	}
 	return s, nil
 }
+
+// legacyRefPrefix named the per-agent reference voices of the retired first TTS model.
+const legacyRefPrefix = "ref-"
+
+// defaultPersona is the agent's own voice (voice.default in agent.yaml) with its
+// delivery style, or the first builtin voice when it names none.
 func (s *Store) defaultPersona(id string) Persona {
-	p := Persona{Direction: s.agents[id].Persona["voice_style"], Events: true}
-	if s.refs[id] != nil {
-		p.VoiceID = "ref-" + id
+	p := Persona{Direction: s.agents[id].Persona["voice_style"]}
+	if d := s.agents[id].Voice.Default; d != "" && s.hasVoice(nil, d) {
+		p.VoiceID = d
 	} else if len(s.builtin) > 0 {
 		p.VoiceID = s.builtin[0].ID
 	}
@@ -285,7 +294,7 @@ func (s *Store) validate(custom []Custom, personas map[string]Persona, previous 
 }
 
 func validID(id string) error {
-	if !customID.MatchString(id) || strings.HasPrefix(id, "ref-") || strings.HasPrefix(id, presetPrefix) {
+	if !customID.MatchString(id) || strings.HasPrefix(id, legacyRefPrefix) || strings.HasPrefix(id, presetPrefix) {
 		return fmt.Errorf("invalid voice id %q: use lowercase letters, digits and hyphens, up to 40 characters, not starting with ref- or preset-", id)
 	}
 	return nil
@@ -303,7 +312,7 @@ func (s *Store) Snapshot() Snapshot {
 	return s.snapshot()
 }
 func (s *Store) snapshot() Snapshot {
-	out := Snapshot{Revision: s.revision, Provider: s.Provider(), Capabilities: Capabilities{VocalEvents: !s.qwen()}, Voices: append([]Voice{}, s.builtin...), Personas: map[string]Persona{}, Cues: map[string]CueStatus{}}
+	out := Snapshot{Revision: s.revision, Provider: s.Provider(), Voices: append([]Voice{}, s.builtin...), Personas: map[string]Persona{}, Cues: map[string]CueStatus{}}
 	for _, v := range s.custom {
 		kind := KindDesign
 		if v.Kind == KindClone {
@@ -320,8 +329,8 @@ func (s *Store) snapshot() Snapshot {
 
 // Save validates, persists atomically, then publishes and queues cue renders.
 func (s *Store) Save(in SaveRequest) (Snapshot, error) {
-	// Under qwen3 a design voice needs its reference sample before anything is
-	// persisted; the render runs outside the lock so live speech never waits.
+	// A design voice needs its reference sample before anything is persisted; the
+	// render runs outside the lock so live speech never waits.
 	fresh, err := s.prepareDesigns(in)
 	if err != nil {
 		return Snapshot{}, err
@@ -386,17 +395,15 @@ func writeAtomic(path string, raw []byte) error {
 	return os.Rename(f.Name(), path)
 }
 
-// Resolve returns the voice to synthesize with for the persona's next phrase and
-// whether inline vocal events are allowed. A nil store yields the plain default.
-func (s *Store) Resolve(agentID string) (speech.Voice, bool) {
+// Resolve returns the voice to synthesize with for the persona's next phrase. A
+// nil store yields the zero voice, the offline default speaker.
+func (s *Store) Resolve(agentID string) speech.Voice {
 	if s == nil {
-		return speech.Voice{}, false
+		return speech.Voice{}
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	p := s.personas[agentID]
-	// Qwen3-TTS does not understand inline vocal events, whatever the setting.
-	return s.resolve(s.effectiveVoiceID(agentID), p.Direction), p.Events && !s.qwen()
+	return s.resolve(s.effectiveVoiceID(agentID), s.personas[agentID].Direction)
 }
 
 // Preview resolves a draft: a saved voice or an unsaved design description,
@@ -405,11 +412,8 @@ func (s *Store) Preview(voiceID, description, direction string) (speech.Voice, e
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if voiceID == "" {
-		if s.qwen() {
-			// An unsaved description previews straight from the design model.
-			return speech.Voice{Model: speech.ModelQwen3Design, Instruct: description}, nil
-		}
-		return designVoice(description, direction), nil
+		// An unsaved description previews straight from the design model.
+		return speech.Voice{Model: speech.ModelQwen3Design, Instruct: description}, nil
 	}
 	if !s.hasVoice(s.custom, voiceID) {
 		return speech.Voice{}, fmt.Errorf("unknown voice %q", voiceID)
@@ -419,53 +423,26 @@ func (s *Store) Preview(voiceID, description, direction string) (speech.Voice, e
 	}
 	return s.resolve(voiceID, direction), nil
 }
-func (s *Store) resolve(voiceID, direction string) speech.Voice {
-	if s.qwen() {
-		return s.resolveQwen(voiceID, direction)
+
+// Current describes the persona's voice right now: its id, display name and the
+// stored sample it is cloned from, which is nil while the voice still renders
+// offline.
+func (s *Store) Current(agentID string) (id, name string, ref *speech.Reference) {
+	if s == nil {
+		return "", "", nil
 	}
-	if agent, ok := strings.CutPrefix(voiceID, "ref-"); ok && s.refs[agent] != nil {
-		return referenceVoice(s.refs[agent], direction)
-	}
-	if ref := s.clones[voiceID]; ref != nil {
-		return referenceVoice(ref, direction)
-	}
-	for _, c := range s.custom {
-		if c.ID == voiceID && c.Kind != KindClone {
-			return designVoice(c.Description, direction)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id = s.effectiveVoiceID(agentID)
+	for _, v := range s.builtin {
+		if v.ID == id {
+			name = v.Name
 		}
 	}
-	return speech.Voice{Instruction: direction}
-}
-func designVoice(description, direction string) speech.Voice {
-	instruction := description
-	if direction != "" {
-		instruction += " " + direction
+	for _, v := range s.custom {
+		if v.ID == id {
+			name = v.Name
+		}
 	}
-	return speech.Voice{Instruction: instruction, Guidance: "4"}
-}
-
-// Reference returns the persona's own builtin reference voice, or nil.
-func (s *Store) Reference(agentID string) *speech.Reference {
-	if s == nil {
-		return nil
-	}
-	return s.refs[agentID]
-}
-
-// PromptAddendum is the system prompt text for personas with vocal events enabled.
-func (s *Store) PromptAddendum(agentID string) string {
-	if _, events := s.Resolve(agentID); events {
-		return speech.EventsPrompt
-	}
-	return ""
-}
-
-// cueKey identifies the audio a voice produces, so edits of any part re-render.
-func cueKey(v speech.Voice) string {
-	h := sha256.New()
-	if v.Reference != nil {
-		fmt.Fprintf(h, "%s\x00%s", v.Reference.AudioBase64, v.Reference.Text)
-	}
-	fmt.Fprintf(h, "\x01%s\x01%s", v.Instruction, v.Guidance)
-	return hex.EncodeToString(h.Sum(nil))[:16]
+	return id, name, s.resolve(id, "").Reference
 }

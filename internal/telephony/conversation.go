@@ -269,8 +269,8 @@ func proposalText(p session.Pending) string {
 }
 
 func (s *Server) sayPhone(ctx context.Context, w io.Writer, pt uint8, sess *session.Session, text, turn string) error {
-	voice, events := s.Voices.Resolve(sess.Agent.ID)
-	text = speech.Spoken(speech.VocalEvents(text, events))
+	voice := s.Voices.Resolve(sess.Agent.ID)
+	text = speech.Spoken(text)
 	if text == "" {
 		return nil
 	}

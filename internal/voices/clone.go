@@ -185,19 +185,10 @@ func PrepareClone(raw []byte, transcript string) (wav []byte, text string, err e
 }
 
 // InlineClone builds the voice of an unsaved recording for a preview.
-func InlineClone(raw []byte, transcript, direction string) (speech.Voice, error) {
+func InlineClone(raw []byte, transcript string) (speech.Voice, error) {
 	wav, text, err := PrepareClone(raw, transcript)
 	if err != nil {
 		return speech.Voice{}, err
 	}
-	return referenceVoice(&speech.Reference{AudioBase64: base64.StdEncoding.EncodeToString(wav), Text: text}, direction), nil
-}
-
-// referenceVoice is Clone mode, or Direction mode when a delivery instruction is set.
-func referenceVoice(ref *speech.Reference, direction string) speech.Voice {
-	v := speech.Voice{Reference: ref, Instruction: direction, Guidance: "1"}
-	if direction != "" {
-		v.Guidance = "4"
-	}
-	return v
+	return baseVoice(&speech.Reference{AudioBase64: base64.StdEncoding.EncodeToString(wav), Text: text}), nil
 }

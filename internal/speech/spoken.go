@@ -11,11 +11,11 @@ import (
 )
 
 // Spoken rewrites written forms (amounts, times, dates, phone numbers, emails,
-// abbreviations) into text that Breeze TTS reads naturally, in British English.
+// abbreviations) into text that Qwen3-TTS reads naturally, in British English.
 // It is deterministic and conservative: anything it is not sure about is left
 // as written. The chat text is never changed; only the text sent to TTS is.
-// The Breeze vocal events "(laugh)", "(sigh)", "(cough)" and "(clears throat)"
-// are preserved exactly.
+// The stage directions "(laugh)", "(sigh)", "(cough)" and "(clears throat)" are
+// dropped: the model would read them aloud.
 func Spoken(text string) string {
 	if text == "" {
 		return text
@@ -27,7 +27,7 @@ func Spoken(text string) string {
 		}
 	}
 	p := &speaker{}
-	s := vocalEvent.ReplaceAllStringFunc(text, p.hold)
+	s := dropStageDirections(text)
 	s = spReplaceAll(s, emailRE, p.email)
 	s = spReplaceAll(s, phoneRE, p.phone)
 	s = spReplaceAll(s, isoDateRE, p.isoDate)
@@ -68,6 +68,18 @@ var (
 	numberRE      = regexp.MustCompile(amtPat)
 	formRE        = regexp.MustCompile(`FS([12])`)
 )
+
+var stageDirectionRE = regexp.MustCompile(`(?i)\((?:laugh|cough|clears throat|sigh)\)`)
+var doubleSpaceRE = regexp.MustCompile(` {2,}`)
+
+// dropStageDirections removes the bracketed vocal cues some language models add
+// out of habit, and the double space they leave behind.
+func dropStageDirections(text string) string {
+	if !stageDirectionRE.MatchString(text) {
+		return text
+	}
+	return strings.TrimSpace(doubleSpaceRE.ReplaceAllString(stageDirectionRE.ReplaceAllString(text, ""), " "))
+}
 
 // speaker keeps finished spoken fragments out of reach of later passes by
 // swapping them for private-use placeholders until the end.
@@ -663,7 +675,7 @@ func spNumberSign(s string, loc []int) (string, bool) {
 	return "number " + spGroup(s, loc, 1), true
 }
 
-// spForm spells the early-years form names so Breeze reads them letter by letter.
+// spForm spells the early-years form names so the voice reads them letter by letter.
 func spForm(s string, loc []int) (string, bool) {
 	if !okLeft(s, loc[0]) || !okRight(s, loc[1]) {
 		return "", false

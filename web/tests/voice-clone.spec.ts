@@ -84,12 +84,12 @@ const baseSnapshot = () => ({
     },
   ],
   personas: {
-    telecom: { voice_id: "ref-telecom", direction: "Warm", events: true },
-    school: { voice_id: "ref-school", direction: "", events: true },
+    telecom: { voice_id: "ref-telecom", direction: "Warm" },
+    school: { voice_id: "ref-school", direction: "" },
   },
   cues: {
-    telecom: { state: "original", done: 0, total: 19, error: "" },
-    school: { state: "original", done: 0, total: 19, error: "" },
+    telecom: { state: "ready", done: 0, total: 19, error: "" },
+    school: { state: "ready", done: 0, total: 19, error: "" },
   },
 });
 const heardText =
@@ -599,8 +599,8 @@ test.describe("voice cloning UI (mocked API)", () => {
 
     // The new voice is listed as cloned and can be assigned to a persona.
     await expect(panel.locator(".voice-list .pill")).toHaveText([
-      "Original",
-      "Original",
+      "Built-in",
+      "Built-in",
       "Designed",
       "Cloned",
     ]);
@@ -763,8 +763,8 @@ test.describe("voice cloning UI (mocked API)", () => {
     state.snapshot.voices.push({ ...clone });
     const panel = await open(page, state);
     await expect(panel.locator(".voice-list .pill")).toHaveText([
-      "Original",
-      "Original",
+      "Built-in",
+      "Built-in",
       "Designed",
       "Cloned",
     ]);

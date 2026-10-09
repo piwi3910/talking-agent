@@ -55,7 +55,7 @@ func TestQwen3RequestBodies(t *testing.T) {
 		voice Voice
 		check func(t *testing.T, b qwenRequest)
 	}{
-		"base": {Voice{Model: ModelQwen3Base, Reference: ref, Instruction: "ignored", Guidance: "4"}, func(t *testing.T, b qwenRequest) {
+		"base": {Voice{Model: ModelQwen3Base, Reference: ref}, func(t *testing.T, b qwenRequest) {
 			if b.Model != "qwen3-tts-base" || b.VoiceRef == nil || b.VoiceRef.Data != "QUJD" || b.ReferenceText != "reference words" || b.Voice != "" {
 				t.Fatalf("%+v", b)
 			}
@@ -105,19 +105,6 @@ func TestQwen3RequestBodies(t *testing.T) {
 			}
 			tc.check(t, b)
 		})
-	}
-}
-
-func TestBreezeRequestIsUnchangedByDefault(t *testing.T) {
-	got := make(chan qwenRequest, 1)
-	server := qwenServer(t, got)
-	c := &Client{TTSURL: server.URL}
-	if err := c.Synthesize(context.Background(), "Hi.", Voice{Instruction: "Natural", Guidance: "4"}, func([]byte) error { return nil }); err != nil {
-		t.Fatal(err)
-	}
-	b := <-got
-	if b.Model != "breeze" || b.Stream == nil || !*b.Stream || b.Options["instruction"] != "Natural" || b.Options["guidance_scale"] != "4" || b.Raw["stream_format"] != "audio" {
-		t.Fatalf("%+v", b)
 	}
 }
 

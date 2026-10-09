@@ -52,20 +52,19 @@ KW deployment verification on 2026-09-29:
 
 ## Phase 2 customer experience (2026-09-29)
 
-Replaced the debug-first layout with config-branded telecom/hospital chat and a collapsible right-side playground (Personas, Activity, Capabilities, Voice). Customer confirmations remain in the conversation even when the playground is hidden. Suggested questions were removed. Persona prompts now request short, natural service conversation without repeated stock acknowledgements or unsolicited follow-up menus. Speech is not enabled; the Voice tab explicitly labels the selected Breeze TTS 2 and proposed Nemotron 3.5 STT as awaiting deployment.
+Replaced the debug-first layout with config-branded telecom/hospital chat and a collapsible right-side playground (Personas, Activity, Capabilities, Voice). Customer confirmations remain in the conversation even when the playground is hidden. Suggested questions were removed. Persona prompts now request short, natural service conversation without repeated stock acknowledgements or unsolicited follow-up menus. Speech is not enabled; the Voice tab explicitly labels the selected TTS and proposed Nemotron 3.5 STT as awaiting deployment.
 
 Validation before release: `go test ./... -timeout 120s`, TypeScript/Vite production build, and four Chromium tests passed. Browser coverage includes telecom tool/confirmation flow, hospital preference/new session/booking, emergency bypass, brand/identity switching, operator-panel hide/show, starting chat with the panel hidden, no suggestion chips, and mobile overflow. Screenshots inspected at `/tmp/enterprise-phase2-hospital.png` and `/tmp/enterprise-phase2-mobile.png`. Model research and remaining voice work are documented in `docs/phase2-voice.md`.
 
-
 ## Deployed speech services on DGX .246 (2026-09-29)
 
-Breeze TTS 2 Q8 and Nemotron 3.5 ASR Q8 run in separate audio.cpp ARM64 CUDA containers on `gx10-48f4` / `192.168.10.246`. KW Sync applied a versioned ConfigMap and SSH delivery Job; the Job downloaded revision-pinned GGUFs, verified SHA-256, started only the enterprise-speech Compose project, and verified remote health. Internal Services/EndpointSlices expose both endpoints. The deployment Job completed and Sync became Healthy/Synced. Health was also verified from the actual agent pod through `http://speech-tts/health` and `http://speech-stt/health`.
+The first TTS model (since replaced by Qwen3-TTS) and Nemotron 3.5 ASR Q8 ran in separate audio.cpp ARM64 CUDA containers on `gx10-48f4` / `192.168.10.246`. KW Sync applied a versioned ConfigMap and SSH delivery Job; the Job downloaded revision-pinned GGUFs, verified SHA-256, started only the enterprise-speech Compose project, and verified remote health. Internal Services/EndpointSlices expose both endpoints. The deployment Job completed and Sync became Healthy/Synced. Health was also verified from the actual agent pod through `http://speech-tts/health` and `http://speech-stt/health`.
 
 `python3 deploy/speech/verify.py` passed real streaming synthesis, non-silent PCM validation, TTS-to-STT transcript correctness, and duplex STT. The paced 16 kHz input produced transcript deltas before upload ended and a correct final transcript. The first duplex attempt exposed HTTPConnection detaching its write socket on a close-delimited response; retaining the upload socket fixed the test client, with no change to the model service.
 
 Measurements for a fixed 3.2-second test sentence: initial TTS first bytes 1084 ms; repeated warm runs 538–541 ms, about 2.19 seconds total synthesis (RTF ~0.68). Warm file transcription took 141 ms wall time; live STT first output was around 614 ms after beginning the paced input. These are service tests, not end-of-user-speech to audible-agent-response benchmarks. The final report is `docs/speech-validation-20260929.json`.
 
-GPU process memory was approximately 4,194 MiB for Breeze and 1,277 MiB for Nemotron. The host reported 91 GiB available unified memory and no swap use after loading. BGE embedding/reranking, Laya, and the Kuvryn host agent remained running. The .245 LLM host was not modified. Browser microphone/playback, agent speech coordination, and stable Sara/Maya voice references remain subsequent integration work.
+GPU process memory was approximately 4,194 MiB for the first TTS model and 1,277 MiB for Nemotron. The host reported 91 GiB available unified memory and no swap use after loading. BGE embedding/reranking, Laya, and the Kuvryn host agent remained running. The .245 LLM host was not modified. Browser microphone/playback, agent speech coordination, and stable Sara/Maya voice references remain subsequent integration work.
 
 ## Phase 2 voice / Qwen3.6 — 2026-09-29
 
@@ -77,7 +76,7 @@ GPU process memory was approximately 4,194 MiB for Breeze and 1,277 MiB for Nemo
 
 ## Stable voices and non-speech rejection — 2026-09-29
 
-- Every Breeze phrase now includes the persona's fixed WAV plus exact transcript, rather than relying on a seed and style prompt to preserve speaker identity. Tests verify identical conditioning across different sentences and reject reference paths outside an agent directory.
+- Every phrase of the first TTS model included the persona's fixed WAV plus exact transcript, rather than relying on a seed and style prompt to preserve speaker identity. Tests verify identical conditioning across different sentences and reject reference paths outside an agent directory.
 - Both synthetic reference transcripts were checked with Nemotron ASR. Sara's reference is 6.88 seconds and was generated with an English/female/gentle-Arabic-accent instruction at guidance 4; Maya's reference is 6.64 seconds. Accent authenticity and timbre quality require human listening, not ASR verification.
 - Silero v6 (vad-web 0.0.31, locked ONNX runtime) replaces RMS-only triggering. Browser test played 10 seconds of deterministic hum/noise/clicks followed by speech: no transcription started during the checked noise interval; the subsequent utterance started one transcription and produced the expected words.
 - Standard microphone→partial/final transcript→real streamed speech test passed with the new detector. Models/WASM are served from KW, without a public CDN.
@@ -85,5 +84,5 @@ GPU process memory was approximately 4,194 MiB for Breeze and 1,277 MiB for Nemo
 ## Neutral Sara, barge-in and prerecorded cues — 2026-09-29
 
 - Sara was regenerated as a neutral English female reference. Both personas have 19 prerecorded, reference-conditioned clips (38 total), versioned with their source transcript and reference hash.
-- Real browser microphone injection while real Breeze audio was playing stopped scheduled playback after 292 ms. The old agent turn was cancelled, late audio did not restart, and the recognized "Stop please" command did not create a new LLM request. This measures the browser pipeline with a synthetic microphone; real-room echo performance remains device dependent.
+- Real browser microphone injection while real synthesized audio was playing stopped scheduled playback after 292 ms. The old agent turn was cancelled, late audio did not restart, and the recognized "Stop please" command did not create a new LLM request. This measures the browser pipeline with a synthetic microphone; real-room echo performance remains device dependent.
 - Regression tests cover cancellation before the first model token, cue category selection, suppression during user speech, immediate cue cancellation, cooldowns and disabled/closed behavior.

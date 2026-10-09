@@ -236,7 +236,7 @@ func (a *API) previewVoice(w http.ResponseWriter, r *http.Request) {
 			fail(w, 400, "Invalid recording")
 			return
 		}
-		voice, err = voices.InlineClone(audio, in.CloneTranscript, in.Direction)
+		voice, err = voices.InlineClone(audio, in.CloneTranscript)
 	} else {
 		voice, err = a.Voices.Preview(in.VoiceID, in.Description, in.Direction)
 	}
@@ -254,7 +254,7 @@ func (a *API) previewVoice(w http.ResponseWriter, r *http.Request) {
 	stop := context.AfterFunc(a.Root, cancel)
 	defer stop()
 	var pcm bytes.Buffer
-	err = a.Speech.Synthesize(ctx, speech.Spoken(speech.VocalEvents(in.Text, a.Speech.EventsSupported())), voice, func(p []byte) error { pcm.Write(p); return nil })
+	err = a.Speech.Synthesize(ctx, speech.Spoken(in.Text), voice, func(p []byte) error { pcm.Write(p); return nil })
 	if err != nil || pcm.Len()%2 != 0 {
 		fail(w, 502, "Speech generation failed")
 		return

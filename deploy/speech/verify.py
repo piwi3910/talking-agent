@@ -19,7 +19,7 @@ import urllib.request
 import wave
 
 TTS = os.getenv(
-    "TTS_URL", "http://speech-tts.enterprise-ai-demo.svc.cluster.local:8092"
+    "TTS_URL", "http://speech-tts.enterprise-ai-demo.svc.cluster.local:8094"
 )
 STT = os.getenv(
     "STT_URL", "http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093"
@@ -37,11 +37,12 @@ pcm = b""
 for attempt in range(3):
     body = json.dumps(
         {
-            "model": "breeze",
+            "model": "qwen3-tts-custom",
             "input": TEXT,
-            "stream": True,
-            "stream_format": "audio",
+            "voice": "Ryan",
+            "stream": False,
             "response_format": "pcm",
+            "options": {"seed": "42"},
         }
     ).encode()
     started = time.monotonic()
@@ -74,7 +75,7 @@ for attempt in range(3):
     print("TTS", json.dumps(report["tts"][-1]), flush=True)
 
 # audio.cpp's speech stream is mono signed 16-bit little endian PCM, 24 kHz.
-with wave.open(str(output / "breeze.wav"), "wb") as wav:
+with wave.open(str(output / "tts.wav"), "wb") as wav:
     wav.setnchannels(1)
     wav.setsampwidth(2)
     wav.setframerate(24000)

@@ -64,9 +64,10 @@ func newQwenEnv(t *testing.T) *qwenEnv {
 		t.Fatal(err)
 	}
 	agent := &config.Agent{ID: "a", Name: "Sara", Dir: root}
+	agent.Voice.Default = "preset-ryan"
 	agents := map[string]*config.Agent{"a": agent}
 	client := &speech.Client{STTURL: e.tts.URL, TTSURL: e.tts.URL, Provider: speech.ProviderQwen3}
-	store, err := voices.Open(filepath.Join(root, "var", "voices.json"), filepath.Join(root, "var", "cues"), agents, map[string]*speech.Reference{"a": {AudioBase64: "x", Text: "y"}}, client)
+	store, err := voices.Open(filepath.Join(root, "var", "voices.json"), filepath.Join(root, "var", "cues"), agents, client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,15 +96,12 @@ func (e *qwenEnv) requests() []map[string]any {
 	return append([]map[string]any{}, e.bodies...)
 }
 
-func TestQwen3ReportsProviderCapabilitiesAndPresets(t *testing.T) {
+func TestQwen3ReportsProviderAndBuiltinVoices(t *testing.T) {
 	e := newQwenEnv(t)
 	resp := e.do(t, "GET", "/api/settings/voices", "")
 	var snap struct {
-		Provider     string `json:"provider"`
-		Capabilities struct {
-			VocalEvents bool `json:"vocal_events"`
-		} `json:"capabilities"`
-		Voices []struct{ ID, Name, Kind string }
+		Provider string `json:"provider"`
+		Voices   []struct{ ID, Name, Kind string }
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
 		t.Fatal(err)
@@ -114,7 +112,7 @@ func TestQwen3ReportsProviderCapabilitiesAndPresets(t *testing.T) {
 			presets++
 		}
 	}
-	if snap.Provider != "qwen3" || snap.Capabilities.VocalEvents || presets != 9 {
+	if snap.Provider != "qwen3" || presets != 14 {
 		t.Fatalf("%+v presets=%d", snap, presets)
 	}
 	var info struct{ TTS string }
@@ -124,7 +122,7 @@ func TestQwen3ReportsProviderCapabilitiesAndPresets(t *testing.T) {
 	}
 }
 
-func TestQwen3SpeechStripsEventsEvenWhenEnabled(t *testing.T) {
+func TestSpeechUsesTheAgentDefaultVoiceAndDropsStageDirections(t *testing.T) {
 	e := newQwenEnv(t)
 	resp := e.do(t, "POST", "/api/sessions/"+e.session.ID+"/speech", `{"text":"Sure (laugh) thing."}`)
 	io.Copy(io.Discard, resp.Body)
@@ -136,11 +134,11 @@ func TestQwen3SpeechStripsEventsEvenWhenEnabled(t *testing.T) {
 		t.Fatalf("%d requests", len(sent))
 	}
 	b := sent[0]
-	if b["input"] != "Sure thing." || b["model"] != "qwen3-tts-base" || b["stream"] != false || b["response_format"] != "pcm" {
+	if b["input"] != "Sure thing." || b["model"] != "qwen3-tts-custom" || b["voice"] != "Ryan" || b["stream"] != false || b["response_format"] != "pcm" {
 		t.Fatalf("%v", b)
 	}
-	if _, ok := b["voice_ref"]; !ok {
-		t.Fatalf("no reference sent: %v", b)
+	if _, ok := b["voice_ref"]; ok {
+		t.Fatalf("a preset must not send a reference: %v", b)
 	}
 }
 
@@ -203,14 +201,14 @@ func TestSavingADesignVoiceWhoseSampleFailsReturns502AndPersistsNothing(t *testi
 	e.mu.Lock()
 	e.failing = true
 	e.mu.Unlock()
-	body := `{"revision":0,"voices":[{"id":"gent","name":"Gent","description":"Deep and slow."}],"personas":{"a":{"voice_id":"gent","direction":"","events":true}}}`
+	body := `{"revision":0,"voices":[{"id":"gent","name":"Gent","description":"Deep and slow."}],"personas":{"a":{"voice_id":"gent","direction":""}}}`
 	resp := e.do(t, "POST", "/api/settings/voices", body)
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 502 || !strings.Contains(string(raw), "Nothing was saved") {
 		t.Fatalf("%d %s", resp.StatusCode, raw)
 	}
 	snap := e.app.Voices.Snapshot()
-	if snap.Revision != 0 || snap.Personas["a"].VoiceID != "ref-a" {
+	if snap.Revision != 0 || snap.Personas["a"].VoiceID != "preset-ryan" {
 		t.Fatalf("%+v", snap)
 	}
 	// Once the service recovers the same save succeeds with a single design render.

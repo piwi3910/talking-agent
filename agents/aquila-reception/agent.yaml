@@ -11,7 +11,7 @@
       "style": "conversational",
       "verbosity": "concise",
       "opening": "inbound",
-      "voice_style": "Preserve the reference woman’s native voice and pronunciation. Warm, calm, efficient and friendly.",
+      "voice_style": "Crisp, calm, efficient and friendly.",
     },
   "memory":
     {
@@ -30,11 +30,7 @@
     },
   "skills": ["family", "information", "reception", "tours"],
   "knowledge": ["knowledge/school-profile.md"],
-  "voice":
-    {
-      "reference_audio": "voice/reference.wav",
-      "reference_text": "voice/reference.txt",
-    },
+  "voice": { "default": "preset-noor" },
   "future": { "voice": { "enabled": true }, "avatar": { "enabled": false } },
   "branding":
     {

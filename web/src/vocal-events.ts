@@ -1,6 +1,6 @@
-// Mirrors the Go allowlist (speech.VocalEvents). Only these four events are recognised; other parentheticals are untouched.
+// Mirrors the stage directions the server drops from spoken text (speech.Spoken). Only these four are recognised; other parentheticals are untouched.
 const PATTERN = "\\((?:laugh|cough|clears throat|sigh)\\)";
-/** Removes allowlisted inline vocal events and collapses the leftover spaces. For chat display only; spoken text keeps them. */
+/** Removes allowlisted inline vocal events and collapses the leftover spaces. For chat display only: the server drops them from spoken text too. */
 export function hideVocalEvents(text: string): string {
   if (!new RegExp(PATTERN, "i").test(text)) return text;
   return text

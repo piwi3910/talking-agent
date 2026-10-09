@@ -149,7 +149,7 @@ func TestCreateCloneStoresFilesResolvesAndChangesCueKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snap.Revision != 1 || kindOf(snap, "my-voice") != KindClone || kindOf(snap, "ref-a") != KindBuiltin {
+	if snap.Revision != 1 || kindOf(snap, "my-voice") != KindClone || kindOf(snap, "preset-ryan") != KindPreset {
 		t.Fatalf("%+v", snap)
 	}
 	dir := filepath.Join(f.dir, "var", "voices", "my-voice")
@@ -171,27 +171,28 @@ func TestCreateCloneStoresFilesResolvesAndChangesCueKey(t *testing.T) {
 	}
 
 	if _, err = s.Save(request(s, func(in *SaveRequest) {
-		in.Personas["a"] = Persona{VoiceID: "my-voice", Events: true}
-		in.Personas["b"] = Persona{VoiceID: "my-voice", Direction: "Calm.", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "my-voice"}
+		in.Personas["b"] = Persona{VoiceID: "my-voice", Direction: "Calm."}
 	})); err != nil {
 		t.Fatal(err)
 	}
-	v, _ := s.Resolve("a")
-	if v.Reference == nil || v.Reference.Text != "The quick brown fox." || v.Instruction != "" || v.Guidance != "1" {
+	v := s.Resolve("a")
+	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != "The quick brown fox." || v.Instruct != "" {
 		t.Fatalf("clone mode: %+v", v)
 	}
-	if v, _ = s.Resolve("b"); v.Reference == nil || v.Instruction != "Calm." || v.Guidance != "4" {
-		t.Fatalf("direction mode: %+v", v)
+	// A Base clone has no instruction support, so direction does not change it.
+	if v = s.Resolve("b"); v.Reference == nil || v.Instruct != "" {
+		t.Fatalf("direction on a clone: %+v", v)
 	}
 	first := s.key("a")
-	if first == before || first == s.key("b") {
-		t.Fatal("cue key ignores the clone and its direction")
+	if first == before || first != s.key("b") {
+		t.Fatal("cue key must follow the clone, not the ignored direction")
 	}
 	// Same audio, different transcript: a different reference, a different key.
 	if _, err = s.CreateClone(cloneRequest(s, "other-voice", "A different sentence.")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "other-voice", Events: true} })); err != nil {
+	if _, err = s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "other-voice"} })); err != nil {
 		t.Fatal(err)
 	}
 	if s.key("a") == first {
@@ -203,7 +204,7 @@ func TestCreateCloneStoresFilesResolvesAndChangesCueKey(t *testing.T) {
 
 	// Everything survives a restart.
 	reopened := f.open(t, nil)
-	if v, _ = reopened.Resolve("a"); v.Reference == nil || v.Reference.Text != "A different sentence." {
+	if v = reopened.Resolve("a"); v.Reference == nil || v.Reference.Text != "A different sentence." {
 		t.Fatalf("after restart: %+v", v)
 	}
 	if kindOf(reopened.Snapshot(), "my-voice") != KindClone {
@@ -217,7 +218,7 @@ func TestCreateCloneValidation(t *testing.T) {
 	for name, mutate := range map[string]func(*CloneRequest){
 		"bad id":            func(r *CloneRequest) { r.ID = "My Voice" },
 		"ref prefix":        func(r *CloneRequest) { r.ID = "ref-mine" },
-		"builtin id":        func(r *CloneRequest) { r.ID = "ref-a" },
+		"builtin id":        func(r *CloneRequest) { r.ID = "preset-ryan" },
 		"empty name":        func(r *CloneRequest) { r.Name = "  " },
 		"long name":         func(r *CloneRequest) { r.Name = strings.Repeat("n", 61) },
 		"empty transcript":  func(r *CloneRequest) { r.Transcript = " \n " },
@@ -292,7 +293,7 @@ func TestSaveRenamesAndDeletesClones(t *testing.T) {
 		}
 	}
 	goneDir := filepath.Join(f.dir, "var", "voices", "gone")
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "gone", Events: true} })); err != nil {
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "gone"} })); err != nil {
 		t.Fatal(err)
 	}
 	omit := func(in *SaveRequest) {
@@ -314,7 +315,7 @@ func TestSaveRenamesAndDeletesClones(t *testing.T) {
 	// Unassigned but the save fails for another reason: the files stay.
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
 		omit(in)
-		in.Personas["a"] = Persona{VoiceID: "nope", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "nope"}
 	})); err == nil {
 		t.Fatal("invalid save accepted")
 	}
@@ -323,7 +324,7 @@ func TestSaveRenamesAndDeletesClones(t *testing.T) {
 	}
 	// Rename keeps the clone; omitting it after unassigning deletes it, after the save.
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
-		in.Personas["a"] = Persona{VoiceID: "ref-a", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "preset-ryan"}
 		for i := range in.Voices {
 			if in.Voices[i].ID == "keep" {
 				in.Voices[i].Name = "Renamed"
@@ -389,7 +390,7 @@ func TestOpenDropsCloneWithMissingFilesWithoutFailing(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "broken", Events: true} })); err != nil {
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "broken"} })); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(f.dir, "var", "voices", "broken", "reference.txt")); err != nil {
@@ -400,7 +401,7 @@ func TestOpenDropsCloneWithMissingFilesWithoutFailing(t *testing.T) {
 	if kindOf(snap, "broken") != "" || kindOf(snap, "mine") != KindClone {
 		t.Fatalf("%+v", snap.Voices)
 	}
-	if snap.Personas["a"].VoiceID != "ref-a" {
+	if snap.Personas["a"].VoiceID != "preset-ryan" {
 		t.Fatalf("persona kept a dropped clone: %+v", snap.Personas["a"])
 	}
 	// The whole directory missing is the same.
@@ -421,7 +422,7 @@ func TestOpenIgnoresPathTraversalInCloneIDs(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(f.dir, "var", "voices.json"), []byte(raw), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Open(filepath.Join(f.dir, "var", "voices.json"), filepath.Join(f.dir, "var", "cues"), f.agents, f.refs, nil); err == nil {
+	if _, err := Open(filepath.Join(f.dir, "var", "voices.json"), filepath.Join(f.dir, "var", "cues"), f.agents, nil); err == nil {
 		t.Fatal("invalid saved clone id accepted")
 	}
 }

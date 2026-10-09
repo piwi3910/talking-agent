@@ -121,6 +121,9 @@ func PCMBytes(samples []int16) []byte {
 	return b
 }
 
+// WAV wraps 24 kHz mono signed 16-bit PCM in a RIFF header.
+func WAV(pcm []byte) []byte { return WAVAt(pcm, 24000) }
+
 // WAVAt wraps mono signed 16-bit PCM at the given rate in a RIFF header.
 func WAVAt(pcm []byte, rate int) []byte {
 	h := make([]byte, 44, 44+len(pcm))

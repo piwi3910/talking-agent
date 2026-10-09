@@ -170,28 +170,19 @@ func run() error {
 	if _, err := os.Stat(web); err != nil {
 		web = ""
 	}
-	refs := map[string]*speech.Reference{}
-	for id, a := range agents {
-		ref, err := speech.LoadReference(a.Dir, a.Voice.ReferenceAudio, a.Voice.ReferenceText)
-		if err != nil {
-			return fmt.Errorf("load %s voice: %w", id, err)
-		}
-		refs[id] = ref
+	ttsProvider := env("TTS_PROVIDER", speech.ProviderOmni)
+	if ttsProvider != speech.ProviderQwen3 && ttsProvider != speech.ProviderOmni {
+		return fmt.Errorf("unknown TTS_PROVIDER %q (use omni or qwen3)", ttsProvider)
 	}
-	ttsProvider := env("TTS_PROVIDER", speech.ProviderBreeze)
-	if ttsProvider != speech.ProviderBreeze && ttsProvider != speech.ProviderQwen3 && ttsProvider != speech.ProviderOmni {
-		return fmt.Errorf("unknown TTS_PROVIDER %q (use breeze, qwen3 or omni)", ttsProvider)
-	}
-	if ttsProvider == speech.ProviderOmni && os.Getenv("TTS_RENDER_URL") == "" {
-		slog.Warn("TTS_RENDER_URL is not set; preset and designed voices cannot render under omni")
+	if ttsProvider == speech.ProviderOmni && os.Getenv("TTS_URL") != "" && os.Getenv("TTS_RENDER_URL") == "" {
+		return fmt.Errorf("TTS_PROVIDER omni needs TTS_RENDER_URL, the audio.cpp Qwen3-TTS worker that renders preset and designed voices")
 	}
 	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL"), Provider: ttsProvider, RenderURL: os.Getenv("TTS_RENDER_URL")}
-	voiceStore, err := voices.Open(env("VOICE_SETTINGS_FILE", "var/voice-settings.json"), env("VOICE_CUES_DIR", "var/voice-cues"), agents, refs, speechClient)
+	voiceStore, err := voices.Open(env("VOICE_SETTINGS_FILE", "var/voice-settings.json"), env("VOICE_CUES_DIR", "var/voice-cues"), agents, speechClient)
 	if err != nil {
 		return fmt.Errorf("voice settings: %w", err)
 	}
 	voiceStore.Start(ctx)
-	runtime.PromptAddendum = voiceStore.PromptAddendum
 	app := &api.API{Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
 	var sipCfg telephony.Config
 	if path := os.Getenv("SIP_CONFIG_FILE"); path != "" {

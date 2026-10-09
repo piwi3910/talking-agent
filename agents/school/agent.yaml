@@ -5,74 +5,54 @@
   "role": "Admissions and Reception Coordinator",
   "industry": "school",
   "tenant": "demo-operator",
-  "backend": {
-    "url_env": "SCHOOL_BACKEND_URL"
-  },
-  "persona": {
-    "tone": "warm",
-    "style": "conversational",
-    "verbosity": "concise",
-    "voice_style": "Preserve the reference woman\u2019s native General American English voice and pronunciation. Warm, relaxed and conversational."
-  },
-  "memory": {
-    "provider": "novamem",
-    "namespace": "school-demo",
-    "rules": [
-      {
-        "pattern": "(?i)(morning.*(prefer|better|normally)|prefer.*morning)",
-        "text": "Family generally prefers morning school visits.",
-        "tags": [
-          "tour",
-          "visit",
-          "availability",
-          "morning"
-        ]
-      }
-    ]
-  },
-  "skills": [
-    "family",
-    "admissions",
-    "tour",
-    "school",
-    "reception"
-  ],
-  "knowledge": [
-    "knowledge/admissions.md",
-    "knowledge/reception.md"
-  ],
-  "voice": {
-    "reference_audio": "voice/reference.wav",
-    "reference_text": "voice/reference.txt"
-  },
-  "future": {
-    "voice": {
-      "enabled": true
+  "backend": { "url_env": "SCHOOL_BACKEND_URL" },
+  "persona":
+    {
+      "tone": "warm",
+      "style": "conversational",
+      "verbosity": "concise",
+      "voice_style": "Warm, relaxed, patient and conversational.",
     },
-    "avatar": {
-      "enabled": false
-    }
-  },
-  "branding": {
-    "mark": "W",
-    "tagline": "Room to grow.",
-    "service_label": "ADMISSIONS & RECEPTION",
-    "headline": "A warm welcome starts here.",
-    "description": "Let\u2019s make your next school step a little easier.",
-    "welcome": "Hi, I\u2019m Emma at Willowbrook School. I can help with admissions, school visits, or getting in touch with the right person.",
-    "disclaimer": "Fictional school and family records for this demo.",
-    "footer": "Here for your family, every step of the way.",
-    "color": "#6750a4"
-  },
-  "safety": {
-    "emergency": [
-      "immediate danger",
-      "cannot breathe",
-      "can't breathe",
-      "unconscious",
-      "severe bleeding",
-      "kill myself"
-    ],
-    "response": "If someone is in immediate danger, contact local emergency services now. For an urgent concern at school, contact reception or the safeguarding lead directly. Do not wait for a reply here."
-  }
+  "memory":
+    {
+      "provider": "novamem",
+      "namespace": "school-demo",
+      "rules":
+        [
+          {
+            "pattern": "(?i)(morning.*(prefer|better|normally)|prefer.*morning)",
+            "text": "Family generally prefers morning school visits.",
+            "tags": ["tour", "visit", "availability", "morning"],
+          },
+        ],
+    },
+  "skills": ["family", "admissions", "tour", "school", "reception"],
+  "knowledge": ["knowledge/admissions.md", "knowledge/reception.md"],
+  "voice": { "default": "preset-emma" },
+  "future": { "voice": { "enabled": true }, "avatar": { "enabled": false } },
+  "branding":
+    {
+      "mark": "W",
+      "tagline": "Room to grow.",
+      "service_label": "ADMISSIONS & RECEPTION",
+      "headline": "A warm welcome starts here.",
+      "description": "Let\u2019s make your next school step a little easier.",
+      "welcome": "Hi, I\u2019m Emma at Willowbrook School. I can help with admissions, school visits, or getting in touch with the right person.",
+      "disclaimer": "Fictional school and family records for this demo.",
+      "footer": "Here for your family, every step of the way.",
+      "color": "#6750a4",
+    },
+  "safety":
+    {
+      "emergency":
+        [
+          "immediate danger",
+          "cannot breathe",
+          "can't breathe",
+          "unconscious",
+          "severe bleeding",
+          "kill myself",
+        ],
+      "response": "If someone is in immediate danger, contact local emergency services now. For an urgent concern at school, contact reception or the safeguarding lead directly. Do not wait for a reply here.",
+    },
 }

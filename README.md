@@ -106,11 +106,11 @@ The live test checks exact calendar dates and slot IDs, booking, rescheduling, c
 
 ## Browser voice (Phase 2)
 
-The KW demo now supports live microphone transcription (Nemotron 3.5 ASR), streaming spoken replies (Breeze TTS 2), interruption, and live latency metrics. Start a chat, then select **Start voice**. The LLM uses `qwen3-6-35b-a3b` through the existing gateway and Go AI SDK, with thinking disabled. See [voice controls, architecture and limitations](docs/voice.md).
+The KW demo now supports live microphone transcription (Nemotron 3.5 ASR), streaming spoken replies (Qwen3-TTS), interruption, and live latency metrics. Start a chat, then select **Start voice**. The LLM uses `qwen3-6-35b-a3b` through the existing gateway and Go AI SDK, with thinking disabled. See [voice controls, architecture and limitations](docs/voice.md).
 
 ## School admissions and reception
 
-Select **Willowbrook School** in the Personas tab to talk with Emma. The school uses the shared streaming chat, Breeze voice, interruption, activity metrics and confirmation workflow. Its independent configuration, prompt, knowledge, skills, voice assets and NovaMem namespace live in `agents/school/`. Emma currently shares Sara’s synthetic American English voice reference, with general reception cues.
+Select **Willowbrook School** in the Personas tab to talk with Emma. The school uses the shared streaming chat, Qwen3-TTS voice, interruption, activity metrics and confirmation workflow. Its independent configuration, prompt, knowledge, skills, default voice and NovaMem namespace live in `agents/school/`. Emma speaks with her own designed voice, and her acknowledgement cues are rendered in it.
 
 School tools cover family profiles, programs and annual tuition, application progress, admissions enquiries, campus tour availability/booking/cancellation, school information and reception messages. Twenty fictional families include a new applicant (F001) and an application awaiting documents (F002). Weekday tour slots are generated relative to startup; booking is atomic and cancellation checks family ownership. Demo records reset on rollout; NovaMem preferences persist. No real admission decisions, messages to school staff, document uploads or collection authorizations occur.
 

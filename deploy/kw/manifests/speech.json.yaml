@@ -22,23 +22,6 @@
     {
       "namespace": "enterprise-ai-demo",
       "labels": { "app.kubernetes.io/part-of": "enterprise-speech" },
-      "name": "speech-tts-breeze",
-    },
-  "spec":
-    {
-      "type": "ExternalName",
-      "externalName": "kuvryn-29f86189-9566-4f0d-89fe-6c3b75174446-b4616c22.kuvryn-ai-workloads.svc.cluster.local",
-      "ports": [{ "name": "http", "port": 8092, "targetPort": 8092 }],
-    },
-}
----
-{
-  "apiVersion": "v1",
-  "kind": "Service",
-  "metadata":
-    {
-      "namespace": "enterprise-ai-demo",
-      "labels": { "app.kubernetes.io/part-of": "enterprise-speech" },
       "name": "speech-stt",
     },
   "spec":

@@ -2,6 +2,7 @@ package voices
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -22,13 +23,12 @@ const manifest = `{"reference_sha256":"baked","cues":[{"id":"waiting-1","categor
 type fixture struct {
 	dir    string
 	agents map[string]*config.Agent
-	refs   map[string]*speech.Reference
 }
 
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	root := t.TempDir()
-	f := fixture{dir: root, agents: map[string]*config.Agent{}, refs: map[string]*speech.Reference{}}
+	f := fixture{dir: root, agents: map[string]*config.Agent{}}
 	for _, id := range []string{"a", "b"} {
 		dir := filepath.Join(root, "agents", id)
 		if err := os.MkdirAll(filepath.Join(dir, "voice"), 0700); err != nil {
@@ -38,13 +38,28 @@ func newFixture(t *testing.T) fixture {
 			t.Fatal(err)
 		}
 		f.agents[id] = &config.Agent{ID: id, Name: "Agent " + id, Dir: dir, Persona: map[string]string{"voice_style": "Warm " + id}}
-		f.refs[id] = &speech.Reference{AudioBase64: "audio-" + id, Text: "text " + id}
+		f.agents[id].Voice.Default = map[string]string{"a": "preset-ryan", "b": "preset-aiden"}[id]
 	}
 	return f
 }
+
+// only drops every agent but id, for tests that follow one persona's render.
+func (f fixture) only(id string) fixture {
+	for other := range f.agents {
+		if other != id {
+			delete(f.agents, other)
+		}
+	}
+	return f
+}
+
+// open uses a fake audio.cpp worker unless the test brings its own client.
 func (f fixture) open(t *testing.T, tts *speech.Client) *Store {
 	t.Helper()
-	s, err := Open(filepath.Join(f.dir, "var", "voices.json"), filepath.Join(f.dir, "var", "cues"), f.agents, f.refs, tts)
+	if tts == nil {
+		tts = newFakeQwen(t).client()
+	}
+	s, err := Open(filepath.Join(f.dir, "var", "voices.json"), filepath.Join(f.dir, "var", "cues"), f.agents, tts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +84,7 @@ func TestSaveLoadRoundTripKeepsVoicesAndAssignments(t *testing.T) {
 	s := f.open(t, nil)
 	saved, err := s.Save(request(s, func(in *SaveRequest) {
 		in.Voices = []Custom{{ID: "gent", Name: " British gent ", Description: "Deep and slow."}}
-		in.Personas["a"] = Persona{VoiceID: "gent", Direction: " calm ", Events: false}
+		in.Personas["a"] = Persona{VoiceID: "gent", Direction: " calm "}
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -79,10 +94,11 @@ func TestSaveLoadRoundTripKeepsVoicesAndAssignments(t *testing.T) {
 	}
 	reopened := f.open(t, nil)
 	got := reopened.Snapshot()
-	if got.Revision != 1 || got.Personas["a"] != (Persona{VoiceID: "gent", Direction: "calm", Events: false}) || got.Personas["b"].VoiceID != "ref-b" {
+	if got.Revision != 1 || got.Personas["a"] != (Persona{VoiceID: "gent", Direction: "calm"}) || got.Personas["b"].VoiceID != "preset-aiden" {
 		t.Fatalf("round trip lost state: %+v", got)
 	}
-	if len(got.Voices) != 3 || got.Voices[2].Name != "British gent" || got.Voices[2].Builtin || got.Voices[0].Name != "Agent a (original)" || !got.Voices[0].Builtin {
+	n := len(builtinVoices)
+	if len(got.Voices) != n+1 || got.Voices[n].Name != "British gent" || got.Voices[n].Builtin || got.Voices[0].Name != "Ryan (preset, English)" || !got.Voices[0].Builtin {
 		t.Fatalf("voices %+v", got.Voices)
 	}
 }
@@ -102,7 +118,7 @@ func TestAssignedVoiceCannotBeDeleted(t *testing.T) {
 	s := newFixture(t).open(t, nil)
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
 		in.Voices = []Custom{{ID: "gent", Name: "Gent", Description: "Deep."}}
-		in.Personas["b"] = Persona{VoiceID: "gent", Events: true}
+		in.Personas["b"] = Persona{VoiceID: "gent"}
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -110,13 +126,13 @@ func TestAssignedVoiceCannotBeDeleted(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "assigned to b") {
 		t.Fatalf("deletion of assigned voice: %v", err)
 	}
-	if len(s.Snapshot().Voices) != 3 {
+	if len(s.Snapshot().Voices) != len(builtinVoices)+1 {
 		t.Fatal("rejected deletion changed state")
 	}
 	// Reassigning in the same request makes the deletion legitimate.
 	if _, err = s.Save(request(s, func(in *SaveRequest) {
 		in.Voices = nil
-		in.Personas["b"] = Persona{VoiceID: "ref-b", Events: true}
+		in.Personas["b"] = Persona{VoiceID: "preset-aiden"}
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +148,8 @@ func TestInvalidInputsAreRejected(t *testing.T) {
 		"id with uppercase":       func(in *SaveRequest) { in.Voices = []Custom{{ID: "Gent", Name: "n", Description: "d"}} },
 		"id starting with hyphen": func(in *SaveRequest) { in.Voices = []Custom{{ID: "-gent", Name: "n", Description: "d"}} },
 		"id too long":             func(in *SaveRequest) { in.Voices = []Custom{{ID: long(41), Name: "n", Description: "d"}} },
-		"id shadows builtin":      func(in *SaveRequest) { in.Voices = []Custom{{ID: "ref-a", Name: "n", Description: "d"}} },
+		"id shadows ref":          func(in *SaveRequest) { in.Voices = []Custom{{ID: "ref-a", Name: "n", Description: "d"}} },
+		"id shadows builtin":      func(in *SaveRequest) { in.Voices = []Custom{{ID: "preset-ryan", Name: "n", Description: "d"}} },
 		"duplicate id": func(in *SaveRequest) {
 			in.Voices = []Custom{{ID: "x", Name: "n", Description: "d"}, {ID: "x", Name: "n", Description: "d"}}
 		},
@@ -141,10 +158,10 @@ func TestInvalidInputsAreRejected(t *testing.T) {
 		"empty description":    func(in *SaveRequest) { in.Voices = []Custom{{ID: "x", Name: "n", Description: ""}} },
 		"description too long": func(in *SaveRequest) { in.Voices = []Custom{{ID: "x", Name: "n", Description: long(501)}} },
 		"too many voices":      func(in *SaveRequest) { in.Voices = many },
-		"direction too long":   func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-a", Direction: long(501)} },
+		"direction too long":   func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-ryan", Direction: long(501)} },
 		"unknown voice":        func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "nope"} },
 		"missing persona":      func(in *SaveRequest) { delete(in.Personas, "b") },
-		"unknown persona":      func(in *SaveRequest) { in.Personas["zzz"] = Persona{VoiceID: "ref-a"} },
+		"unknown persona":      func(in *SaveRequest) { in.Personas["zzz"] = Persona{VoiceID: "preset-ryan"} },
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := newFixture(t).open(t, nil)
@@ -166,7 +183,7 @@ func TestFailedWriteLeavesStateUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := s.Snapshot()
-	_, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "changed"} }))
+	_, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-aiden", Direction: "changed"} }))
 	if err == nil {
 		t.Fatal("write failure not reported")
 	}
@@ -180,71 +197,88 @@ func TestResolveBuiltinVersusCustom(t *testing.T) {
 	s := newFixture(t).open(t, nil)
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
 		in.Voices = []Custom{{ID: "gent", Name: "Gent", Description: "Deep and slow."}}
-		in.Personas["a"] = Persona{VoiceID: "ref-a", Direction: "", Events: true}
-		in.Personas["b"] = Persona{VoiceID: "gent", Direction: "Be brisk.", Events: false}
+		in.Personas["a"] = Persona{VoiceID: "preset-ryan"}
+		in.Personas["b"] = Persona{VoiceID: "gent", Direction: "Be brisk."}
 	})); err != nil {
 		t.Fatal(err)
 	}
-	v, events := s.Resolve("a")
-	if v.Reference == nil || v.Reference.AudioBase64 != "audio-a" || v.Instruction != "" || v.Guidance != "1" || !events {
-		t.Fatalf("builtin without direction: %+v", v)
+	v := s.Resolve("a")
+	if v.Model != speech.ModelQwen3Custom || v.Speaker != "Ryan" || v.Instruct != "" || v.Reference != nil {
+		t.Fatalf("preset without direction: %+v", v)
 	}
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "Slow.", Events: true} })); err != nil {
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-aiden", Direction: "Slow."} })); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ = s.Resolve("a"); v.Reference.AudioBase64 != "audio-b" || v.Instruction != "Slow." || v.Guidance != "4" {
-		t.Fatalf("builtin with direction: %+v", v)
+	if v = s.Resolve("a"); v.Speaker != "Aiden" || v.Instruct != "Slow." {
+		t.Fatalf("preset with direction: %+v", v)
 	}
-	v, events = s.Resolve("b")
-	if v.Reference != nil || v.Instruction != "Deep and slow. Be brisk." || v.Guidance != "4" || events {
-		t.Fatalf("custom: %+v events=%v", v, events)
+	// A designed voice is its stored sample cloned; Base has no direction.
+	v = s.Resolve("b")
+	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != designSampleText || v.Instruct != "" {
+		t.Fatalf("custom: %+v", v)
 	}
 }
 
-func TestDefaultsUseReferenceAndVoiceStyle(t *testing.T) {
+func TestDefaultsUseTheAgentVoiceAndVoiceStyle(t *testing.T) {
 	s := newFixture(t).open(t, nil)
-	if p := s.Snapshot().Personas["a"]; p != (Persona{VoiceID: "ref-a", Direction: "Warm a", Events: true}) {
+	if p := s.Snapshot().Personas["a"]; p != (Persona{VoiceID: "preset-ryan", Direction: "Warm a"}) {
+		t.Fatalf("%+v", p)
+	}
+	if p := s.Snapshot().Personas["b"]; p.VoiceID != "preset-aiden" {
 		t.Fatalf("%+v", p)
 	}
 }
 
-func TestPromptAddendumOnlyWhenEventsEnabled(t *testing.T) {
-	s := newFixture(t).open(t, nil)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["b"] = Persona{VoiceID: "ref-b", Events: false} })); err != nil {
-		t.Fatal(err)
+func TestDefaultVoiceFallsBackToTheFirstBuiltin(t *testing.T) {
+	f := newFixture(t)
+	f.agents["a"].Voice.Default = "preset-nobody"
+	f.agents["b"].Voice.Default = ""
+	s := f.open(t, nil)
+	for _, id := range []string{"a", "b"} {
+		if p := s.Snapshot().Personas[id]; p.VoiceID != "preset-ryan" {
+			t.Fatalf("%s: %+v", id, p)
+		}
 	}
-	if got := s.PromptAddendum("a"); !strings.Contains(got, "(laugh)") || !strings.Contains(got, "spoken aloud") {
-		t.Fatalf("addendum missing when events=true: %q", got)
-	}
-	if got := s.PromptAddendum("b"); got != "" {
-		t.Fatalf("addendum present when events=false: %q", got)
+}
+
+func TestEveryShippedDesignedVoiceHasADescription(t *testing.T) {
+	seen := map[string]bool{}
+	for _, b := range builtinVoices {
+		if seen[b.slug] {
+			t.Fatalf("duplicate builtin %s", b.slug)
+		}
+		seen[b.slug] = true
+		if (b.speaker == "") == (b.design == "") {
+			t.Fatalf("builtin %s must be exactly one of a preset speaker or a design", b.slug)
+		}
 	}
 }
 
 func TestCueKeyChangesWhenVoiceChanges(t *testing.T) {
 	ref := &speech.Reference{AudioBase64: "x", Text: "t"}
-	base := speech.Voice{Instruction: "i", Guidance: "4", Reference: ref}
-	seen := map[string]string{cueKey(base): "base"}
+	base := speech.Voice{Model: speech.ModelQwen3Base, Reference: ref}
+	seen := map[string]string{cueKeyQwen(base): "base"}
 	for name, v := range map[string]speech.Voice{
-		"instruction": {Instruction: "j", Guidance: "4", Reference: ref},
-		"guidance":    {Instruction: "i", Guidance: "1", Reference: ref},
-		"reference":   {Instruction: "i", Guidance: "4", Reference: &speech.Reference{AudioBase64: "y", Text: "t"}},
-		"no ref":      {Instruction: "i", Guidance: "4"},
+		"model":     {Model: speech.ModelQwen3Custom, Reference: ref},
+		"speaker":   {Model: speech.ModelQwen3Custom, Speaker: "Ryan"},
+		"instruct":  {Model: speech.ModelQwen3Custom, Speaker: "Ryan", Instruct: "Calm."},
+		"reference": {Model: speech.ModelQwen3Base, Reference: &speech.Reference{AudioBase64: "y", Text: "t"}},
+		"text":      {Model: speech.ModelQwen3Base, Reference: &speech.Reference{AudioBase64: "x", Text: "u"}},
 	} {
-		k := cueKey(v)
+		k := cueKeyQwen(v)
 		if other, dup := seen[k]; dup || len(k) != 16 {
 			t.Fatalf("%s collides with %s", name, other)
 		}
 		seen[k] = name
 	}
-	if cueKey(base) != cueKey(speech.Voice{Instruction: "i", Guidance: "4", Reference: &speech.Reference{AudioBase64: "x", Text: "t"}}) {
+	if cueKeyQwen(base) != cueKeyQwen(speech.Voice{Model: speech.ModelQwen3Base, Reference: &speech.Reference{AudioBase64: "x", Text: "t"}}) {
 		t.Fatal("key is not deterministic")
 	}
 }
 
 // fakeTTS returns 100 ms of PCM per request and records the inputs. Every PCM
-// byte is the first byte of the request's instruction, so tests can tell which
-// voice produced a clip.
+// byte is the first byte of the request's instruct option or, for a clone, the
+// last byte of its reference sample, so tests can tell which voice produced a clip.
 type fakeTTS struct {
 	*httptest.Server
 	mu      sync.Mutex
@@ -257,8 +291,9 @@ func newFakeTTS(t *testing.T) *fakeTTS {
 	f := &fakeTTS{}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var b struct {
-			Input   string
-			Options map[string]string
+			Input    string
+			Options  map[string]string
+			VoiceRef struct{ Data string } `json:"voice_ref"`
 		}
 		json.NewDecoder(r.Body).Decode(&b)
 		f.mu.Lock()
@@ -277,10 +312,14 @@ func newFakeTTS(t *testing.T) *fakeTTS {
 			return
 		}
 		pcm := make([]byte, 4800)
-		if in := b.Options["instruction"]; in != "" {
-			for i := range pcm {
-				pcm[i] = in[0]
-			}
+		var tint byte
+		if in := b.Options["instruct"]; in != "" {
+			tint = in[0]
+		} else if raw, err := base64.StdEncoding.DecodeString(b.VoiceRef.Data); err == nil && len(raw) > 44 {
+			tint = raw[len(raw)-1]
+		}
+		for i := range pcm {
+			pcm[i] = tint
 		}
 		w.Write(pcm)
 	}))
@@ -303,22 +342,20 @@ func waitState(t *testing.T, s *Store, agent, state string) CueStatus {
 }
 
 func TestRenderPublishesCompleteSetAtomicallyAndMutesUntilReady(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	tts.release = make(chan struct{})
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	s.Start(ctx)
-	if dir, ok := s.CueDir("a"); !ok || dir != filepath.Join(f.agents["a"].Dir, "voice") {
-		t.Fatal("original voice must use baked cues")
+	// No cue audio ships with an agent: nothing is served before a render.
+	if _, ok := s.CueDir("a"); ok {
+		t.Fatal("cues served before any render")
 	}
-	if _, err := s.Save(request(s, func(in *SaveRequest) {
-		in.Voices = []Custom{{ID: "gent", Name: "Gent", Description: "Deep and slow."}}
-		in.Personas["a"] = Persona{VoiceID: "gent", Events: true}
-	})); err != nil {
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-uncle-fu", Direction: "Deep."} })); err != nil {
 		t.Fatal(err)
 	}
+	s.Start(ctx)
 	// Mid-render: partial synthesis exists, but no set is visible.
 	tts.release <- struct{}{}
 	waitState(t, s, "a", "rendering")
@@ -357,7 +394,7 @@ func TestRenderPublishesCompleteSetAtomicallyAndMutesUntilReady(t *testing.T) {
 	}
 	for _, c := range m.Cues {
 		wav, err := os.ReadFile(filepath.Join(dir, "cues", c.ID+".wav"))
-		if err != nil || len(wav) != 44+4800 || string(wav[:4]) != "RIFF" {
+		if err != nil || len(wav) != 44+4800 || string(wav[:4]) != "RIFF" || wav[44] != 'D' {
 			t.Fatalf("cue %s: %v", c.ID, err)
 		}
 	}
@@ -367,34 +404,27 @@ func TestRenderPublishesCompleteSetAtomicallyAndMutesUntilReady(t *testing.T) {
 	if tts.count() != 3 {
 		t.Fatalf("synthesised %d phrases", tts.count())
 	}
-	// Persona b still uses its own baked set and was never rendered.
-	if st := s.Snapshot().Cues["b"]; st.State != "original" {
-		t.Fatalf("%+v", st)
-	}
 }
 
 func TestExistingSetIsNotRerenderedUnlessForced(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
+	// The persona's default voice is rendered at start: no cue audio ships.
 	waitState(t, s, "a", "ready")
-	if _, err := s.Save(request(s, func(in *SaveRequest) {
-		in.Personas["b"] = Persona{VoiceID: "ref-b", Direction: "Warm b", Events: false}
-	})); err != nil {
+	if tts.count() != 3 {
+		t.Fatalf("default voice synthesised %d phrases", tts.count())
+	}
+	// A save that leaves the voice alone does not render again.
+	if _, err := s.Save(request(s, nil)); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(50 * time.Millisecond)
 	if tts.count() != 3 {
 		t.Fatalf("unforced save re-rendered: %d", tts.count())
-	}
-	if _, err := s.Force("b"); err == nil {
-		t.Fatal("forced an original set")
 	}
 	if _, err := s.Force("a"); err != nil {
 		t.Fatal(err)
@@ -410,19 +440,19 @@ func TestExistingSetIsNotRerenderedUnlessForced(t *testing.T) {
 	if _, ok := s.CueDir("a"); !ok {
 		t.Fatal("forced re-render left no set")
 	}
+	if _, err := s.Force("nobody"); err == nil {
+		t.Fatal("forced an unknown persona")
+	}
 }
 
 func TestFailedRenderKeepsErrorAndNoSet(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	tts.fail = true
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
 	st := waitState(t, s, "a", "failed")
 	if !strings.Contains(st.Error, "500") {
 		t.Fatalf("%+v", st)
@@ -439,7 +469,7 @@ func TestRestartRequeuesMissingSetAndCleansTempDirs(t *testing.T) {
 	f := newFixture(t)
 	tts := newFakeTTS(t)
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-aiden", Direction: "x"} })); err != nil {
 		t.Fatal(err)
 	}
 	// Simulate a crash mid-render: no worker ran, and a temp dir is left over.
@@ -458,14 +488,11 @@ func TestRestartRequeuesMissingSetAndCleansTempDirs(t *testing.T) {
 }
 
 func TestRenderStopsOnContextCancel(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	tts.release = make(chan struct{})
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
 	ctx, cancel := context.WithCancel(context.Background())
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
 	s.Start(ctx)
 	waitState(t, s, "a", "rendering")
 	cancel()
@@ -479,16 +506,16 @@ func TestRenderStopsOnContextCancel(t *testing.T) {
 }
 
 func TestQueuedJobRendersTheVoiceItWasQueuedWith(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
 	if _, err := s.Save(request(s, func(in *SaveRequest) {
 		in.Voices = []Custom{{ID: "gent", Name: "Gent", Description: "Deep and slow."}}
-		in.Personas["a"] = Persona{VoiceID: "gent", Events: true}
+		in.Personas["a"] = Persona{VoiceID: "gent"}
 	})); err != nil {
 		t.Fatal(err)
 	}
-	keyX := cueKey(designVoice("Deep and slow.", ""))
+	keyX := s.key("a")
 	// The worker takes the job, then the voice changes before it renders.
 	id, j := s.next()
 	if id != "a" || j == nil || j.key != keyX {
@@ -499,7 +526,10 @@ func TestQueuedJobRendersTheVoiceItWasQueuedWith(t *testing.T) {
 	})); err != nil {
 		t.Fatal(err)
 	}
-	keyY := cueKey(designVoice("High and quick.", ""))
+	keyY := s.key("a")
+	if keyX == keyY {
+		t.Fatal("a new description must change the cue key")
+	}
 	if st := s.Snapshot().Cues["a"]; st.State != "queued" {
 		t.Fatalf("the current key must be queued on its own: %+v", st)
 	}
@@ -533,7 +563,7 @@ func TestQueuedJobRendersTheVoiceItWasQueuedWith(t *testing.T) {
 }
 
 func TestSaveRetriesFailedRenderButWorkerDoesNot(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	tts.mu.Lock()
 	tts.fail = true
@@ -542,9 +572,6 @@ func TestSaveRetriesFailedRenderButWorkerDoesNot(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
 	waitState(t, s, "a", "failed")
 	time.Sleep(50 * time.Millisecond)
 	failed := tts.count()
@@ -555,22 +582,19 @@ func TestSaveRetriesFailedRenderButWorkerDoesNot(t *testing.T) {
 	tts.fail = false
 	tts.mu.Unlock()
 	// An unrelated save retries the failed set for the same key.
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["b"] = Persona{VoiceID: "ref-b", Direction: "y", Events: true} })); err != nil {
+	if _, err := s.Save(request(s, nil)); err != nil {
 		t.Fatal(err)
 	}
 	waitState(t, s, "a", "ready")
 }
 
 func TestForcedRerenderReplacesSetWithNewGeneration(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t).only("a")
 	tts := newFakeTTS(t)
 	s := f.open(t, &speech.Client{STTURL: tts.URL, TTSURL: tts.URL})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	s.Start(ctx)
-	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "ref-b", Direction: "x", Events: true} })); err != nil {
-		t.Fatal(err)
-	}
 	waitState(t, s, "a", "ready")
 	dir, _ := s.CueDir("a")
 	// The manifest is briefly absent while the old set is moved aside; treat that as "not yet".
@@ -628,7 +652,7 @@ func TestOpenDropsUnknownPersonasAndVoices(t *testing.T) {
 	f := newFixture(t)
 	saved := `{"revision":4,"voices":[],"personas":{` +
 		`"a":{"voice_id":"gone","direction":"keep me","events":false},` +
-		`"removed-agent":{"voice_id":"ref-a","direction":"","events":true}}}`
+		`"removed-agent":{"voice_id":"preset-ryan","direction":"","events":true}}}`
 	path := filepath.Join(f.dir, "var", "voices.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -641,10 +665,10 @@ func TestOpenDropsUnknownPersonasAndVoices(t *testing.T) {
 	if snap.Revision != 4 || len(snap.Personas) != 2 {
 		t.Fatalf("%+v", snap)
 	}
-	if p := snap.Personas["a"]; p.VoiceID != "ref-a" || p.Direction != "keep me" || p.Events {
+	if p := snap.Personas["a"]; p.VoiceID != "preset-ryan" || p.Direction != "keep me" {
 		t.Fatalf("missing voice did not fall back to the default: %+v", p)
 	}
-	if p := snap.Personas["b"]; p.VoiceID != "ref-b" {
+	if p := snap.Personas["b"]; p.VoiceID != "preset-aiden" {
 		t.Fatalf("%+v", p)
 	}
 }
@@ -679,5 +703,36 @@ func TestTrimErrorHidesURLsAndPaths(t *testing.T) {
 	}
 	if got := trimError(errors.New("speech service HTTP 500")); got != "speech service HTTP 500" {
 		t.Fatalf("%q", got)
+	}
+}
+
+func TestRetiredReferenceVoicesMoveToTheAgentDefaultAndArePersisted(t *testing.T) {
+	f := newFixture(t)
+	saved := `{"revision":7,"voices":[{"id":"mine","name":"Mine","description":"Deep."}],"personas":{` +
+		`"a":{"voice_id":"ref-a","direction":"Preserve the reference woman's voice.","events":true},` +
+		`"b":{"voice_id":"mine","direction":"Keep this.","events":true}}}`
+	path := filepath.Join(f.dir, "var", "voices.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(saved), 0600); err != nil {
+		t.Fatal(err)
+	}
+	snap := f.open(t, nil).Snapshot()
+	if snap.Revision != 8 {
+		t.Fatalf("migration must bump the revision: %d", snap.Revision)
+	}
+	if p := snap.Personas["a"]; p != (Persona{VoiceID: "preset-ryan", Direction: "Warm a"}) {
+		t.Fatalf("persona a: %+v", p)
+	}
+	if p := snap.Personas["b"]; p.VoiceID != "mine" || p.Direction != "Keep this." {
+		t.Fatalf("a user-chosen voice must stay: %+v", p)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil || strings.Contains(string(raw), "ref-a") || !strings.Contains(string(raw), `"revision": 8`) {
+		t.Fatalf("migration not stored: %v %s", err, raw)
+	}
+	if again := f.open(t, nil).Snapshot(); again.Revision != 8 {
+		t.Fatalf("migration repeated: %d", again.Revision)
 	}
 }

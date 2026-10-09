@@ -149,14 +149,13 @@ func TestSpokenAbbreviations(t *testing.T) {
 	})
 }
 
-func TestSpokenKeepsVocalEvents(t *testing.T) {
+func TestSpokenDropsStageDirections(t *testing.T) {
 	checkSpoken(t, []spokenCase{
-		{"(laugh)", "(laugh)"},
-		{"(sigh)", "(sigh)"},
-		{"(cough)", "(cough)"},
-		{"(clears throat) Hello", "(clears throat) Hello"},
-		{"(Laugh)", "(Laugh)"},
-		{"(laugh) AED 5 (sigh)", "(laugh) five dirhams (sigh)"},
+		{"(sigh)", ""},
+		{"(clears throat) Hello", "Hello"},
+		{"Well (Laugh) that is fine.", "Well that is fine."},
+		{"(laugh) AED 5 (sigh)", "five dirhams"},
+		{"Keep (this) aside", "Keep (this) aside"},
 	})
 }
 

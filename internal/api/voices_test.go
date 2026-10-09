@@ -75,8 +75,9 @@ func newVoiceEnv(t *testing.T) *voiceEnv {
 		t.Fatal(err)
 	}
 	agents := map[string]*config.Agent{"a": {ID: "a", Name: "Sara", Dir: root}}
+	agents["a"].Voice.Default = "preset-ryan"
 	client := &speech.Client{STTURL: e.tts.URL, TTSURL: e.tts.URL}
-	store, err := voices.Open(filepath.Join(root, "var", "voices.json"), filepath.Join(root, "var", "cues"), agents, map[string]*speech.Reference{"a": {AudioBase64: "x", Text: "y"}}, client)
+	store, err := voices.Open(filepath.Join(root, "var", "voices.json"), filepath.Join(root, "var", "cues"), agents, client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,21 +113,21 @@ func TestPreviewReturnsWAVAndValidatesRequests(t *testing.T) {
 	if len(wav) != 44+4800 || string(wav[:4]) != "RIFF" || string(wav[8:12]) != "WAVE" || binary.LittleEndian.Uint32(wav[24:]) != 24000 || binary.LittleEndian.Uint32(wav[40:]) != 4800 {
 		t.Fatalf("bad WAV header (%d bytes)", len(wav))
 	}
-	if e.inputs[0] != "Hi (laugh) there" {
-		t.Fatalf("preview did not normalise vocal events: %q", e.inputs[0])
+	if e.inputs[0] != "Hi there" {
+		t.Fatalf("preview did not drop the stage direction: %q", e.inputs[0])
 	}
-	resp = e.post(t, "/api/settings/voices/preview", `{"voice_id":"ref-a"}`, "")
+	resp = e.post(t, "/api/settings/voices/preview", `{"voice_id":"preset-ryan"}`, "")
 	io.Copy(io.Discard, resp.Body)
 	if resp.StatusCode != 200 || e.inputs[1] != defaultPreview {
 		t.Fatalf("default text: %d %q", resp.StatusCode, e.inputs[1])
 	}
 	for name, body := range map[string]string{
-		"both voice_id and description": `{"voice_id":"ref-a","description":"x"}`,
+		"both voice_id and description": `{"voice_id":"preset-ryan","description":"x"}`,
 		"neither":                       `{"text":"hi"}`,
 		"unknown voice":                 `{"voice_id":"nope"}`,
-		"text too long":                 `{"voice_id":"ref-a","text":"` + strings.Repeat("a", 301) + `"}`,
-		"direction too long":            `{"voice_id":"ref-a","direction":"` + strings.Repeat("a", 501) + `"}`,
-		"unknown field":                 `{"voice_id":"ref-a","seed":1}`,
+		"text too long":                 `{"voice_id":"preset-ryan","text":"` + strings.Repeat("a", 301) + `"}`,
+		"direction too long":            `{"voice_id":"preset-ryan","direction":"` + strings.Repeat("a", 501) + `"}`,
+		"unknown field":                 `{"voice_id":"preset-ryan","seed":1}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			resp := e.post(t, "/api/settings/voices/preview", body, "")
@@ -140,14 +141,14 @@ func TestPreviewReturnsWAVAndValidatesRequests(t *testing.T) {
 func TestPreviewRejectsCrossOriginAndConcurrentRequests(t *testing.T) {
 	e := newVoiceEnv(t)
 	before := len(e.inputs)
-	resp := e.post(t, "/api/settings/voices/preview", `{"voice_id":"ref-a"}`, "https://evil.example")
+	resp := e.post(t, "/api/settings/voices/preview", `{"voice_id":"preset-ryan"}`, "https://evil.example")
 	if resp.StatusCode != 403 || len(e.inputs) != before {
 		t.Fatalf("cross-origin preview ran: %d", resp.StatusCode)
 	}
 	e.gate = make(chan struct{})
 	done := make(chan int, 1)
 	go func() {
-		r := e.post(t, "/api/settings/voices/preview", `{"voice_id":"ref-a"}`, "")
+		r := e.post(t, "/api/settings/voices/preview", `{"voice_id":"preset-ryan"}`, "")
 		done <- r.StatusCode
 	}()
 	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
@@ -158,7 +159,7 @@ func TestPreviewRejectsCrossOriginAndConcurrentRequests(t *testing.T) {
 			break
 		}
 	}
-	if r := e.post(t, "/api/settings/voices/preview", `{"voice_id":"ref-a"}`, ""); r.StatusCode != 409 {
+	if r := e.post(t, "/api/settings/voices/preview", `{"voice_id":"preset-ryan"}`, ""); r.StatusCode != 409 {
 		t.Fatalf("concurrent preview: %d", r.StatusCode)
 	}
 	close(e.gate)
@@ -170,7 +171,7 @@ func TestPreviewRejectsCrossOriginAndConcurrentRequests(t *testing.T) {
 func TestVoiceSettingsStatusCodes(t *testing.T) {
 	e := newVoiceEnv(t)
 	save := func(rev int, voice string) int {
-		body := `{"revision":` + string(rune('0'+rev)) + `,"voices":[{"id":"gent","name":"Gent","description":"Deep."}],"personas":{"a":{"voice_id":"` + voice + `","direction":"","events":true}}}`
+		body := `{"revision":` + string(rune('0'+rev)) + `,"voices":[{"id":"gent","name":"Gent","description":"Deep."}],"personas":{"a":{"voice_id":"` + voice + `","direction":""}}}`
 		return e.post(t, "/api/settings/voices", body, "").StatusCode
 	}
 	if c := save(0, "gent"); c != 200 {
@@ -194,7 +195,7 @@ func TestVoiceSettingsStatusCodes(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	var snap voices.Snapshot
-	if err = json.NewDecoder(resp.Body).Decode(&snap); err != nil || resp.Header.Get("Cache-Control") != "no-store" || snap.Revision != 1 || len(snap.Voices) != 2 {
+	if err = json.NewDecoder(resp.Body).Decode(&snap); err != nil || resp.Header.Get("Cache-Control") != "no-store" || snap.Revision != 1 || len(snap.Voices) != 15 {
 		t.Fatalf("%v %+v", err, snap)
 	}
 }
@@ -209,10 +210,12 @@ func TestCueEndpointsAre404UntilRenderedSetIsComplete(t *testing.T) {
 		resp.Body.Close()
 		return resp.StatusCode
 	}
-	if get("/api/agents/a/voice-cues") != 200 {
-		t.Fatal("baked manifest missing for original voice")
+	// Cue wording ships with the agent but its audio never does: nothing is
+	// served until a set has been rendered in the persona's voice.
+	if get("/api/agents/a/voice-cues") != 404 || get("/api/agents/a/voice-cues/waiting-1") != 404 {
+		t.Fatal("cues served before any render")
 	}
-	resp := e.post(t, "/api/settings/voices", `{"revision":0,"voices":[{"id":"gent","name":"Gent","description":"Deep."}],"personas":{"a":{"voice_id":"gent","direction":"","events":true}}}`, "")
+	resp := e.post(t, "/api/settings/voices", `{"revision":0,"voices":[{"id":"gent","name":"Gent","description":"Deep."}],"personas":{"a":{"voice_id":"gent","direction":""}}}`, "")
 	if resp.StatusCode != 200 {
 		t.Fatalf("save %d", resp.StatusCode)
 	}
@@ -237,7 +240,7 @@ func TestStorageFailureIsServerErrorWithoutPaths(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(e.root, "var"), []byte("file in the way"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	resp := e.post(t, "/api/settings/voices", `{"revision":0,"voices":[],"personas":{"a":{"voice_id":"ref-a","direction":"","events":true}}}`, "")
+	resp := e.post(t, "/api/settings/voices", `{"revision":0,"voices":[],"personas":{"a":{"voice_id":"preset-ryan","direction":""}}}`, "")
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 500 || !strings.Contains(string(raw), "could not save voice settings") || strings.Contains(string(raw), e.root) {
 		t.Fatalf("%d %s", resp.StatusCode, raw)
@@ -489,7 +492,7 @@ func TestCloneCheckIsExclusiveWithOtherChecksAndPreviews(t *testing.T) {
 	if resp := e.postBytes(t, checkPath, "audio/wav", good, ""); resp.StatusCode != 409 {
 		t.Fatalf("concurrent check: %d", resp.StatusCode)
 	}
-	if resp := e.post(t, "/api/settings/voices/preview", `{"voice_id":"ref-a"}`, ""); resp.StatusCode != 409 {
+	if resp := e.post(t, "/api/settings/voices/preview", `{"voice_id":"preset-ryan"}`, ""); resp.StatusCode != 409 {
 		t.Fatalf("preview during a check: %d", resp.StatusCode)
 	}
 	close(stt.gate)
@@ -527,14 +530,14 @@ func TestCloneLifecycleThroughTheAPI(t *testing.T) {
 	if kind, name := voiceKind(snap, "my-voice"); resp.StatusCode != 200 || snap.Revision != 1 || kind != "clone" || name != "My voice" {
 		t.Fatalf("create: %d %+v", resp.StatusCode, snap)
 	}
-	if kind, _ := voiceKind(snap, "ref-a"); kind != "builtin" || !exists() {
+	if kind, _ := voiceKind(snap, "preset-ryan"); kind != "preset" || !exists() {
 		t.Fatalf("kind of the builtin voice %q, files present %v", kind, exists())
 	}
 	if txt, _ := os.ReadFile(filepath.Join(dir, "reference.txt")); string(txt) != "Hello there." {
 		t.Fatalf("transcript %q", txt)
 	}
 
-	assigned := `"personas":{"a":{"voice_id":"my-voice","direction":"","events":true}}}`
+	assigned := `"personas":{"a":{"voice_id":"my-voice","direction":""}}}`
 	resp = e.post(t, "/api/settings/voices", `{"revision":1,"voices":[{"id":"my-voice","name":"My voice","kind":"clone"}],`+assigned, "")
 	snap = decodeSnapshot(t, resp)
 	if resp.StatusCode != 200 || snap.Personas["a"].VoiceID != "my-voice" || snap.Cues["a"].State != "queued" {
@@ -565,7 +568,7 @@ func TestCloneLifecycleThroughTheAPI(t *testing.T) {
 	}
 
 	// Unassigned and omitted: the voice and its files go.
-	resp = e.post(t, "/api/settings/voices", `{"revision":3,"voices":[],"personas":{"a":{"voice_id":"ref-a","direction":"","events":true}}}`, "")
+	resp = e.post(t, "/api/settings/voices", `{"revision":3,"voices":[],"personas":{"a":{"voice_id":"preset-ryan","direction":""}}}`, "")
 	snap = decodeSnapshot(t, resp)
 	if kind, _ := voiceKind(snap, "my-voice"); resp.StatusCode != 200 || kind != "" || exists() {
 		t.Fatalf("delete: %d %+v files present %v", resp.StatusCode, snap.Voices, exists())
@@ -591,7 +594,7 @@ func TestCloneCreateRejectsInvalidRequests(t *testing.T) {
 		{"empty audio", map[string]any{"audio_base64": ""}, "", 400},
 		{"recording too short", map[string]any{"audio_base64": b64(tone(24000, 0.5, 1, 0.5, 8000))}, "", 400},
 		{"bad id", map[string]any{"id": "Bad Id"}, "", 400},
-		{"reserved id", map[string]any{"id": "ref-a"}, "", 400},
+		{"reserved id", map[string]any{"id": "preset-ryan"}, "", 400},
 		{"empty name", map[string]any{"name": " "}, "", 400},
 		{"empty transcript", map[string]any{"transcript": ""}, "", 400},
 		{"long transcript", map[string]any{"transcript": strings.Repeat("a", 501)}, "", 400},
@@ -648,7 +651,7 @@ func TestPreviewWithInlineCloneUsesItsReferenceAndDirection(t *testing.T) {
 	stereo[22] = 2
 	before := len(e.inputs)
 	for name, body := range map[string]string{
-		"clone and voice_id":      inline(`,"voice_id":"ref-a"`),
+		"clone and voice_id":      inline(`,"voice_id":"preset-ryan"`),
 		"clone and description":   inline(`,"description":"Deep."`),
 		"audio without text":      `{"clone_audio_base64":"` + audio + `"}`,
 		"transcript without it":   `{"clone_transcript":"Hello there."}`,
@@ -679,7 +682,7 @@ func TestSavedCloneCanBePreviewedByID(t *testing.T) {
 	io.Copy(io.Discard, resp.Body)
 	last := len(e.inputs) - 1
 	stored, err := os.ReadFile(filepath.Join(e.root, "var", "voices", "my-voice", "reference.wav"))
-	if err != nil || resp.StatusCode != 200 || e.refs[last][0] != b64(stored) || e.refs[last][1] != "Hello there." || e.options[last]["instruction"] != "Slow." {
+	if err != nil || resp.StatusCode != 200 || e.refs[last][0] != b64(stored) || e.refs[last][1] != "Hello there." || e.options[last]["instruct"] != "" {
 		t.Fatalf("%d %v %q", resp.StatusCode, err, e.refs[last][1])
 	}
 }

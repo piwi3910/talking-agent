@@ -16,7 +16,8 @@ import (
 	"enterprise-ai-demo/internal/speech"
 )
 
-// KindPreset marks a Qwen3 CustomVoice speaker: builtin, read-only, qwen3 only.
+// KindPreset marks a built-in voice: a Qwen3 CustomVoice speaker or a voice
+// designed in code. Both are read-only and listed for every provider.
 const KindPreset = "preset"
 
 const presetPrefix = "preset-"
@@ -31,47 +32,68 @@ const designSampleText = "Hello, and thank you for calling today. I would be gla
 // designTimeout bounds one design sample render in the save path.
 var designTimeout = 30 * time.Second
 
-// presetSampleText is the fixed sentence rendered once per preset speaker under
-// the omni provider; it is the reference transcript every preset clones from.
+// presetSampleText is the fixed sentence rendered once per builtin voice; it is
+// the reference transcript every builtin clones from.
 const presetSampleText = designSampleText
 
 const designDescFile = "reference.desc"
 
-// presetSpeakers are the Qwen3 CustomVoice speakers. Ryan and Aiden are native
-// English; the others speak other languages.
-var presetSpeakers = []struct{ slug, speaker, label string }{
-	{"ryan", "Ryan", "English"},
-	{"aiden", "Aiden", "English"},
-	{"vivian", "Vivian", "multilingual"},
-	{"serena", "Serena", "multilingual"},
-	{"uncle-fu", "Uncle_Fu", "multilingual"},
-	{"dylan", "Dylan", "multilingual"},
-	{"eric", "Eric", "multilingual"},
-	{"ono-anna", "Ono_Anna", "multilingual"},
-	{"sohee", "Sohee", "multilingual"},
+// builtinVoice is a read-only voice that ships with the server. A voice with a
+// speaker is a Qwen3 CustomVoice preset; one with a design is described in words
+// and rendered once with the VoiceDesign model.
+type builtinVoice struct {
+	slug    string
+	name    string // display name
+	label   string // shown in brackets after the name
+	speaker string // CustomVoice speaker
+	design  string // VoiceDesign description
+}
+
+// builtinVoices are the voices every deployment offers. The designed ones give
+// each shipped agent its own default (see voice.default in agent.yaml). Ryan and
+// Aiden are native English presets; the other presets speak other languages.
+var builtinVoices = []builtinVoice{
+	{slug: "ryan", name: "Ryan", label: "preset, English", speaker: "Ryan"},
+	{slug: "aiden", name: "Aiden", label: "preset, English", speaker: "Aiden"},
+	{slug: "vivian", name: "Vivian", label: "preset, multilingual", speaker: "Vivian"},
+	{slug: "serena", name: "Serena", label: "preset, multilingual", speaker: "Serena"},
+	{slug: "uncle-fu", name: "Uncle Fu", label: "preset, multilingual", speaker: "Uncle_Fu"},
+	{slug: "dylan", name: "Dylan", label: "preset, multilingual", speaker: "Dylan"},
+	{slug: "eric", name: "Eric", label: "preset, multilingual", speaker: "Eric"},
+	{slug: "ono-anna", name: "Ono Anna", label: "preset, multilingual", speaker: "Ono_Anna"},
+	{slug: "sohee", name: "Sohee", label: "preset, multilingual", speaker: "Sohee"},
+	{slug: "amelia", name: "Amelia", label: "designed, warm British", design: "A warm, calm British woman in her mid-thirties with a refined, British-educated accent. Soft, reassuring and unhurried, like a trusted school admissions officer."},
+	{slug: "noor", name: "Noor", label: "designed, crisp and friendly", design: "A crisp, friendly young woman in her late twenties with a clear, polished international English accent. Bright, efficient and welcoming, with quick, precise pacing, like a front-desk receptionist."},
+	{slug: "sophie", name: "Sophie", label: "designed, energetic", design: "An energetic, cheerful young woman in her early twenties with a lively British accent. Enthusiastic, upbeat and quick, smiling as she speaks, like an outgoing outreach coordinator."},
+	{slug: "emma", name: "Emma", label: "designed, warm American", design: "A warm, kind American woman in her early forties with a native General American accent. Relaxed, patient and conversational, like a caring school coordinator."},
+	{slug: "sara", name: "Sara", label: "designed, relaxed American", design: "A confident, easygoing American woman in her late twenties with a slightly husky, relaxed voice and a native General American accent. Friendly and upbeat, like a helpful support specialist."},
 }
 
 func presetVoices() []Voice {
-	out := make([]Voice, 0, len(presetSpeakers))
-	for _, p := range presetSpeakers {
-		name := strings.ReplaceAll(p.speaker, "_", " ")
-		out = append(out, Voice{ID: presetPrefix + p.slug, Name: fmt.Sprintf("%s (preset, %s)", name, p.label), Builtin: true, Kind: KindPreset})
+	out := make([]Voice, 0, len(builtinVoices))
+	for _, b := range builtinVoices {
+		out = append(out, Voice{ID: presetPrefix + b.slug, Name: fmt.Sprintf("%s (%s)", b.name, b.label), Builtin: true, Kind: KindPreset})
 	}
 	return out
 }
 
-func presetSpeaker(voiceID string) (string, bool) {
+func builtinByID(voiceID string) (builtinVoice, bool) {
 	slug, ok := strings.CutPrefix(voiceID, presetPrefix)
 	if !ok {
-		return "", false
+		return builtinVoice{}, false
 	}
-	for _, p := range presetSpeakers {
-		if p.slug == slug {
-			return p.speaker, true
+	for _, b := range builtinVoices {
+		if b.slug == slug {
+			return b, true
 		}
 	}
-	return "", false
+	return builtinVoice{}, false
 }
+
+// cloned reports whether the voice is streamed from a stored sample. Designed
+// voices always are, since a description alone does not keep one speaker across
+// phrases; presets are only under omni, where every voice is a clone.
+func (s *Store) cloned(b builtinVoice) bool { return b.design != "" || s.tts.Omni() }
 
 // designSample is the stored reference rendered from a design description.
 type designSample struct {
@@ -84,28 +106,22 @@ func (s *Store) Provider() string {
 	if s != nil && s.tts.Omni() {
 		return speech.ProviderOmni
 	}
-	if s != nil && s.tts.Qwen3() {
-		return speech.ProviderQwen3
-	}
-	return speech.ProviderBreeze
+	return speech.ProviderQwen3
 }
 
-func (s *Store) qwen() bool { return s.tts.Qwen3() }
-
-// resolveQwen maps a voice to a Qwen3-TTS request. Direction only applies to
-// presets: Base has no instruction support.
-func (s *Store) resolveQwen(voiceID, direction string) speech.Voice {
-	if agent, ok := strings.CutPrefix(voiceID, "ref-"); ok && s.refs[agent] != nil {
-		return baseVoice(s.refs[agent])
-	}
-	if speaker, ok := presetSpeaker(voiceID); ok {
-		// Omni streams presets by cloning their stored sample; until it exists the
-		// preset renders offline through the audio.cpp worker. Direction needs
-		// CustomVoice, so a cloned preset ignores it like any Base voice.
+// resolve maps a voice to a Qwen3-TTS request. Direction only applies to presets
+// that still render offline: a Base clone has no instruction support.
+func (s *Store) resolve(voiceID, direction string) speech.Voice {
+	if b, ok := builtinByID(voiceID); ok {
+		// Until the stored sample exists a builtin renders offline through the
+		// audio.cpp worker.
 		if ref := s.presets[voiceID]; ref != nil {
 			return baseVoice(ref)
 		}
-		return speech.Voice{Model: speech.ModelQwen3Custom, Speaker: speaker, Instruct: direction}
+		if b.design != "" {
+			return speech.Voice{Model: speech.ModelQwen3Design, Instruct: b.design}
+		}
+		return speech.Voice{Model: speech.ModelQwen3Custom, Speaker: b.speaker, Instruct: direction}
 	}
 	if ref := s.clones[voiceID]; ref != nil {
 		return baseVoice(ref)
@@ -141,9 +157,6 @@ func (s *Store) designReference(id string) *speech.Reference {
 // unavailable reports whether a voice cannot be used right now: under qwen3, a
 // design voice whose sample is missing. Callers hold the lock.
 func (s *Store) unavailable(voiceID string) bool {
-	if !s.qwen() {
-		return false
-	}
 	for _, c := range s.custom {
 		if c.ID == voiceID && c.Kind != KindClone {
 			return s.designReference(voiceID) == nil
@@ -163,7 +176,7 @@ func (s *Store) effectiveVoiceID(agentID string) string {
 }
 
 // cueKeyQwen identifies the audio a Qwen3 voice produces. The provider is part
-// of it, so switching provider re-renders every non-original cue set.
+// of it, so switching provider re-renders every cue set.
 func cueKeyQwen(v speech.Voice) string {
 	h := sha256.New()
 	fmt.Fprintf(h, "qwen3\x00%s\x00%s\x00%s", v.Model, v.Speaker, v.Instruct)
@@ -177,10 +190,15 @@ func (s *Store) cueKey(v speech.Voice) string {
 	if s.tts.Omni() {
 		return "omni" + cueKeyQwen(v)[:12]
 	}
-	if s.qwen() {
-		return cueKeyQwen(v)
-	}
-	return cueKey(v)
+	return cueKeyQwen(v)
+}
+
+// pending reports whether the voice is a builtin whose stored sample is still
+// being rendered. Its cues wait for the sample, so they are rendered once, in the
+// voice callers will hear. Callers hold the lock.
+func (s *Store) pending(voiceID string) bool {
+	b, ok := builtinByID(voiceID)
+	return ok && s.cloned(b) && s.presets[voiceID] == nil
 }
 
 // renderDesignSample renders the fixed sentence with the design model and
@@ -210,12 +228,8 @@ type freshSample struct {
 }
 
 // prepareDesigns renders, outside the store lock, a sample for every design
-// voice of a save request that has none for its current description. Under
-// breeze it does nothing.
+// voice of a save request that has none for its current description.
 func (s *Store) prepareDesigns(in SaveRequest) (map[string]*freshSample, error) {
-	if !s.qwen() {
-		return nil, nil
-	}
 	s.mu.RLock()
 	if in.Revision != s.revision {
 		s.mu.RUnlock()
@@ -278,11 +292,8 @@ func (s *Store) adoptDesigns(kept []Custom, fresh map[string]*freshSample) {
 func (s *Store) hasClone(id string) bool { _, ok := s.clones[id]; return ok }
 
 // loadDesigns reads the stored samples of design voices whose description still
-// matches. Missing or stale ones are regenerated by Start. Qwen3 only.
+// matches. Missing or stale ones are regenerated by Start.
 func (s *Store) loadDesigns() {
-	if !s.qwen() {
-		return
-	}
 	for _, v := range s.custom {
 		if v.Kind == KindClone || validID(v.ID) != nil {
 			continue
@@ -301,9 +312,6 @@ func (s *Store) loadDesigns() {
 // missingDesigns lists design voices without a usable sample. Callers hold the lock.
 func (s *Store) missingDesigns() []Custom {
 	var out []Custom
-	if !s.qwen() {
-		return nil
-	}
 	for _, v := range s.custom {
 		if v.Kind != KindClone && s.designReference(v.ID) == nil {
 			out = append(out, v)
@@ -344,62 +352,100 @@ func (s *Store) regenDesigns(ctx context.Context, missing []Custom) {
 	s.mu.Unlock()
 }
 
-// loadPresets reads the stored sample of every preset speaker. Omni only;
-// missing ones are rendered by regenPresets.
+// loadPresets reads the stored sample of every builtin that streams from one:
+// all of them under omni, the designed ones otherwise. A designed sample only
+// counts while its description is the one it was rendered from. Missing ones are
+// rendered by regenPresets.
 func (s *Store) loadPresets() {
-	if !s.tts.Omni() {
-		return
-	}
-	for _, p := range presetSpeakers {
-		id := presetPrefix + p.slug
-		ref, err := speech.LoadReference(s.cloneDir(id), cloneAudioFile, cloneTextFile)
+	for _, b := range builtinVoices {
+		if !s.cloned(b) {
+			continue
+		}
+		id := presetPrefix + b.slug
+		dir := s.cloneDir(id)
+		ref, err := speech.LoadReference(dir, cloneAudioFile, cloneTextFile)
 		if err != nil || ref == nil {
 			continue
+		}
+		if b.design != "" {
+			if desc, err := os.ReadFile(filepath.Join(dir, designDescFile)); err != nil || string(desc) != b.design {
+				continue
+			}
 		}
 		s.presets[id] = ref
 	}
 }
 
-// missingPresets lists preset voice ids without a stored sample. Callers hold the lock.
+// missingPresets lists builtin voice ids without a stored sample. Callers hold the lock.
 func (s *Store) missingPresets() []string {
-	if !s.tts.Omni() {
-		return nil
-	}
 	var out []string
-	for _, p := range presetSpeakers {
-		if id := presetPrefix + p.slug; s.presets[id] == nil {
+	for _, b := range builtinVoices {
+		if id := presetPrefix + b.slug; s.cloned(b) && s.presets[id] == nil {
 			out = append(out, id)
 		}
 	}
 	return out
 }
 
-// regenPresets renders each missing preset sample once through the audio.cpp
+// presetRetry is how long regenPresets waits before trying the failed samples again.
+var presetRetry = 30 * time.Second
+
+// regenPresets renders each missing builtin sample once through the audio.cpp
 // worker, never while a caller is being spoken to, and persists it. Until then
-// the preset renders offline. It never fails startup.
+// the voice renders offline. Failed samples are retried every presetRetry, since
+// the worker may simply not be up yet. It never fails startup.
 func (s *Store) regenPresets(ctx context.Context, missing []string) {
-	for _, id := range missing {
-		speaker, _ := presetSpeaker(id)
-		if s.tts.WaitIdle(ctx) != nil {
+	for len(missing) > 0 {
+		var failed []string
+		for _, id := range missing {
+			if !s.renderPreset(ctx, id) {
+				if ctx.Err() != nil {
+					return
+				}
+				failed = append(failed, id)
+			}
+		}
+		s.mu.Lock()
+		s.enqueueMissing(false)
+		s.mu.Unlock()
+		missing = failed
+		if len(missing) == 0 {
 			return
 		}
-		rctx, cancel := context.WithTimeout(ctx, designTimeout)
-		var pcm []byte
-		err := s.tts.SynthesizeBackground(rctx, presetSampleText, speech.Voice{Model: speech.ModelQwen3Custom, Speaker: speaker}, func(b []byte) error { pcm = append(pcm, b...); return nil })
-		cancel()
-		if err != nil || len(pcm) == 0 || len(pcm)%2 != 0 {
-			slog.Warn("could not render preset voice sample; the preset stays offline", "voice", id, "error", err)
-			continue
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(presetRetry):
 		}
-		wav := speech.WAV(pcm)
-		s.mu.Lock()
-		if err := s.writeReference(id, wav, presetSampleText, nil); err != nil {
-			slog.Warn("could not store preset sample", "voice", id, "error", err)
-		}
-		s.presets[id] = &speech.Reference{AudioBase64: base64.StdEncoding.EncodeToString(wav), Text: presetSampleText}
-		s.mu.Unlock()
 	}
+}
+
+// renderPreset renders and stores one builtin sample and reports success.
+func (s *Store) renderPreset(ctx context.Context, id string) bool {
+	b, ok := builtinByID(id)
+	if !ok || s.tts.WaitIdle(ctx) != nil {
+		return false
+	}
+	v := speech.Voice{Model: speech.ModelQwen3Custom, Speaker: b.speaker}
+	var extra map[string]string
+	if b.design != "" {
+		v = speech.Voice{Model: speech.ModelQwen3Design, Instruct: b.design}
+		extra = map[string]string{designDescFile: b.design}
+	}
+	rctx, cancel := context.WithTimeout(ctx, designTimeout)
+	defer cancel()
+	var pcm []byte
+	err := s.tts.SynthesizeBackground(rctx, presetSampleText, v, func(p []byte) error { pcm = append(pcm, p...); return nil })
+	if err != nil || len(pcm) == 0 || len(pcm)%2 != 0 {
+		slog.Warn("could not render builtin voice sample; the voice stays offline for now", "voice", id, "error", err)
+		return false
+	}
+	wav := speech.WAV(pcm)
 	s.mu.Lock()
-	s.enqueueMissing(false)
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+	if err := s.writeReference(id, wav, presetSampleText, extra); err != nil {
+		slog.Warn("could not store builtin voice sample", "voice", id, "error", err)
+	}
+	s.presets[id] = &speech.Reference{AudioBase64: base64.StdEncoding.EncodeToString(wav), Text: presetSampleText}
+	return true
 }

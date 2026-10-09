@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -73,7 +75,7 @@ func TestSynthesisStreamsAndCancels(t *testing.T) {
 	defer cancel()
 	c := Client{TTSURL: server.URL}
 	chunks := 0
-	err := c.Synthesize(ctx, "Hello", Voice{Instruction: "Natural"}, func(b []byte) error { chunks++; cancel(); return nil })
+	err := c.Synthesize(ctx, "Hello", Voice{}, func(b []byte) error { chunks++; cancel(); return nil })
 	if chunks != 1 || err == nil {
 		t.Fatalf("chunks=%d err=%v", chunks, err)
 	}
@@ -96,7 +98,14 @@ func TestMissingFinalFails(t *testing.T) {
 }
 
 func TestReferenceIsIdenticalAcrossPhrases(t *testing.T) {
-	ref, err := LoadReference("../../agents/telecom", "voice/reference.wav", "voice/reference.txt")
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "reference.wav"), WAV(make([]byte, 4800)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "reference.txt"), []byte("Hello there."), 0600); err != nil {
+		t.Fatal(err)
+	}
+	ref, err := LoadReference(dir, "reference.wav", "reference.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,14 +127,14 @@ func TestReferenceIsIdenticalAcrossPhrases(t *testing.T) {
 	defer server.Close()
 	c := Client{TTSURL: server.URL}
 	for _, phrase := range []string{"Let me check.", "Here are your options."} {
-		if err := c.Synthesize(context.Background(), phrase, Voice{Instruction: "Natural", Reference: ref, Guidance: "4"}, func([]byte) error { return nil }); err != nil {
+		if err := c.Synthesize(context.Background(), phrase, Voice{Reference: ref}, func([]byte) error { return nil }); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if requests != 2 {
 		t.Fatal(requests)
 	}
-	if _, err := LoadReference("../../agents/telecom", "../hospital/voice/reference.wav", "voice/reference.txt"); err == nil {
+	if _, err := LoadReference(dir, "../reference.wav", "reference.txt"); err == nil {
 		t.Fatal("accepted outside reference")
 	}
 }

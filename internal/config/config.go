@@ -13,8 +13,9 @@ import (
 
 type Agent struct {
 	Voice struct {
-		ReferenceAudio string `yaml:"reference_audio" json:"reference_audio"`
-		ReferenceText  string `yaml:"reference_text" json:"reference_text"`
+		// Default is the id of the builtin voice this agent speaks with until
+		// someone assigns another, for example "preset-amelia".
+		Default string `yaml:"default" json:"default"`
 	} `yaml:"voice" json:"voice"`
 	Backend struct {
 		URL    string `yaml:"url" json:"url,omitempty"`
