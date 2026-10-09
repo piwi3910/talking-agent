@@ -1,271 +1,252 @@
 {
   "apiVersion": "apps/v1",
   "kind": "Deployment",
-  "metadata": {
-    "name": "enterprise-ai-demo",
-    "namespace": "enterprise-ai-demo",
-    "labels": {
-      "app.kubernetes.io/name": "enterprise-ai-demo",
-      "app.kubernetes.io/version": "sip-gateway-settings-20261002"
-    }
-  },
-  "spec": {
-    "replicas": 1,
-    "revisionHistoryLimit": 3,
-    "strategy": {
-      "type": "Recreate"
-    },
-    "selector": {
-      "matchLabels": {
-        "app.kubernetes.io/name": "enterprise-ai-demo"
-      }
-    },
-    "template": {
-      "metadata": {
-        "labels": {
+  "metadata":
+    {
+      "name": "enterprise-ai-demo",
+      "namespace": "enterprise-ai-demo",
+      "labels":
+        {
           "app.kubernetes.io/name": "enterprise-ai-demo",
-          "app.kubernetes.io/version": "sip-gateway-settings-20261002"
+          "app.kubernetes.io/version": "sip-gateway-settings-20261002",
         },
-        "annotations": {
-          "enterprise-ai-demo/memory-persistence-check": "20260929-1"
-        }
-      },
-      "spec": {
-        "automountServiceAccountToken": false,
-        "terminationGracePeriodSeconds": 30,
-        "securityContext": {
-          "runAsNonRoot": true,
-          "runAsUser": 10001,
-          "runAsGroup": 10001,
-          "seccompProfile": {
-            "type": "RuntimeDefault"
-          },
-          "fsGroup": 10001
+    },
+  "spec":
+    {
+      "replicas": 1,
+      "revisionHistoryLimit": 3,
+      "strategy": { "type": "Recreate" },
+      "selector":
+        { "matchLabels": { "app.kubernetes.io/name": "enterprise-ai-demo" } },
+      "template":
+        {
+          "metadata":
+            {
+              "labels":
+                {
+                  "app.kubernetes.io/name": "enterprise-ai-demo",
+                  "app.kubernetes.io/version": "sip-gateway-settings-20261002",
+                },
+              "annotations":
+                { "enterprise-ai-demo/memory-persistence-check": "20260929-1" },
+            },
+          "spec":
+            {
+              "automountServiceAccountToken": false,
+              "terminationGracePeriodSeconds": 30,
+              "securityContext":
+                {
+                  "runAsNonRoot": true,
+                  "runAsUser": 10001,
+                  "runAsGroup": 10001,
+                  "seccompProfile": { "type": "RuntimeDefault" },
+                  "fsGroup": 10001,
+                },
+              "containers":
+                [
+                  {
+                    "name": "demo",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:8723d1d0a12f4da376b270c3453bbbea1c703191635d5f1cbd7cf2fbfca1e2c3",
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [{ "name": "http", "containerPort": 8080 }],
+                    "env":
+                      [
+                        {
+                          "name": "SIP_TRUSTED_FORWARDERS",
+                          "value": "192.168.10.101/32,192.168.10.102/32,192.168.10.103/32,192.168.10.104/32,192.168.10.105/32,192.168.10.106/32,192.168.10.107/32,192.168.10.108/32",
+                        },
+                        {
+                          "name": "SIP_ADVERTISE_IP",
+                          "value": "192.168.10.142",
+                        },
+                        {
+                          "name": "SIP_GATEWAY_FILE",
+                          "value": "/app/var/sip-gateway.json",
+                        },
+                        {
+                          "name": "PHONE_SETTINGS_FILE",
+                          "value": "/app/var/phone-settings.json",
+                        },
+                        { "name": "LLM_DISABLE_THINKING", "value": "true" },
+                        {
+                          "name": "STT_URL",
+                          "value": "http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093",
+                        },
+                        {
+                          "name": "TTS_URL",
+                          "value": "http://speech-tts.enterprise-ai-demo.svc.cluster.local:8092",
+                        },
+                        { "name": "LISTEN_ADDR", "value": "0.0.0.0:8080" },
+                        { "name": "MEMORY_PROVIDER", "value": "novamem" },
+                        { "name": "MAX_ITERATIONS", "value": "12" },
+                        {
+                          "name": "LLM_PROVIDER",
+                          "value": "openai-compatible",
+                        },
+                        {
+                          "name": "LLM_BASE_URL",
+                          "value": "http://fastllm-proxy.fastllm.svc.cluster.local/v1",
+                        },
+                        { "name": "LLM_MODEL", "value": "qwen3-6-35b-a3b" },
+                        { "name": "LLM_API_KEY_ENV", "value": "LLM_API_KEY" },
+                        {
+                          "name": "LLM_API_KEY",
+                          "valueFrom":
+                            {
+                              "secretKeyRef":
+                                { "name": "fastllm-api", "key": "LLM_API_KEY" },
+                            },
+                        },
+                        {
+                          "name": "NOVAMEM_BASE_URL",
+                          "value": "http://novamem.novamem.svc.cluster.local:7778",
+                        },
+                        {
+                          "name": "NOVAMEM_CREDENTIALS_FILE",
+                          "value": "/run/secrets/novamem/credentials.json",
+                        },
+                      ],
+                    "resources":
+                      {
+                        "requests": { "cpu": "100m", "memory": "128Mi" },
+                        "limits": { "cpu": "1", "memory": "512Mi" },
+                      },
+                    "securityContext":
+                      {
+                        "allowPrivilegeEscalation": false,
+                        "readOnlyRootFilesystem": true,
+                        "capabilities": { "drop": ["ALL"] },
+                      },
+                    "startupProbe":
+                      {
+                        "httpGet": { "path": "/api/health", "port": "http" },
+                        "periodSeconds": 2,
+                        "failureThreshold": 30,
+                      },
+                    "readinessProbe":
+                      {
+                        "httpGet": { "path": "/api/health", "port": "http" },
+                        "periodSeconds": 5,
+                      },
+                    "livenessProbe":
+                      {
+                        "httpGet": { "path": "/api/health", "port": "http" },
+                        "periodSeconds": 15,
+                        "failureThreshold": 3,
+                      },
+                    "volumeMounts":
+                      [
+                        { "name": "phone-settings", "mountPath": "/app/var" },
+                        {
+                          "name": "novamem-identities",
+                          "mountPath": "/run/secrets/novamem",
+                          "readOnly": true,
+                        },
+                      ],
+                  },
+                ],
+              "volumes":
+                [
+                  {
+                    "name": "phone-settings",
+                    "persistentVolumeClaim": { "claimName": "phone-settings" },
+                  },
+                  {
+                    "name": "novamem-identities",
+                    "secret":
+                      {
+                        "secretName": "novamem-identities",
+                        "defaultMode": 288,
+                      },
+                  },
+                ],
+            },
         },
-        "containers": [
-          {
-            "name": "demo",
-            "image": "192.168.10.131/enterprise-ai-demo@sha256:8723d1d0a12f4da376b270c3453bbbea1c703191635d5f1cbd7cf2fbfca1e2c3",
-            "imagePullPolicy": "IfNotPresent",
-            "ports": [
-              {
-                "name": "http",
-                "containerPort": 8080
-              }
-            ],
-            "env": [
- {"name":"SIP_TRUSTED_FORWARDERS","value":"192.168.10.101/32,192.168.10.102/32,192.168.10.103/32,192.168.10.104/32,192.168.10.105/32,192.168.10.106/32,192.168.10.107/32,192.168.10.108/32"},
- {"name":"SIP_ADVERTISE_IP","value":"192.168.10.142"},
- {"name":"SIP_GATEWAY_FILE","value":"/app/var/sip-gateway.json"},
- {"name":"PHONE_SETTINGS_FILE","value":"/app/var/phone-settings.json"},
- {"name":"LLM_DISABLE_THINKING","value":"true"},
- {"name":"STT_URL","value":"http://speech-stt.enterprise-ai-demo.svc.cluster.local"},
- {"name":"TTS_URL","value":"http://speech-tts.enterprise-ai-demo.svc.cluster.local"},
-              {
-                "name": "LISTEN_ADDR",
-                "value": "0.0.0.0:8080"
-              },
-              {
-                "name": "MEMORY_PROVIDER",
-                "value": "novamem"
-              },
-              {
-                "name": "MAX_ITERATIONS",
-                "value": "12"
-              },
-              {
-                "name": "LLM_PROVIDER",
-                "value": "openai-compatible"
-              },
-              {
-                "name": "LLM_BASE_URL",
-                "value": "http://fastllm-proxy.fastllm.svc.cluster.local/v1"
-              },
-              {
-                "name": "LLM_MODEL",
-                "value": "qwen3-6-35b-a3b"
-              },
-              {
-                "name": "LLM_API_KEY_ENV",
-                "value": "LLM_API_KEY"
-              },
-              {
-                "name": "LLM_API_KEY",
-                "valueFrom": {
-                  "secretKeyRef": {
-                    "name": "fastllm-api",
-                    "key": "LLM_API_KEY"
-                  }
-                }
-              },
-              {
-                "name": "NOVAMEM_BASE_URL",
-                "value": "http://novamem.novamem.svc.cluster.local:7778"
-              },
-              {
-                "name": "NOVAMEM_CREDENTIALS_FILE",
-                "value": "/run/secrets/novamem/credentials.json"
-              }
-            ],
-            "resources": {
-              "requests": {
-                "cpu": "100m",
-                "memory": "128Mi"
-              },
-              "limits": {
-                "cpu": "1",
-                "memory": "512Mi"
-              }
-            },
-            "securityContext": {
-              "allowPrivilegeEscalation": false,
-              "readOnlyRootFilesystem": true,
-              "capabilities": {
-                "drop": [
-                  "ALL"
-                ]
-              }
-            },
-            "startupProbe": {
-              "httpGet": {
-                "path": "/api/health",
-                "port": "http"
-              },
-              "periodSeconds": 2,
-              "failureThreshold": 30
-            },
-            "readinessProbe": {
-              "httpGet": {
-                "path": "/api/health",
-                "port": "http"
-              },
-              "periodSeconds": 5
-            },
-            "livenessProbe": {
-              "httpGet": {
-                "path": "/api/health",
-                "port": "http"
-              },
-              "periodSeconds": 15,
-              "failureThreshold": 3
-            },
-            "volumeMounts": [
- {"name":"phone-settings","mountPath":"/app/var"},
-              {
-                "name": "novamem-identities",
-                "mountPath": "/run/secrets/novamem",
-                "readOnly": true
-              }
-            ]
-          }
-        ],
-        "volumes": [
- {"name":"phone-settings","persistentVolumeClaim":{"claimName":"phone-settings"}},
-          {
-            "name": "novamem-identities",
-            "secret": {
-              "secretName": "novamem-identities",
-              "defaultMode": 288
-            }
-          }
-        ]
-      }
-    }
-  }
+    },
 }
 ---
 {
   "apiVersion": "v1",
   "kind": "Service",
-  "metadata": {
-    "name": "enterprise-ai-demo",
-    "namespace": "enterprise-ai-demo",
-    "labels": {
-      "app.kubernetes.io/name": "enterprise-ai-demo"
-    }
-  },
-  "spec": {
-    "type": "ClusterIP",
-    "selector": {
-      "app.kubernetes.io/name": "enterprise-ai-demo"
+  "metadata":
+    {
+      "name": "enterprise-ai-demo",
+      "namespace": "enterprise-ai-demo",
+      "labels": { "app.kubernetes.io/name": "enterprise-ai-demo" },
     },
-    "ports": [
-      {
-        "name": "http",
-        "port": 80,
-        "targetPort": "http"
-      }
-    ]
-  }
+  "spec":
+    {
+      "type": "ClusterIP",
+      "selector": { "app.kubernetes.io/name": "enterprise-ai-demo" },
+      "ports": [{ "name": "http", "port": 80, "targetPort": "http" }],
+    },
 }
 ---
 {
   "apiVersion": "networking.k8s.io/v1",
   "kind": "Ingress",
-  "metadata": {
-    "name": "enterprise-ai-demo",
-    "namespace": "enterprise-ai-demo",
-    "labels": {
-      "app.kubernetes.io/name": "enterprise-ai-demo"
+  "metadata":
+    {
+      "name": "enterprise-ai-demo",
+      "namespace": "enterprise-ai-demo",
+      "labels": { "app.kubernetes.io/name": "enterprise-ai-demo" },
+      "annotations":
+        {
+          "nginx.ingress.kubernetes.io/proxy-buffering": "off",
+          "nginx.ingress.kubernetes.io/proxy-read-timeout": "600",
+          "nginx.ingress.kubernetes.io/proxy-send-timeout": "600",
+        },
     },
-    "annotations": {
-      "nginx.ingress.kubernetes.io/proxy-buffering": "off",
-      "nginx.ingress.kubernetes.io/proxy-read-timeout": "600",
-      "nginx.ingress.kubernetes.io/proxy-send-timeout": "600"
-    }
-  },
-  "spec": {
-    "ingressClassName": "nginx",
-    "rules": [
-      {
-        "host": "agent.kw.watteel.lab",
-        "http": {
-          "paths": [
-            {
-              "path": "/",
-              "pathType": "Prefix",
-              "backend": {
-                "service": {
-                  "name": "enterprise-ai-demo",
-                  "port": {
-                    "name": "http"
-                  }
-                }
-              }
-            }
-          ]
-        }
-      }
-    ],
-    "tls": [
-      {
-        "hosts": [
-          "agent.kw.watteel.lab"
+  "spec":
+    {
+      "ingressClassName": "nginx",
+      "rules":
+        [
+          {
+            "host": "agent.kw.watteel.lab",
+            "http":
+              {
+                "paths":
+                  [
+                    {
+                      "path": "/",
+                      "pathType": "Prefix",
+                      "backend":
+                        {
+                          "service":
+                            {
+                              "name": "enterprise-ai-demo",
+                              "port": { "name": "http" },
+                            },
+                        },
+                    },
+                  ],
+              },
+          },
         ],
-        "secretName": "talking-agent-tls"
-      }
-    ]
-  }
+      "tls":
+        [
+          {
+            "hosts": ["agent.kw.watteel.lab"],
+            "secretName": "talking-agent-tls",
+          },
+        ],
+    },
 }
 ---
 {
   "apiVersion": "cert-manager.io/v1",
   "kind": "Certificate",
-  "metadata": {
-    "name": "talking-agent-tls",
-    "namespace": "enterprise-ai-demo",
-    "labels": {
-      "app.kubernetes.io/name": "enterprise-ai-demo"
-    }
-  },
-  "spec": {
-    "secretName": "talking-agent-tls",
-    "dnsNames": [
-      "agent.kw.watteel.lab"
-    ],
-    "issuerRef": {
-      "kind": "ClusterIssuer",
-      "name": "cluster-ca"
-    }
-  }
+  "metadata":
+    {
+      "name": "talking-agent-tls",
+      "namespace": "enterprise-ai-demo",
+      "labels": { "app.kubernetes.io/name": "enterprise-ai-demo" },
+    },
+  "spec":
+    {
+      "secretName": "talking-agent-tls",
+      "dnsNames": ["agent.kw.watteel.lab"],
+      "issuerRef": { "kind": "ClusterIssuer", "name": "cluster-ca" },
+    },
 }

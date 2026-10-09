@@ -12,4 +12,4 @@
 
 - The LLM adapter uses `github.com/azrtydxb/go-ai-sdk` v0.6.0. Build with Go 1.26+. Preserve the SDK integration when changing providers.
 
-- Sync pruning is disabled for this Application because generated Service EndpointSlices inherit Sync labels and are otherwise repeatedly pruned. Use explicit reviewed removal of obsolete resources until Sync excludes controller-owned children. Speech endpoints are `speech-stt` and `speech-tts` in this namespace; the browser reaches them only through the app.
+- Sync pruning is disabled for this Application because generated Service EndpointSlices inherit Sync labels and are otherwise repeatedly pruned. Use explicit reviewed removal of obsolete resources until Sync excludes controller-owned children. Speech endpoints are `speech-stt` (port 8093) and `speech-tts` (port 8092) in this namespace: ExternalName aliases for Kuvryn-managed audio.cpp workers in `kuvryn-ai-workloads` on the DGX nodes (see `deploy/speech/README.md`). The browser reaches them only through the app.
