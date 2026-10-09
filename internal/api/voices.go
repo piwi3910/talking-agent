@@ -248,7 +248,7 @@ func (a *API) previewVoice(w http.ResponseWriter, r *http.Request) {
 	stop := context.AfterFunc(a.Root, cancel)
 	defer stop()
 	var pcm bytes.Buffer
-	err = a.Speech.Synthesize(ctx, speech.VocalEvents(in.Text, true), voice, func(p []byte) error { pcm.Write(p); return nil })
+	err = a.Speech.Synthesize(ctx, speech.Spoken(speech.VocalEvents(in.Text, true)), voice, func(p []byte) error { pcm.Write(p); return nil })
 	if err != nil || pcm.Len()%2 != 0 {
 		fail(w, 502, "Speech generation failed")
 		return

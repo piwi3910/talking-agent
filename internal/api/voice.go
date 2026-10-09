@@ -219,7 +219,8 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	first := true
 	bytes := 0
 	voice, events := a.Voices.Resolve(s.Agent.ID)
-	text := speech.VocalEvents(in.Text, events)
+	// Only the audio text is normalised; the chat text stays as written.
+	text := speech.Spoken(speech.VocalEvents(in.Text, events))
 	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(text), "reference_voice": voice.Reference != nil})
 	w.Header().Set("Content-Type", "audio/pcm")
 	w.Header().Set("X-Audio-Sample-Rate", "24000")

@@ -225,7 +225,7 @@ func (s *Store) render(ctx context.Context, agentID string, j *job) {
 			c := &m.Cues[i]
 			var pcm []byte
 			cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
-			err = s.tts.Synthesize(cctx, c.Text, voice, func(b []byte) error { pcm = append(pcm, b...); return nil })
+			err = s.tts.Synthesize(cctx, speech.Spoken(c.Text), voice, func(b []byte) error { pcm = append(pcm, b...); return nil })
 			cancel()
 			if err != nil {
 				return err
