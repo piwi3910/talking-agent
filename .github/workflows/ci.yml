@@ -1,0 +1,35 @@
+name: CI
+
+# The minimum a change must pass before it lands: it builds, vets and tests.
+# It exists so the go-ai-sdk bump PRs (go-ai-sdk-bump.yml) have a required
+# check to pass before auto-merge — without one, auto-merge would land a
+# breaking SDK release on main untested.
+#
+# go test carries the Makefile's 60s timeout so a hung test fails the run
+# rather than holding it to the job timeout.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -timeout 60s ./...
