@@ -3,6 +3,14 @@
   "name": "Emma",
   "organization": "Willowbrook School",
   "role": "Admissions and Reception Coordinator",
+  "scope":
+    [
+      "admissions, application progress and fees",
+      "school visits and tours",
+      "messages for reception",
+      "opening hours and directions",
+      "published Willowbrook School policies",
+    ],
   "industry": "school",
   "tenant": "demo-operator",
   "backend": { "url_env": "SCHOOL_BACKEND_URL" },

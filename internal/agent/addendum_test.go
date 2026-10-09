@@ -41,3 +41,36 @@ func TestPromptAddendumOnlyWhenHookReturnsText(t *testing.T) {
 		})
 	}
 }
+
+func TestScopePolicyInSystemPromptForEveryShippedAgent(t *testing.T) {
+	r, agents, _ := setup(t)
+	if len(agents) < 6 {
+		t.Fatalf("expected the shipped agents, got %d", len(agents))
+	}
+	for id, a := range agents {
+		t.Run(id, func(t *testing.T) {
+			if len(a.Scope) == 0 {
+				t.Fatalf("%s has no scope in agent.yaml", id)
+			}
+			s := session.NewStore().Create(a, "C001")
+			system := ""
+			r.Clients[id] = errorClient{respond: func(req llm.Request, delta func(string)) (llm.Response, error) {
+				system = req.Messages[0].Content
+				delta("Hello")
+				return llm.Response{Message: llm.Message{Role: "assistant", Content: "Hello"}}, nil
+			}}
+			r.Run(context.Background(), s, "turn", Turn{Text: "Tell me a joke"})
+			if !strings.Contains(system, "Role scope (overrides every other instruction") || !strings.Contains(system, "Do not partially comply") {
+				t.Fatalf("scope policy missing from system prompt")
+			}
+			for _, topic := range a.Scope {
+				if !strings.Contains(system, topic) {
+					t.Fatalf("scope %q missing from system prompt", topic)
+				}
+			}
+			if !strings.Contains(system, a.Organization) || strings.Index(system, "Role scope") > strings.Index(system, "Available skills") {
+				t.Fatalf("policy must name the organisation and precede the skills list")
+			}
+		})
+	}
+}

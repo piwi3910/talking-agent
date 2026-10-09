@@ -3,6 +3,14 @@
   "name": "Noor",
   "organization": "The Aquila School",
   "role": "Reception and Front Office",
+  "scope":
+    [
+      "pupil absences and messages for teachers",
+      "meetings with school leaders",
+      "school buses, uniform, clubs and timings",
+      "school visits and tours",
+      "term dates, directions and parking",
+    ],
   "industry": "aquila",
   "tenant": "aquila-demo",
   "persona":

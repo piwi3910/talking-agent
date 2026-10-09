@@ -26,6 +26,7 @@ type Agent struct {
 	Organization string            `yaml:"organization" json:"organization"`
 	Tenant       string            `yaml:"tenant" json:"tenant"`
 	Role         string            `yaml:"role" json:"role"`
+	Scope        []string          `yaml:"scope" json:"scope,omitempty"` // topics the role-scope policy allows
 	Industry     string            `yaml:"industry" json:"industry"`
 	Persona      map[string]string `yaml:"persona" json:"persona"`
 	Memory       struct {
