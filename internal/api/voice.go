@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/speech"
 	"github.com/coder/websocket"
 )
@@ -126,6 +127,11 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 		id = ""
 	}
 	s.Events.Emit(id, "stt.started", map[string]any{"sample_rate": 16000})
+	a.trace(s.ID, s.Agent.ID, "stt.socket", map[string]any{"utterance": id})
+	var sttBytes atomic.Int64
+	defer func() {
+		a.trace(s.ID, s.Agent.ID, "stt.socket.closed", map[string]any{"utterance": id, "audio_bytes": sttBytes.Load(), "duration_ms": time.Since(started).Milliseconds()})
+	}()
 	readerDone := make(chan struct{})
 	go func() {
 		defer close(readerDone)
@@ -140,6 +146,7 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 			}
 			if kind == websocket.MessageBinary && !finished {
 				total += len(data)
+				sttBytes.Store(int64(total))
 				if len(data)%2 != 0 || total > 16000*2*60 {
 					pw.CloseWithError(fmt.Errorf("invalid or excessive PCM"))
 					cancel()
@@ -156,6 +163,7 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 				}
 				finished = true
 				ended.Store(time.Now().UnixMilli())
+				a.trace(s.ID, s.Agent.ID, "stt.finish", map[string]any{"utterance": id, "audio_bytes": total, "since_start_ms": time.Since(started).Milliseconds()})
 				pw.Close()
 				// Keep reading to detect browser aborts while final recognition is pending.
 			} else {
@@ -254,6 +262,11 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	// Only the audio text is normalised; the chat text stays as written.
 	text := speech.Spoken(speech.VocalEvents(in.Text, events && a.Speech.EventsSupported()))
 	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(text), "reference_voice": voice.Reference != nil})
+	req := session.ID()[:8]
+	if a.Traces != nil {
+		ctx = speech.WithTrace(ctx, a.speechTrace(s.ID, s.Agent.ID, req))
+		a.trace(s.ID, s.Agent.ID, "speech.received", map[string]any{"req": req, "turn_id": in.TurnID, "text": in.Text, "spoken": text, "provider": a.Speech.Provider, "reference": voice.Reference != nil})
+	}
 	w.Header().Set("Content-Type", "audio/pcm")
 	w.Header().Set("X-Audio-Sample-Rate", "24000")
 	w.Header().Set("Cache-Control", "no-store, no-transform")
@@ -262,7 +275,10 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	if text == "" {
 		return
 	}
+	chunks := 0
 	err := a.Speech.Synthesize(ctx, text, voice, func(p []byte) error {
+		chunks++
+		a.trace(s.ID, s.Agent.ID, "speech.chunk", map[string]any{"req": req, "n": chunks, "bytes": len(p), "since_ms": time.Since(started).Milliseconds(), "total": bytes + len(p)})
 		if first {
 			first = false
 			s.Events.Emit(in.TurnID, "tts.first_audio", map[string]any{"ttfa_ms": time.Since(started).Milliseconds()})
@@ -272,9 +288,11 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
+		a.trace(s.ID, s.Agent.ID, "speech.flushed", map[string]any{"req": req, "n": chunks, "bytes": len(p), "since_ms": time.Since(started).Milliseconds(), "error": err != nil})
 		return err
 	})
 	if err != nil {
+		a.trace(s.ID, s.Agent.ID, "speech.error", map[string]any{"req": req, "error": err.Error(), "cancelled": ctx.Err() != nil, "bytes": bytes, "duration_ms": time.Since(started).Milliseconds()})
 		s.Events.Emit(in.TurnID, "tts.failed", map[string]any{"cancelled": ctx.Err() != nil, "duration_ms": time.Since(started).Milliseconds()})
 		if first {
 			fail(w, 502, "Speech generation failed")
@@ -283,5 +301,6 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	a.trace(s.ID, s.Agent.ID, "speech.end", map[string]any{"req": req, "bytes": bytes, "chunks": chunks, "audio_ms": bytes * 1000 / 48000, "duration_ms": time.Since(started).Milliseconds()})
 	s.Events.Emit(in.TurnID, "tts.completed", map[string]any{"duration_ms": time.Since(started).Milliseconds(), "audio_ms": bytes * 1000 / 48000})
 }

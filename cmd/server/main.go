@@ -193,6 +193,9 @@ func run() error {
 	voiceStore.Start(ctx)
 	runtime.PromptAddendum = voiceStore.PromptAddendum
 	app := &api.API{Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	if dir := env("TRACE_DIR", "var/traces"); dir != "" && dir != "off" {
+		app.Traces = api.NewTraceStore(dir)
+	}
 	var sipCfg telephony.Config
 	if path := os.Getenv("SIP_CONFIG_FILE"); path != "" {
 		sipCfg, err = telephony.Load(path, agents)

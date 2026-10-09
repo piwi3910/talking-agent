@@ -40,6 +40,7 @@ type API struct {
 	Root          context.Context
 	Workers       sync.WaitGroup
 	WebDir        string
+	Traces        *TraceStore
 }
 
 func write(w http.ResponseWriter, status int, v any) {
@@ -94,6 +95,7 @@ func (a *API) Handler() http.Handler {
 	a.settingsRoutes(m)
 	a.voiceSettingsRoutes(m)
 	a.openingRoutes(m)
+	a.traceRoutes(m)
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]string{"status": "ok", "memory": a.Runtime.Memory.Name()})
 	})
@@ -148,6 +150,9 @@ func (a *API) Handler() http.Handler {
 		if s == nil {
 			fail(w, 503, "Session capacity reached")
 			return
+		}
+		if a.Traces != nil {
+			s.Events.Hook = a.traceHook(s.ID, c.ID)
 		}
 		s.Events.Emit("", "session.started", map[string]any{"agent_id": c.ID, "user_id": in.UserID, "memory_namespace": c.Memory.Namespace})
 		write(w, 201, map[string]string{"id": s.ID})

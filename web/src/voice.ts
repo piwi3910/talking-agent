@@ -1,5 +1,6 @@
 import { VoiceCues } from "./voice-cues";
 import type { MicVAD } from "@ricky0123/vad-web";
+import { Trace, type TraceData } from "./trace";
 // Browser transport only: finalized speech uses the same message API as typing.
 export type VoiceCallbacks = {
   status: (status: string) => void;
@@ -11,6 +12,13 @@ export type VoiceCallbacks = {
 };
 // One spoken phrase on its way to the speakers.
 type Phrase = {
+  id: string;
+  index: number; // position within its turn; the first two keep their raw PCM
+  buffers: number; // audio buffers scheduled so far
+  bursts: number; // bursts delivered so far
+  raw: Uint8Array[];
+  burstOffsets: number[];
+  rawBytes: number;
   text: string;
   turn: string;
   queuedAt: number;
@@ -72,6 +80,13 @@ export class Voice {
   private lastSpeech = 0;
   private firstPlayback = false;
   private outputEnabled = true;
+  private trace: Trace;
+  private phraseSeq = 0;
+  private lastGainTarget = 1;
+  private lastVadLog = 0;
+  // Last sample and end time of the most recently scheduled buffer.
+  private lastSample = 0;
+  private lastPhrase = "";
   // primed is an AudioContext created inside the user's click, for flows that
   // start voice only after several awaits (autoplay policies need the gesture).
   constructor(
@@ -79,7 +94,50 @@ export class Voice {
     private cb: VoiceCallbacks,
     private agentID: string,
     private primed?: AudioContext,
-  ) {}
+  ) {
+    this.trace = new Trace(session);
+    const raw = cb;
+    this.cb = {
+      ...raw,
+      status: (text) => {
+        this.tr("status", { text });
+        raw.status(text);
+      },
+      error: (message) => {
+        this.tr("error", { message });
+        raw.error(message);
+      },
+      final: (text) => {
+        this.tr("stt.final.text", { chars: text.length });
+        raw.final(text);
+      },
+      interrupt: () => {
+        this.tr("interrupt");
+        raw.interrupt();
+      },
+      metric: (name, ms) => {
+        this.tr("metric", { name, ms: Math.round(ms) });
+        raw.metric(name, ms);
+      },
+    };
+  }
+  get traceID(): string {
+    return this.session;
+  }
+  private tr(type: string, data?: TraceData) {
+    this.trace.event(type, data);
+  }
+  private audioInfo(): TraceData {
+    const ctx = this.context;
+    if (!ctx) return {};
+    return {
+      state: ctx.state,
+      sample_rate: ctx.sampleRate,
+      base_latency: ctx.baseLatency,
+      output_latency: ctx.outputLatency,
+      ct: ctx.currentTime,
+    };
+  }
   static prime(): AudioContext | undefined {
     try {
       const ctx = new AudioContext();
@@ -93,7 +151,16 @@ export class Voice {
     this.cb.status("Requesting microphone…");
     try {
       this.context = this.primed ?? new AudioContext();
+      this.tr("audio.context", {
+        ...this.audioInfo(),
+        primed: !!this.primed,
+        start_lead: START_LEAD,
+        burst_gap_ms: BURST_GAP_MS,
+      });
+      const watched = this.context;
+      watched.onstatechange = () => this.tr("audio.state", this.audioInfo());
       await this.context.resume();
+      this.tr("audio.resumed", this.audioInfo());
       this.gain = this.context.createGain();
       this.gain.connect(this.context.destination);
       this.cues = new VoiceCues(
@@ -107,6 +174,7 @@ export class Voice {
           !this.socket &&
           !this.output.size,
         (text) => this.cb.status(text),
+        (type, data) => this.tr(type, data),
       );
       void this.cues.load(this.agentID);
       this.media = await navigator.mediaDevices.getUserMedia({
@@ -161,6 +229,7 @@ export class Voice {
       this.cb.status("Listening");
       this.cues?.schedule("listening", 800);
     } catch (e) {
+      this.tr("start.failed", { message: (e as Error).message });
       this.stop();
       throw e;
     }
@@ -179,12 +248,31 @@ export class Voice {
       this.speechFrames = Math.max(0, this.speechFrames - ms * 2);
     }
     // Duck at the first credible onset; commit without waiting for an STT result.
-    if (playing && this.gain)
-      this.gain.gain.setTargetAtTime(
-        this.speechFrames >= 64 ? 0.12 : 1,
-        this.context!.currentTime,
-        0.015,
-      );
+    if (playing && this.gain) {
+      const target = this.speechFrames >= 64 ? 0.12 : 1;
+      this.gain.gain.setTargetAtTime(target, this.context!.currentTime, 0.015);
+      if (target !== this.lastGainTarget) {
+        this.lastGainTarget = target;
+        this.tr("gain.target", {
+          target,
+          ct: this.context!.currentTime,
+          value: this.gain.gain.value,
+          speech_frames: this.speechFrames,
+          vad: probability,
+        });
+      }
+    }
+    // Sampled VAD while audio plays or the user speaks: shows echo-driven ducking.
+    const nowMs = performance.now();
+    if ((playing || speaking) && nowMs - this.lastVadLog >= 250) {
+      this.lastVadLog = nowMs;
+      this.tr("vad", {
+        p: Math.round(probability * 1000) / 1000,
+        speech_frames: this.speechFrames,
+        playing,
+        gain: this.gain?.gain.value,
+      });
+    }
     if (
       !this.active &&
       !this.socket &&
@@ -194,7 +282,13 @@ export class Voice {
       this.silence = 0;
       this.frames = 0;
       this.firstPlayback = false;
-      this.stopOutput();
+      this.tr("barge-in.detected", {
+        playing,
+        speech_frames: this.speechFrames,
+        vad: probability,
+        since_onset_ms: performance.now() - this.firstSpeechAt,
+      });
+      this.stopOutput(playing ? "barge-in" : "speech-start");
       if (playing)
         this.cb.metric(
           "Interruption detection",
@@ -208,7 +302,9 @@ export class Voice {
       );
       this.socket = ws;
       const initial = [...this.preRoll];
+      this.tr("stt.ws.connecting", { preroll_chunks: initial.length });
       ws.onopen = () => {
+        this.tr("stt.ws.open");
         if (this.socket !== ws) return;
         initial.forEach((b) => ws.send(b));
       };
@@ -217,6 +313,10 @@ export class Voice {
       ws.onmessage = (e) => {
         if (this.socket !== ws) return;
         const data = JSON.parse(e.data);
+        this.tr("stt.ws.message", {
+          type: data.type,
+          chars: (data.text || data.message || "").length,
+        });
         if (data.type === "stt.partial") {
           partial += data.text;
           this.cb.transcript(partial);
@@ -237,7 +337,7 @@ export class Voice {
               text,
             )
           ) {
-            this.stopOutput();
+            this.stopOutput("stop-command");
             this.cb.interrupt();
             this.cb.status("Listening");
             this.cues?.schedule("interrupted", 250);
@@ -257,7 +357,8 @@ export class Voice {
         this.cb.error(
           "Speech connection failed. You can still type your message.",
         );
-      ws.onclose = () => {
+      ws.onclose = (e) => {
+        this.tr("stt.ws.close", { code: e.code, final });
         if (this.socket === ws) {
           this.socket = undefined;
           this.active = false;
@@ -287,6 +388,10 @@ export class Voice {
     if (this.active && this.socket?.readyState === WebSocket.OPEN) {
       this.active = false;
       this.speechFrames = 0;
+      this.tr("stt.finish.sent", {
+        frames_ms: this.frames,
+        silence_ms: this.silence,
+      });
       this.socket.send(JSON.stringify({ type: "finish" }));
       this.cb.metric("Endpointing", performance.now() - this.lastSpeech);
       this.cb.status("Transcribing…");
@@ -301,6 +406,7 @@ export class Voice {
     this.speechFrames = 0;
   }
   mute(value: boolean) {
+    this.tr("mute", { value });
     this.muted = value;
     this.media?.getAudioTracks().forEach((t) => (t.enabled = !value));
     if (value) this.resetInput();
@@ -311,6 +417,8 @@ export class Voice {
     if (!value) this.cues?.cancel();
   }
   event(type: string, turn: string, tool?: string) {
+    if (type !== "agent.response.delta")
+      this.tr("sse", { type, turn, tool, blocked: turn === this.blockedTurn });
     if (type === "turn.started") {
       this.turnRunning = true;
       this.turn = turn;
@@ -346,7 +454,7 @@ export class Voice {
   }
   enableOutput(value: boolean) {
     this.outputEnabled = value;
-    if (!value) this.stopOutput();
+    if (!value) this.stopOutput("output-disabled");
   }
   delta(turn: string, text: string) {
     if (this.closed || !this.outputEnabled || turn === this.blockedTurn) return;
@@ -359,6 +467,7 @@ export class Voice {
     if (turn !== this.firstDeltaTurn) {
       this.firstDeltaTurn = turn;
       this.firstDeltaAt = performance.now();
+      this.tr("sse", { type: "agent.response.delta.first", turn });
     }
     // Record lists arrive atomically from verified backend results. Keep the full
     // list in chat and speak a bounded preview, without reading database IDs.
@@ -434,7 +543,22 @@ export class Voice {
       this.carry = "";
       return false;
     }
+    const id = `p${++this.phraseSeq}`;
+    this.tr("phrase.queued", {
+      id,
+      turn: this.turn,
+      index: this.turnPhrases,
+      chars: text.length,
+      text,
+    });
     this.queue.push({
+      id,
+      index: this.turnPhrases,
+      buffers: 0,
+      bursts: 0,
+      raw: [],
+      burstOffsets: [],
+      rawBytes: 0,
       text,
       turn: this.turn,
       queuedAt: performance.now(),
@@ -516,12 +640,27 @@ export class Voice {
         const timer = setTimeout(() => ctl.abort(), SPEECH_HEADERS_DEADLINE);
         let res: Response | undefined;
         let failure = "";
+        this.tr("speech.request", {
+          id: phrase.id,
+          attempt,
+          queued_ms: started - phrase.queuedAt,
+          inflight: this.inflight,
+          ct: this.context?.currentTime,
+        });
         try {
           res = await fetch(`/api/sessions/${this.session}/speech`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: phrase.text, turn_id: phrase.turn }),
             signal: ctl.signal,
+          });
+          this.tr("speech.headers", {
+            id: phrase.id,
+            attempt,
+            status: res.status,
+            ms: performance.now() - started,
+            content_type: res.headers.get("content-type"),
+            sample_rate: res.headers.get("x-audio-sample-rate"),
           });
           if (!res.ok) {
             failure = `Speech service unavailable (${res.status})`;
@@ -537,11 +676,18 @@ export class Voice {
           clearTimeout(timer);
         }
         if (!live()) {
+          this.tr("speech.abandoned", { id: phrase.id, stage: "headers" });
           this.aborts.delete(ctl);
           return;
         }
         if (!res) {
           this.aborts.delete(ctl);
+          this.tr("speech.failed", {
+            id: phrase.id,
+            attempt,
+            failure,
+            will_retry: attempt < PHRASE_RETRY_DELAYS.length,
+          });
           if (attempt < PHRASE_RETRY_DELAYS.length) {
             await new Promise((r) =>
               setTimeout(r, PHRASE_RETRY_DELAYS[attempt]),
@@ -561,11 +707,27 @@ export class Voice {
           let leftover = new Uint8Array(0);
           let pending: Uint8Array[] = [];
           let timer: ReturnType<typeof setTimeout> | undefined;
+          let reads = 0;
+          let readBytes = 0;
+          let burstReads = 0;
+          let delivered = 0;
+          const keepRaw = phrase.index < 2;
           const flush = () => {
             clearTimeout(timer);
             timer = undefined;
             if (!pending.length || !live()) return;
             const size = pending.reduce((n, c) => n + c.length, 0);
+            this.tr("speech.burst", {
+              id: phrase.id,
+              n: phrase.bursts + 1,
+              bytes: size,
+              reads: burstReads,
+              audio_ms: size / 48,
+              since_request_ms: performance.now() - started,
+            });
+            phrase.burstOffsets.push(delivered);
+            delivered += size;
+            burstReads = 0;
             const burst = new Uint8Array(size);
             let at = 0;
             for (const c of pending) {
@@ -580,7 +742,28 @@ export class Voice {
             if (done) break;
             if (!live()) {
               clearTimeout(timer);
+              this.tr("speech.abandoned", {
+                id: phrase.id,
+                stage: "body",
+                reads,
+                bytes: readBytes,
+              });
               return;
+            }
+            reads++;
+            burstReads++;
+            readBytes += value.length;
+            this.tr("speech.read", {
+              id: phrase.id,
+              n: reads,
+              bytes: value.length,
+              total: readBytes,
+              since_request_ms: performance.now() - started,
+              odd: value.length % 2 !== 0,
+            });
+            if (keepRaw && phrase.rawBytes < 512 * 1024) {
+              phrase.raw.push(value.slice());
+              phrase.rawBytes += value.length;
             }
             if (first) {
               first = false;
@@ -603,8 +786,27 @@ export class Voice {
             }
           }
           flush();
+          this.tr("speech.done", {
+            id: phrase.id,
+            reads,
+            bytes: readBytes,
+            leftover_bytes: leftover.length,
+            audio_ms: readBytes / 48,
+            duration_ms: performance.now() - started,
+          });
+          if (phrase.raw.length)
+            this.trace.pcm(phrase.id, phrase.raw, phrase.burstOffsets, {
+              turn: phrase.turn,
+              index: phrase.index,
+              text: phrase.text,
+            });
           if (first) throw new Error("Speech service returned no audio.");
         } catch (e) {
+          this.tr("speech.error", {
+            id: phrase.id,
+            message: (e as Error).message,
+            live: live(),
+          });
           if (live()) {
             dropped = true;
             this.cb.error((e as Error).message);
@@ -631,10 +833,18 @@ export class Voice {
   }
   // Audio of the head phrase plays as it arrives; any other phrase buffers.
   private deliver(phrase: Phrase, bytes: Uint8Array, gen: number) {
+    phrase.bursts++;
     if (this.order[0] === phrase) {
       this.cues?.cancel();
       this.play(bytes, gen, phrase);
-    } else phrase.chunks.push(bytes);
+    } else {
+      this.tr("speech.held", {
+        id: phrase.id,
+        bytes: bytes.length,
+        head: this.order[0]?.id,
+      });
+      phrase.chunks.push(bytes);
+    }
   }
   // Retires finished head phrases and plays what the next one buffered meanwhile.
   private advance() {
@@ -674,12 +884,67 @@ export class Voice {
     source.connect(this.gain!);
     // Start on a sample of the output clock so consecutive buffers join exactly.
     const rate = ctx.sampleRate;
-    const at =
-      Math.ceil(Math.max(ctx.currentTime + START_LEAD, this.nextAudio) * rate) /
-      rate;
+    const now = ctx.currentTime;
+    const previousEnd = this.nextAudio;
+    const at = Math.ceil(Math.max(now + START_LEAD, previousEnd) * rate) / rate;
     this.nextAudio = at + buffer.duration;
+    // Waveform edges: a click shows as a jump at the buffer start or at a seam.
+    let jump = 0;
+    for (let i = 1; i < Math.min(samples.length, 256); i++)
+      jump = Math.max(jump, Math.abs(samples[i] - samples[i - 1]));
+    const first = samples.length ? samples[0] : 0;
+    const last = samples.length ? samples[samples.length - 1] : 0;
+    const sameDirect = previousEnd > 0 && this.lastPhrase === phrase?.id;
+    const flags: string[] = [];
+    // The previous buffer had already finished: silence, then this buffer.
+    const gap = previousEnd > 0 ? at - previousEnd : null;
+    if (previousEnd === 0 || previousEnd < now) flags.push("FROM_SILENCE");
+    if (sameDirect && previousEnd < now) flags.push("UNDERRUN");
+    if (previousEnd > 0 && previousEnd < now && !sameDirect)
+      flags.push("PHRASE_GAP");
+    if (gap !== null && gap >= 0 && gap < 1.5 / rate && previousEnd >= now)
+      flags.push("SEAM");
+    let peak = 0;
+    for (let i = 0; i < samples.length; i += 1)
+      peak = Math.max(peak, Math.abs(samples[i]));
+    this.tr("audio.schedule", {
+      phrase: phrase?.id,
+      buffer: phrase ? phrase.buffers + 1 : undefined,
+      ct: now,
+      at,
+      lead_ms: (at - now) * 1000,
+      duration_ms: buffer.duration * 1000,
+      samples: samples.length,
+      previous_end: previousEnd || null,
+      gap_ms: gap === null ? null : gap * 1000,
+      flags,
+      first_sample: first,
+      first8: Array.from(samples.slice(0, 8), (v) => Math.round(v * 32768)),
+      last_sample: last,
+      prev_last_sample: sameDirect || previousEnd > 0 ? this.lastSample : null,
+      seam_jump: previousEnd > 0 ? Math.abs(first - this.lastSample) : null,
+      max_jump_first256: jump,
+      peak,
+      gain: this.gain?.gain.value,
+      ctx_state: ctx.state,
+      output_latency: ctx.outputLatency,
+      active_sources: this.output.size,
+    });
+    if (flags.includes("UNDERRUN") || flags.includes("SEAM"))
+      this.tr("audio.flag", { phrase: phrase?.id, flags });
+    this.lastSample = last;
+    this.lastPhrase = phrase?.id ?? "";
+    if (phrase) phrase.buffers++;
     this.output.add(source);
     source.onended = () => {
+      const ended = ctx.currentTime;
+      this.tr("audio.ended", {
+        phrase: phrase?.id,
+        ct: ended,
+        expected_end: at + buffer.duration,
+        late_ms: (ended - (at + buffer.duration)) * 1000,
+        remaining_sources: this.output.size - 1,
+      });
       this.output.delete(source);
       source.disconnect();
       if (!this.output.size && !this.closed) {
@@ -707,7 +972,16 @@ export class Voice {
         );
     }
   }
-  stopOutput() {
+  stopOutput(reason = "stop") {
+    this.tr("output.stop", {
+      reason,
+      ct: this.context?.currentTime,
+      sources: this.output.size,
+      queued: this.queue.length,
+      inflight: this.inflight,
+      cue_playing: !!this.cues?.playing,
+      gain: this.gain?.gain.value,
+    });
     this.turnRunning = false;
     this.cues?.cancel();
     if (this.gain) this.gain.gain.setValueAtTime(1, this.context!.currentTime);
@@ -735,13 +1009,16 @@ export class Voice {
     }
     this.output.clear();
     this.nextAudio = 0;
+    this.lastSample = 0;
+    this.lastPhrase = "";
     this.firstPlayback = false;
   }
   stop() {
+    this.tr("voice.stop", this.audioInfo());
     this.closed = true;
     this.cues?.close();
     this.resetInput();
-    this.stopOutput();
+    this.stopOutput("stop");
     this.media?.getTracks().forEach((t) => t.stop());
     const ctx = this.context;
     if (this.detector)
@@ -750,5 +1027,6 @@ export class Voice {
       });
     else void ctx?.close();
     this.cb.status("Voice off");
+    this.trace.stop();
   }
 }

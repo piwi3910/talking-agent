@@ -136,6 +136,7 @@ function App() {
   const [agentID, setAgentID] = useState("");
   const [userID, setUserID] = useState("");
   const [session, setSession] = useState("");
+  const [traceCopied, setTraceCopied] = useState(false);
   const [chat, setChat] = useState<Chat[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
@@ -303,7 +304,7 @@ function App() {
   }
   async function send(text: string, confirmation?: string, reject = false) {
     if (!session || busyRef.current) return;
-    voice.current?.stopOutput();
+    voice.current?.stopOutput("send");
     setError("");
     setBusy(true);
     busyRef.current = true;
@@ -335,7 +336,7 @@ function App() {
   }
   sendRef.current = (text) => send(text);
   async function cancel() {
-    voice.current?.stopOutput();
+    voice.current?.stopOutput("cancel");
     try {
       await api(`/sessions/${session}/cancel`, {});
     } catch (e) {
@@ -717,7 +718,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => voice.current?.stopOutput()}
+                      onClick={() => voice.current?.stopOutput("stop-button")}
                     >
                       Stop audio
                     </button>
@@ -984,6 +985,29 @@ function App() {
                     <span>Reported tokens</span>
                   </div>
                 </div>
+              </section>
+              <section>
+                <h3>Diagnostics</h3>
+                <p className="quiet">
+                  Call trace ID. Share it to have the call timeline inspected.
+                </p>
+                <p className="trace-id">
+                  <code>{session || "—"}</code>
+                </p>
+                <button
+                  type="button"
+                  className="full-width"
+                  disabled={!session}
+                  onClick={() => {
+                    void navigator.clipboard
+                      ?.writeText(session)
+                      .then(() => setTraceCopied(true))
+                      .catch(() => setTraceCopied(false));
+                    setTimeout(() => setTraceCopied(false), 2000);
+                  }}
+                >
+                  {traceCopied ? "Copied" : "Copy trace id"}
+                </button>
               </section>
               <section>
                 <h3>Event stream</h3>

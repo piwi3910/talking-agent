@@ -16,6 +16,10 @@ export class VoiceCues {
     private destination: AudioNode,
     private allowed: () => boolean,
     private report: (text: string) => void,
+    private trace: (
+      type: string,
+      data?: Record<string, unknown>,
+    ) => void = () => undefined,
   ) {}
   get playing() {
     return !!this.source;
@@ -83,7 +87,17 @@ export class VoiceCues {
   }
   schedule(category: string, delay = 1200) {
     this.category = category;
-    if (this.timer || this.closed || this.count >= 2) return;
+    if (this.timer || this.closed || this.count >= 2) {
+      this.trace("cue.schedule.skipped", {
+        category,
+        delay,
+        timer: !!this.timer,
+        closed: this.closed,
+        count: this.count,
+      });
+      return;
+    }
+    this.trace("cue.schedule", { category, delay });
     this.timer = setTimeout(() => {
       this.timer = undefined;
       this.play(this.category);
@@ -96,8 +110,16 @@ export class VoiceCues {
       this.source ||
       this.count >= 2 ||
       performance.now() - this.last < 8000
-    )
+    ) {
+      this.trace("cue.skip", {
+        category,
+        closed: this.closed,
+        allowed: !this.closed && this.allowed(),
+        playing: !!this.source,
+        count: this.count,
+      });
       return;
+    }
     let options = this.cues.filter(
       (c) =>
         (c.category === category ||
@@ -124,11 +146,25 @@ export class VoiceCues {
     source.onended = () => {
       if (this.source === source) this.source = undefined;
       source.disconnect();
+      this.trace("cue.ended", { id: cue.id, ct: this.ctx.currentTime });
     };
     source.start();
+    this.trace("cue.play", {
+      id: cue.id,
+      category: cue.category,
+      text: cue.text,
+      ct: this.ctx.currentTime,
+      duration_ms: cue.duration_ms,
+    });
     this.report(cue.text);
   }
   cancel() {
+    if (this.timer || this.source)
+      this.trace("cue.cancel", {
+        timer: !!this.timer,
+        playing: !!this.source,
+        ct: this.ctx.currentTime,
+      });
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
     if (this.source) {
