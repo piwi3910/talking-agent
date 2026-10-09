@@ -71,7 +71,9 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 	})
 	m.HandleFunc("GET /api/voice", func(w http.ResponseWriter, r *http.Request) {
 		tts := "Breeze TTS 2"
-		if a.Speech.Qwen3() {
+		if a.Speech.Omni() {
+			tts = "Qwen3-TTS 1.7B (streaming)"
+		} else if a.Speech.Qwen3() {
 			tts = "Qwen3-TTS 1.7B"
 		}
 		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": "Nemotron 3.5 ASR", "tts": tts, "input_sample_rate": 16000, "output_sample_rate": 24000})

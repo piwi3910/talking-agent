@@ -179,10 +179,13 @@ func run() error {
 		refs[id] = ref
 	}
 	ttsProvider := env("TTS_PROVIDER", speech.ProviderBreeze)
-	if ttsProvider != speech.ProviderBreeze && ttsProvider != speech.ProviderQwen3 {
-		return fmt.Errorf("unknown TTS_PROVIDER %q (use breeze or qwen3)", ttsProvider)
+	if ttsProvider != speech.ProviderBreeze && ttsProvider != speech.ProviderQwen3 && ttsProvider != speech.ProviderOmni {
+		return fmt.Errorf("unknown TTS_PROVIDER %q (use breeze, qwen3 or omni)", ttsProvider)
 	}
-	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL"), Provider: ttsProvider}
+	if ttsProvider == speech.ProviderOmni && os.Getenv("TTS_RENDER_URL") == "" {
+		slog.Warn("TTS_RENDER_URL is not set; preset and designed voices cannot render under omni")
+	}
+	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL"), Provider: ttsProvider, RenderURL: os.Getenv("TTS_RENDER_URL")}
 	voiceStore, err := voices.Open(env("VOICE_SETTINGS_FILE", "var/voice-settings.json"), env("VOICE_CUES_DIR", "var/voice-cues"), agents, refs, speechClient)
 	if err != nil {
 		return fmt.Errorf("voice settings: %w", err)

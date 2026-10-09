@@ -19,6 +19,10 @@ import (
 const (
 	ProviderBreeze = "breeze"
 	ProviderQwen3  = "qwen3"
+	// ProviderOmni streams Qwen3-TTS Base clones from a vLLM-Omni server. Presets
+	// and designed voices are rendered once through the audio.cpp worker at
+	// RenderURL and then cloned from that sample.
+	ProviderOmni = "omni"
 )
 
 // Qwen3-TTS model ids served by the audio.cpp worker.
@@ -36,16 +40,26 @@ type Client struct {
 	STTURL, TTSURL string
 	HTTP           *http.Client
 
-	// Provider selects the TTS request format: "breeze" (default) or "qwen3".
+	// Provider selects the TTS request format: "breeze" (default), "qwen3" or "omni".
 	Provider string
+
+	// RenderURL is the audio.cpp Qwen3-TTS worker that renders preset and design
+	// samples under the omni provider. TTSURL is then the streaming server.
+	RenderURL string
 
 	live atomic.Int64 // live syntheses in flight (web and SIP), not cue renders
 }
 
 func (c *Client) Enabled() bool { return c != nil && c.STTURL != "" && c.TTSURL != "" }
 
-// Qwen3 reports whether synthesis goes to Qwen3-TTS.
-func (c *Client) Qwen3() bool { return c != nil && c.Provider == ProviderQwen3 }
+// Qwen3 reports whether synthesis uses the Qwen3-TTS model family (audio.cpp or
+// vLLM-Omni): presets and designs, no inline vocal events.
+func (c *Client) Qwen3() bool {
+	return c != nil && (c.Provider == ProviderQwen3 || c.Provider == ProviderOmni)
+}
+
+// Omni reports whether clone voices stream from the vLLM-Omni server.
+func (c *Client) Omni() bool { return c != nil && c.Provider == ProviderOmni }
 
 // EventsSupported reports whether the TTS model understands inline vocal events.
 func (c *Client) EventsSupported() bool { return !c.Qwen3() }
@@ -207,11 +221,36 @@ func (c *Client) SynthesizeBackground(ctx context.Context, text string, v Voice,
 	return c.synthesize(ctx, text, v, emit)
 }
 
+// omniBody builds the streaming vLLM-Omni request. Every voice is a clone.
+func omniBody(text string, ref *Reference) map[string]any {
+	return map[string]any{
+		"model": ModelQwen3Base, "input": text, "task_type": "Base", "language": "English",
+		"response_format": "pcm", "stream": true, "stream_format": "audio",
+		"ref_audio": ref.DataURI(), "ref_text": ref.Text, "initial_codec_chunk_frames": 8,
+	}
+}
+
+// rendersOffline reports whether an omni-provider voice needs the audio.cpp
+// worker: presets and designs, which have no reference yet.
+func rendersOffline(v Voice) bool {
+	return v.Reference == nil || v.Model == ModelQwen3Custom || v.Model == ModelQwen3Design
+}
+
 func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func([]byte) error) error {
 	var body map[string]any
-	if c.Qwen3() {
+	base := c.TTSURL
+	switch {
+	case c.Omni() && rendersOffline(v):
+		if c.RenderURL == "" {
+			return fmt.Errorf("TTS_RENDER_URL is not configured")
+		}
+		base = c.RenderURL
 		body = qwen3Body(text, v)
-	} else {
+	case c.Omni():
+		body = omniBody(text, v.Reference)
+	case c.Qwen3():
+		body = qwen3Body(text, v)
+	default:
 		options := map[string]string{"seed": "42"}
 		if v.Instruction != "" {
 			options["instruction"] = v.Instruction
@@ -226,7 +265,7 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 		}
 	}
 	raw, _ := json.Marshal(body)
-	resp, err := c.do(ctx, strings.TrimRight(c.TTSURL, "/")+"/v1/audio/speech", bytes.NewReader(raw))
+	resp, err := c.do(ctx, strings.TrimRight(base, "/")+"/v1/audio/speech", bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}

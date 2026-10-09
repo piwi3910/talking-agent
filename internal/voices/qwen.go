@@ -31,6 +31,10 @@ const designSampleText = "Hello, and thank you for calling today. I would be gla
 // designTimeout bounds one design sample render in the save path.
 var designTimeout = 30 * time.Second
 
+// presetSampleText is the fixed sentence rendered once per preset speaker under
+// the omni provider; it is the reference transcript every preset clones from.
+const presetSampleText = designSampleText
+
 const designDescFile = "reference.desc"
 
 // presetSpeakers are the Qwen3 CustomVoice speakers. Ryan and Aiden are native
@@ -77,6 +81,9 @@ type designSample struct {
 
 // Provider reports the TTS provider the store resolves voices for.
 func (s *Store) Provider() string {
+	if s != nil && s.tts.Omni() {
+		return speech.ProviderOmni
+	}
 	if s != nil && s.tts.Qwen3() {
 		return speech.ProviderQwen3
 	}
@@ -92,6 +99,12 @@ func (s *Store) resolveQwen(voiceID, direction string) speech.Voice {
 		return baseVoice(s.refs[agent])
 	}
 	if speaker, ok := presetSpeaker(voiceID); ok {
+		// Omni streams presets by cloning their stored sample; until it exists the
+		// preset renders offline through the audio.cpp worker. Direction needs
+		// CustomVoice, so a cloned preset ignores it like any Base voice.
+		if ref := s.presets[voiceID]; ref != nil {
+			return baseVoice(ref)
+		}
 		return speech.Voice{Model: speech.ModelQwen3Custom, Speaker: speaker, Instruct: direction}
 	}
 	if ref := s.clones[voiceID]; ref != nil {
@@ -161,6 +174,9 @@ func cueKeyQwen(v speech.Voice) string {
 }
 
 func (s *Store) cueKey(v speech.Voice) string {
+	if s.tts.Omni() {
+		return "omni" + cueKeyQwen(v)[:12]
+	}
 	if s.qwen() {
 		return cueKeyQwen(v)
 	}
@@ -321,6 +337,66 @@ func (s *Store) regenDesigns(ctx context.Context, missing []Custom) {
 				slog.Warn("could not store design sample", "voice", v.ID, "error", err)
 			}
 		}
+		s.mu.Unlock()
+	}
+	s.mu.Lock()
+	s.enqueueMissing(false)
+	s.mu.Unlock()
+}
+
+// loadPresets reads the stored sample of every preset speaker. Omni only;
+// missing ones are rendered by regenPresets.
+func (s *Store) loadPresets() {
+	if !s.tts.Omni() {
+		return
+	}
+	for _, p := range presetSpeakers {
+		id := presetPrefix + p.slug
+		ref, err := speech.LoadReference(s.cloneDir(id), cloneAudioFile, cloneTextFile)
+		if err != nil || ref == nil {
+			continue
+		}
+		s.presets[id] = ref
+	}
+}
+
+// missingPresets lists preset voice ids without a stored sample. Callers hold the lock.
+func (s *Store) missingPresets() []string {
+	if !s.tts.Omni() {
+		return nil
+	}
+	var out []string
+	for _, p := range presetSpeakers {
+		if id := presetPrefix + p.slug; s.presets[id] == nil {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// regenPresets renders each missing preset sample once through the audio.cpp
+// worker, never while a caller is being spoken to, and persists it. Until then
+// the preset renders offline. It never fails startup.
+func (s *Store) regenPresets(ctx context.Context, missing []string) {
+	for _, id := range missing {
+		speaker, _ := presetSpeaker(id)
+		if s.tts.WaitIdle(ctx) != nil {
+			return
+		}
+		rctx, cancel := context.WithTimeout(ctx, designTimeout)
+		var pcm []byte
+		err := s.tts.SynthesizeBackground(rctx, presetSampleText, speech.Voice{Model: speech.ModelQwen3Custom, Speaker: speaker}, func(b []byte) error { pcm = append(pcm, b...); return nil })
+		cancel()
+		if err != nil || len(pcm) == 0 || len(pcm)%2 != 0 {
+			slog.Warn("could not render preset voice sample; the preset stays offline", "voice", id, "error", err)
+			continue
+		}
+		wav := speech.WAV(pcm)
+		s.mu.Lock()
+		if err := s.writeReference(id, wav, presetSampleText, nil); err != nil {
+			slog.Warn("could not store preset sample", "voice", id, "error", err)
+		}
+		s.presets[id] = &speech.Reference{AudioBase64: base64.StdEncoding.EncodeToString(wav), Text: presetSampleText}
 		s.mu.Unlock()
 	}
 	s.mu.Lock()

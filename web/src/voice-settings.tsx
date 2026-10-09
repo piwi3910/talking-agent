@@ -338,12 +338,13 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
         background and stay silent until ready.
       </p>
       {loading && <p role="status">Loading voice settings…</p>}
-      {saving && snapshot?.provider === "qwen3" && (
-        <p className="quiet" role="status">
-          Saving. A new or changed designed voice renders its voice sample
-          first, which can take up to 30 seconds.
-        </p>
-      )}
+      {saving &&
+        (snapshot?.provider === "qwen3" || snapshot?.provider === "omni") && (
+          <p className="quiet" role="status">
+            Saving. A new or changed designed voice renders its voice sample
+            first, which can take up to 30 seconds.
+          </p>
+        )}
       {error && (
         <p className="error voice-error" role="alert">
           {error}

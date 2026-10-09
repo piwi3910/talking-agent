@@ -456,3 +456,48 @@ func TestCueRendererYieldsToLiveSpeech(t *testing.T) {
 		t.Fatalf("%d cues rendered after the caller finished", n)
 	}
 }
+
+func TestOmniPresetsRenderOnceThenCloneTheStoredSample(t *testing.T) {
+	f := newFixture(t)
+	tts := newFakeQwen(t)
+	c := &speech.Client{STTURL: tts.URL, TTSURL: tts.URL, RenderURL: tts.URL, Provider: speech.ProviderOmni}
+	s := f.open(t, c)
+	if snap := s.Snapshot(); snap.Provider != "omni" || snap.Capabilities.VocalEvents {
+		t.Fatalf("%q %+v", snap.Provider, snap.Capabilities)
+	}
+	if _, err := s.Save(request(s, func(in *SaveRequest) { in.Personas["a"] = Persona{VoiceID: "preset-aiden", Direction: "Softly."} })); err != nil {
+		t.Fatal(err)
+	}
+	// Before the sample exists the preset renders offline.
+	if v, _ := s.Resolve("a"); v.Model != speech.ModelQwen3Custom || v.Speaker != "Aiden" {
+		t.Fatalf("%+v", v)
+	}
+	s.mu.RLock()
+	missing := s.missingPresets()
+	s.mu.RUnlock()
+	if len(missing) != 9 {
+		t.Fatalf("%v", missing)
+	}
+	s.regenPresets(context.Background(), missing)
+	if n := tts.count("qwen3-tts-custom"); n != 9 {
+		t.Fatalf("%d renders", n)
+	}
+	v, _ := s.Resolve("a")
+	if v.Model != speech.ModelQwen3Base || v.Reference == nil || v.Reference.Text != presetSampleText || v.Reference.AudioBase64 == "" {
+		t.Fatalf("%+v", v)
+	}
+	if _, err := os.Stat(filepath.Join(s.cloneDir("preset-aiden"), cloneAudioFile)); err != nil {
+		t.Fatal(err)
+	}
+	// A restart loads the stored samples and renders nothing.
+	again := f.open(t, c)
+	again.mu.RLock()
+	left := again.missingPresets()
+	again.mu.RUnlock()
+	if len(left) != 0 {
+		t.Fatalf("%v", left)
+	}
+	if v, _ := again.Resolve("a"); v.Reference == nil || v.Reference.Text != presetSampleText {
+		t.Fatalf("%+v", v)
+	}
+}

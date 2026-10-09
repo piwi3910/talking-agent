@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Reference is loaded once per persona and reused on every phrase request.
@@ -13,6 +14,15 @@ import (
 type Reference struct {
 	AudioBase64 string
 	Text        string
+
+	uriOnce sync.Once
+	uri     string
+}
+
+// DataURI is the reference as a WAV data URI, built once and cached.
+func (r *Reference) DataURI() string {
+	r.uriOnce.Do(func() { r.uri = "data:audio/wav;base64," + r.AudioBase64 })
+	return r.uri
 }
 
 func LoadReference(dir, audio, transcript string) (*Reference, error) {

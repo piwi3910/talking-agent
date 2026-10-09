@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:d160c88239f599d06978aa04cd1c0bb8fa8a0176625e2c79901c593de23d63ee",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:29973c7101269c2aebc691723aa14f3ef4488de2115e7dba8d1bf4fd74c1efa4",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -82,9 +82,13 @@
                         },
                         {
                           "name": "TTS_URL",
+                          "value": "http://speech-tts-stream.enterprise-ai-demo.svc.cluster.local:8095",
+                        },
+                        {
+                          "name": "TTS_RENDER_URL",
                           "value": "http://speech-tts.enterprise-ai-demo.svc.cluster.local:8094",
                         },
-                        { "name": "TTS_PROVIDER", "value": "qwen3" },
+                        { "name": "TTS_PROVIDER", "value": "omni" },
                         { "name": "LISTEN_ADDR", "value": "0.0.0.0:8080" },
                         { "name": "MEMORY_PROVIDER", "value": "novamem" },
                         { "name": "MAX_ITERATIONS", "value": "12" },

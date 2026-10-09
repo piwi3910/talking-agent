@@ -8,10 +8,12 @@ The weights are the Q8 GGUFs from `audio-cpp/audio.cpp-gguf`. The original model
 
 `deploy/kw/manifests/speech.json.yaml` defines `speech-tts` and `speech-stt` in `enterprise-ai-demo` as ExternalName aliases for the generated Kuvryn worker Services. The app reaches the workers only through these aliases.
 
-| Service | App URL                                                       | Kuvryn worker Service (`kuvryn-ai-workloads`)          |
-| ------- | ------------------------------------------------------------- | ------------------------------------------------------ |
-| TTS     | `http://speech-tts.enterprise-ai-demo.svc.cluster.local:8092` | `kuvryn-29f86189-9566-4f0d-89fe-6c3b75174446-b4616c22` |
-| STT     | `http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093` | `kuvryn-0b03dce0-1eac-40dd-8541-59321391fac5-a46ea12d` |
+| Service                           | App URL                                                              | Kuvryn worker Service (`kuvryn-ai-workloads`)          |
+| --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
+| TTS (stream, vLLM-Omni Qwen3-TTS) | `http://speech-tts-stream.enterprise-ai-demo.svc.cluster.local:8095` | `kuvryn-9034ee12-b1c9-4b94-9cda-d1a9c6c0a366-a46ea12d` |
+| TTS (render, audio.cpp Qwen3-TTS) | `http://speech-tts.enterprise-ai-demo.svc.cluster.local:8094`        | `kuvryn-67579477-05ed-45a7-9903-c2dc7aabfac4-b4616c22` |
+| TTS (Breeze, rollback)            | `http://speech-tts-breeze.enterprise-ai-demo.svc.cluster.local:8092` | `kuvryn-29f86189-9566-4f0d-89fe-6c3b75174446-b4616c22` |
+| STT                               | `http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093`        | `kuvryn-0b03dce0-1eac-40dd-8541-59321391fac5-a46ea12d` |
 
 ExternalName is a DNS CNAME, so the app must use the worker's own port. Kuvryn generates the worker Service names per deployment and node. If Kuvryn redeploys or moves a worker, update `externalName` (and the port, if it changes) in the speech manifest, then push. To find the current names:
 
@@ -23,7 +25,11 @@ The FastLLM proxy also lists `breeze` and `nemotron-3.5-asr`. However, it has no
 
 These are internal inference services, with no public ingress. The app proxies live microphone transcription and streamed speech at its public HTTPS hostname. See `docs/voice.md` for the browser controls and protocol.
 
-## API
+## Streaming TTS (`TTS_PROVIDER=omni`)
+
+`TTS_URL` is the vLLM-Omni server (`speech-tts-stream`, 8095) and `TTS_RENDER_URL` the audio.cpp worker (`speech-tts`, 8094). Every voice is cloned: the app POSTs `/v1/audio/speech` with `model: qwen3-tts-base`, `task_type: Base`, `language`, `response_format: pcm`, `stream: true`, `stream_format: audio`, `ref_audio` (a WAV data URI), `ref_text` and `initial_codec_chunk_frames: 8`, and forwards the chunked s16le 24 kHz PCM to the browser as it arrives. The Base model cannot use preset speakers or instructions, so presets and designed voices are rendered once through the audio.cpp worker (CustomVoice, or VoiceDesign), stored as a reference WAV and transcript under the voice store, and cloned from then on. Until a preset sample exists it plays through the offline render path. Vocal events are stripped and preset delivery directions are ignored. `TTS_PROVIDER=qwen3` (audio.cpp only, `TTS_URL` 8094) and `breeze` remain as rollbacks.
+
+## API (Breeze)
 
 TTS model ID: `breeze`.
 

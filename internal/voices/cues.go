@@ -134,10 +134,14 @@ func (s *Store) Force(agentID string) (Snapshot, error) {
 func (s *Store) Start(ctx context.Context) {
 	s.mu.Lock()
 	missing := s.missingDesigns()
+	presets := s.missingPresets()
 	if len(missing) == 0 {
 		s.enqueueMissing(false)
 	}
 	s.mu.Unlock()
+	if len(presets) > 0 {
+		go s.regenPresets(ctx, presets)
+	}
 	if len(missing) > 0 {
 		// Design voices lost their sample (qwen3): regenerate, then queue cue sets.
 		go s.regenDesigns(ctx, missing)

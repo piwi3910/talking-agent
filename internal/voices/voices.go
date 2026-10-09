@@ -116,13 +116,14 @@ type Store struct {
 	cloneRoot string                       // <root>/<id>/reference.wav|txt, a sibling of the cue dir
 	clones    map[string]*speech.Reference // loaded clone references by voice id
 	designs   map[string]*designSample     // qwen3: rendered sample of each design voice, by voice id
+	presets   map[string]*speech.Reference // omni: rendered sample of each preset voice, by voice id
 }
 
 // Open loads saved settings and removes render leftovers from a previous run.
 // refs holds each agent's reference voice (nil entries are agents without one).
 func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]*speech.Reference, tts *speech.Client) (*Store, error) {
 	s := &Store{path: path, cueDir: cueDir, tts: tts, agents: agents, refs: refs, manifest: map[string][]byte{}, personas: map[string]Persona{}, jobs: map[string]*job{}, wake: make(chan struct{}, 1),
-		cloneRoot: filepath.Join(filepath.Dir(cueDir), "voices"), clones: map[string]*speech.Reference{}, designs: map[string]*designSample{}}
+		cloneRoot: filepath.Join(filepath.Dir(cueDir), "voices"), clones: map[string]*speech.Reference{}, designs: map[string]*designSample{}, presets: map[string]*speech.Reference{}}
 	ids := make([]string, 0, len(agents))
 	for id := range agents {
 		ids = append(ids, id)
@@ -180,6 +181,7 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 		return nil, err
 	}
 	s.loadDesigns()
+	s.loadPresets()
 	// Temp and aside dirs only exist when a render was interrupted; they are never visible as a set.
 	for _, pattern := range []string{".tmp-*", ".old-*"} {
 		leftovers, _ := filepath.Glob(filepath.Join(cueDir, "*", pattern))
