@@ -29,7 +29,7 @@ func TestActionPolicyInSystemPromptForEveryShippedAgent(t *testing.T) {
 			}
 		})
 	}
-	for _, phrase := range []string{"call the tool in that same turn", "wait for its result", "one short spoken line first", "Never describe, guess or promise results you have not received", "act on the real data"} {
+	for _, phrase := range []string{"call the tool in that same turn", "wait for its result", "one short line first", "Never guess or promise results you have not received", "use only values it returned", "Never say \"I'll book\""} {
 		if !strings.Contains(ActionPolicy, phrase) {
 			t.Fatalf("policy lost %q", phrase)
 		}

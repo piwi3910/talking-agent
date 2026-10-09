@@ -282,6 +282,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		mode   string
 	}
 	var latestResults []serviceResult
+	// actioned records that a booking/change tool was requested this turn;
+	// checked guards against claiming one without it, at most once per turn.
+	actioned, checked := false, false
 	for iteration := 0; iteration < max; iteration++ {
 		if err := ctx.Err(); err != nil {
 			fail(err)
@@ -352,6 +355,13 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		emit("llm.completed", map[string]any{"duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "tool_calls": len(response.Message.ToolCalls), "diagnostics": response.Diagnostics})
 		s.History = append(s.History, response.Message)
 		if len(response.Message.ToolCalls) == 0 {
+			if !checked && !actioned && iteration+1 < max && hasMutation(defs) && ClaimsAction(response.Message.Content) {
+				checked = true
+				emit("agent.claim.unbacked", map[string]any{"text": response.Message.Content})
+				emit("agent.response.delta", map[string]any{"text": "\n\n"})
+				s.History = append(s.History, llm.Message{Role: "user", Content: unbackedClaimCheck})
+				continue
+			}
 			emit("agent.response.completed", map[string]any{"text": response.Message.Content})
 			trim(s)
 			if turn.Opening == "" {
@@ -389,6 +399,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 				res = tools.Failure("invalid_input", e.Error())
 				emit("tool.failed", map[string]any{"tool": name, "duration_ms": 0, "result": res})
 			} else if d.Mutation {
+				actioned = true
 				p := session.Pending{ID: session.ID(), Tool: name, Arguments: args, Expires: time.Now().Add(5 * time.Minute), Original: original, Definition: d}
 				s.Pending[p.ID] = p
 				emit("action.confirmation.required", p)
