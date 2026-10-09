@@ -48,6 +48,10 @@ const DUCK_SPEECH_MS = 96;
 // Speech needed to treat sound during playback as an interruption. Echo of the
 // agent's own voice passes the browser's echo canceller in short bursts.
 const BARGE_SPEECH_MS = 250;
+// Playback used to learn how loudly the agent's voice leaks into the microphone.
+const ECHO_CALIBRATION_MS = 2000;
+// How much louder than the expected echo the microphone must be to count as the caller.
+const ECHO_MARGIN = 2;
 // Continuous speech that confirms an interruption without waiting for a
 // transcript (the recognizer only returns text once the person stops).
 const BARGE_CONFIRM_MS = 800;
@@ -63,6 +67,12 @@ export class Voice {
   private analyser?: AnalyserNode;
   private levelBuffer?: Float32Array<ArrayBuffer>;
   private micLevel = 0;
+  // Echo gate: how loud the agent's own voice comes back through the microphone,
+  // relative to what is played, learned from the first seconds it speaks.
+  private outEnvelope = 0;
+  private coupling = 0;
+  private calibration: number[] = [];
+  private calibratedMs = 0;
   private context?: AudioContext;
   private gain?: GainNode;
   private cues?: VoiceCues;
@@ -268,34 +278,67 @@ export class Voice {
   // Loudness of the agent's voice and of the microphone, each 0..1.
   levels(): { out: number; mic: number } {
     let out = 0;
-    if (this.analyser && this.context?.state === "running") {
-      const buf = (this.levelBuffer ??= new Float32Array(
-        this.analyser.fftSize,
-      ));
-      this.analyser.getFloatTimeDomainData(buf);
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-      out = Math.min(1, Math.sqrt(sum / buf.length) * 4);
-    }
+    if (this.analyser && this.context?.state === "running")
+      out = Math.min(1, this.outputRms() * 4);
     // While the agent talks, the microphone mostly hears the agent: only show
     // the caller once an interruption is confirmed (playback stopped).
     const playing = !!this.output.size || !!this.cues?.playing;
     const mic = this.closed || this.muted || playing ? 0 : this.micLevel;
     return { out, mic };
   }
+  // Raw loudness of what is being played, as RMS of the last analyser window.
+  private outputRms(): number {
+    if (!this.analyser) return 0;
+    const buf = (this.levelBuffer ??= new Float32Array(this.analyser.fftSize));
+    this.analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    return Math.sqrt(sum / buf.length);
+  }
+  // True when the microphone is clearly louder than the agent's own echo would
+  // be. Learns the echo level during the first seconds of playback in a call,
+  // when nothing counts as an interruption.
+  private echoGate(micRms: number, ms: number): boolean {
+    const out = this.outputRms();
+    // Fast attack, ~300 ms release: echo arrives after the sound that caused it.
+    this.outEnvelope = Math.max(out, this.outEnvelope * Math.exp(-ms / 300));
+    if (this.calibratedMs < ECHO_CALIBRATION_MS) {
+      if (this.outEnvelope > 0.005) {
+        this.calibration.push(micRms / this.outEnvelope);
+        this.calibratedMs += ms;
+        if (this.calibratedMs >= ECHO_CALIBRATION_MS) {
+          const sorted = [...this.calibration].sort((a, b) => a - b);
+          this.coupling = Math.max(
+            0.02,
+            sorted[Math.floor(sorted.length * 0.95)] || 0,
+          );
+          this.tr("echo.calibrated", {
+            coupling: this.coupling,
+            samples: sorted.length,
+          });
+        }
+      }
+      return false;
+    }
+    return micRms > this.coupling * this.outEnvelope * ECHO_MARGIN + 0.004;
+  }
   private frame(pcm: ArrayBuffer, probability: number, ms: number) {
     if (this.closed || this.muted) return;
+    let micRms = 0;
     {
       const v = new Int16Array(pcm);
       let sum = 0;
       for (let i = 0; i < v.length; i++) sum += v[i] * v[i];
       const rms = v.length ? Math.sqrt(sum / v.length) / 32768 : 0;
       this.micLevel = probability > 0.5 ? Math.min(1, rms * 6) : 0;
+      micRms = rms;
     }
     this.preRoll.push(pcm);
     if (this.preRoll.length > 13) this.preRoll.shift();
     const playing = !!this.output.size || !!this.cues?.playing;
-    const speaking = probability > (this.active ? 0.4 : 0.6);
+    let speaking = probability > (this.active ? 0.4 : 0.6);
+    if (playing) speaking = this.echoGate(micRms, ms) && speaking;
+    else if (!playing) this.outEnvelope = 0;
     if (speaking) {
       if (this.speechFrames === 0) this.firstSpeechAt = performance.now();
       this.lastSpeech = performance.now();
