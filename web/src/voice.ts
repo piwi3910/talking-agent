@@ -277,7 +277,11 @@ export class Voice {
       for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
       out = Math.min(1, Math.sqrt(sum / buf.length) * 4);
     }
-    return { out, mic: this.closed || this.muted ? 0 : this.micLevel };
+    // While the agent talks, the microphone mostly hears the agent: only show
+    // the caller once an interruption is confirmed (playback stopped).
+    const playing = !!this.output.size || !!this.cues?.playing;
+    const mic = this.closed || this.muted || playing ? 0 : this.micLevel;
+    return { out, mic };
   }
   private frame(pcm: ArrayBuffer, probability: number, ms: number) {
     if (this.closed || this.muted) return;
