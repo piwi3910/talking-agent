@@ -24,7 +24,7 @@ func TestAquilaContacts(t *testing.T) {
 			t.Fatalf("%s profile: %+v", u.ID, r)
 		}
 	}
-	if got := aq(b, "F003", "crm.history", nil); got.Error != nil || len(got.Records) != 0 || !strings.Contains(got.Summary, "first contact") {
+	if got := aq(b, "F003", "crm.history", nil); got.Error != nil || len(got.Records) != 0 || !strings.Contains(got.Summary, "No CRM interactions") {
 		t.Fatalf("new enquiry must have no history: %+v", got)
 	}
 	if got := aq(b, "L001", "contact.profile", nil); len(got.Records) != 3 {

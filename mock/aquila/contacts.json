@@ -24,7 +24,7 @@
     "status": "new enquiry",
     "email": "aisha.rahman@example.invalid",
     "location": "Dubailand",
-    "scenario": "Brand new enquiry, no history yet. Shows the first-contact experience."
+    "scenario": "New enquiry. Use her first call to show first contact, then call back with any agent to show shared memory."
   },
   {
     "id": "L001",

@@ -342,13 +342,13 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 		children := owned(b.records["aq_children"], u.ID)
 		summary := fmt.Sprintf("Contact profile for %s (%s).", u.Name, u.Status)
 		if len(children) == 0 {
-			summary += " No children are on file yet; this looks like a first contact."
+			summary += " No children are on the CRM record yet; use what the family has shared in memory."
 		}
 		return result(summary, append([]tools.Record{contact}, children...)...)
 	case "crm.history":
 		rs := append(owned(b.records["aq_history"], u.ID), owned(b.records["aq_events"], u.ID)...)
 		if len(rs) == 0 {
-			return result("No previous interactions are on file. This is a first contact, so welcome them warmly and learn about their family.")
+			return result("No CRM interactions are logged yet. Anything the family shared on earlier calls is in memory; if memory is empty, this is a first contact.")
 		}
 		return result(fmt.Sprintf("%d earlier interactions, notes and bookings on file, oldest first.", len(rs)), rs...)
 	case "crm.note":
