@@ -333,6 +333,38 @@ func (b *Backend) aquilaSlotsFor(kind string, a map[string]string, quotas map[st
 	return tools.Result{Records: out}, true
 }
 
+// aquilaNearest explains an empty date range (a school closure or a full day)
+// and returns the nearest free slots after it, so the agent offers real times
+// instead of guessing. It returns "" when the range had slots or no range was asked.
+func (b *Backend) aquilaNearest(kind string, query map[string]string, quotas map[string]int, res tools.Result) (string, []tools.Record) {
+	if len(res.Records) > 0 || (query["from"] == "" && query["to"] == "") {
+		return "", nil
+	}
+	start, end := query["from"], query["to"]
+	if start == "" {
+		start = end
+	}
+	if end == "" {
+		end = start
+	}
+	reason := "Nothing is free on the requested days."
+	for _, c := range aquilaClosures {
+		if start <= c[1] && end >= c[0] {
+			from, _ := time.Parse("2006-01-02", c[0])
+			to, _ := time.Parse("2006-01-02", c[1])
+			reason = fmt.Sprintf("The school is closed for a holiday break from %s to %s, so nothing runs on the requested days.", from.Format("Monday 2 January"), to.Format("Monday 2 January"))
+			break
+		}
+	}
+	after, _ := time.Parse("2006-01-02", end)
+	next := map[string]string{"type": query["type"], "from": after.AddDate(0, 0, 1).Format("2006-01-02")}
+	nearest, _ := b.aquilaSlotsFor(kind, next, quotas)
+	if len(nearest.Records) == 0 {
+		return reason + " No later times are open either.", nil
+	}
+	return reason + " These are the nearest free times after it; offer only these.", nearest.Records
+}
+
 func (b *Backend) aquilaChildNamed(user, name string) (tools.Record, bool) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	for _, c := range owned(b.records["aq_children"], user) {
@@ -428,6 +460,10 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 		if !ok {
 			return res
 		}
+		if note, nearest := b.aquilaNearest("assessment_slot", query, map[string]int{"cat4": 4, "meet-and-greet": 4}, res); note != "" {
+			res.Records = nearest
+			return result(availabilitySummary(note, res.Records, aquilaSlotLabel), res.Records...)
+		}
 		return result(availabilitySummary("Available assessment slots. CAT4 is for Secondary entry (Years 7 to 11); the meet and greet is for FS1 to Year 6 and for Post-16 conversations.", res.Records, aquilaSlotLabel), res.Records...)
 	case "assessment.book":
 		child := strings.TrimSpace(a["child_name"])
@@ -465,6 +501,9 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 		res, ok := b.aquilaSlotsFor("tour_slot", query, map[string]int{"in-person": 9, "virtual": 6, "open-morning": 2})
 		if !ok {
 			return res
+		}
+		if note, nearest := b.aquilaNearest("tour_slot", query, map[string]int{"in-person": 6, "virtual": 4, "open-morning": 2}, res); note != "" {
+			return result(availabilitySummary(note, nearest, aquilaSlotLabel), nearest...)
 		}
 		return result(availabilitySummary("Available tours: weekday morning tours (Monday to Thursday), virtual tours in the afternoon and the Saturday open morning.", res.Records, aquilaSlotLabel), res.Records...)
 	case "tour.book":

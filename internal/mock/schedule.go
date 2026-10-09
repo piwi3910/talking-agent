@@ -128,13 +128,13 @@ func scheduleByDay(rs []tools.Record, label func(tools.Record) string) string {
 	return strings.Join(parts, " ")
 }
 
-const slotGuidance = tools.GuidanceMarker + "Times are local to the organisation: never mention a time zone. Each record's id is the slot_id for the booking tool and is never spoken; its description gives the day and time. Ask which day suits, then offer two or three times on that day."
+const slotGuidance = tools.GuidanceMarker + "Times are local to the organisation: never mention a time zone. Each record's id is the slot_id for the booking tool and is never spoken; its description gives the day and time. Ask which day suits, then offer two or three times on that day. Never offer a day or time that is not listed here."
 
 // availabilitySummary is the tool summary for a list of slots: the intro, then
 // the slots grouped by day, then how to use them.
 func availabilitySummary(intro string, rs []tools.Record, label func(tools.Record) string) string {
 	if len(rs) == 0 {
-		return intro + " No times are free in that range." + tools.GuidanceMarker + "Suggest other days or dates."
+		return intro + " No times are free in that range." + tools.GuidanceMarker + "Suggest other days or dates: ask whether another day or week suits, then check that range; never invent times."
 	}
 	return intro + " By day: " + scheduleByDay(rs, label) + slotGuidance
 }

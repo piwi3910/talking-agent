@@ -4,6 +4,7 @@ import (
 	"enterprise-ai-demo/internal/tools"
 	"strings"
 	"testing"
+	"time"
 )
 
 func aq(b *Backend, user, name string, args map[string]string) tools.Result {
@@ -326,5 +327,24 @@ func TestAquilaEnquiryVisibleLater(t *testing.T) {
 	history := aq(b, "F003", "crm.history", nil)
 	if len(history.Records) != 1 || !strings.Contains(history.Records[0].Description, "Year 2: Looking for January entry") {
 		t.Fatalf("enquiry not visible later: %+v", history)
+	}
+}
+
+func TestAquilaEmptyRangeOffersNearestRealSlots(t *testing.T) {
+	b := fixture(t)
+	// Fridays have no tours: asking for one must explain it and return later, real slots.
+	day := time.Now().In(dubai).AddDate(0, 0, 2)
+	for day.Weekday() != time.Friday {
+		day = day.AddDate(0, 0, 1)
+	}
+	friday := day.Format("2006-01-02")
+	got := aq(b, "L001", "tour.availability", map[string]string{"from": friday, "to": friday})
+	if got.Error != nil || len(got.Records) == 0 || !strings.Contains(got.Summary, "nearest free times") {
+		t.Fatalf("empty range: %+v", got)
+	}
+	for _, r := range got.Records {
+		if aquilaSlotDate(r.ID) <= friday {
+			t.Fatalf("slot %s is not after %s", r.ID, friday)
+		}
 	}
 }
