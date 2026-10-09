@@ -1,6 +1,7 @@
 import { VoiceCues } from "./voice-cues";
 import type { MicVAD } from "@ricky0123/vad-web";
 import { Trace, type TraceData } from "./trace";
+import { Resampler } from "./resample";
 // Browser transport only: finalized speech uses the same message API as typing.
 export type VoiceCallbacks = {
   status: (status: string) => void;
@@ -25,7 +26,8 @@ type Phrase = {
   first: boolean;
   textAt: number;
   reported: boolean; // first phrase of its turn, and when that turn's text began
-  chunks: Uint8Array[];
+  chunks: Uint8Array[]; // an empty chunk marks the end of the phrase
+  resampler?: Resampler; // continuous across the phrase's bursts
   done: boolean;
 };
 const PHRASE_RETRY_DELAYS = [150, 300, 600];
@@ -35,13 +37,19 @@ const PHRASE_RETRY_DELAYS = [150, 300, 600];
 // so the next one is still ready before it is needed.
 const MAX_SPEECH_IN_FLIGHT = 1;
 const SPEECH_HEADERS_DEADLINE = 20000;
+// The /speech stream is 16-bit mono PCM at this rate.
+const SPEECH_RATE = 24000;
 // Streaming TTS sends audio in bursts that the network splits into many reads.
 // Joining reads that arrive within this window avoids a buffer seam (an audible
 // click) inside a burst.
 const BURST_GAP_MS = 25;
 // Lead before audio starts from silence. The first burst is 0.64 s of audio and
-// the second arrives about 0.6-0.75 s later, so 0.4 s keeps ~0.3 s of margin.
+// the second arrives about 0.5-0.85 s after it, so with 0.4 s of lead the second
+// is still in time up to 1.04 s after the first.
 const START_LEAD = 0.4;
+// Audio still playing at least this far ahead is continued without a gap; one
+// render quantum is 128 frames (about 3 ms).
+const CONTINUE_MARGIN = 0.01;
 // Speech needed before ducking playback. Echo of the agent's own voice can
 // briefly reach 64 ms; a real interruption keeps going to the 128 ms barge-in.
 const DUCK_SPEECH_MS = 96;
@@ -107,7 +115,11 @@ export class Voice {
   private firstDeltaAt = 0;
   private turn = "";
   private blockedTurn = "";
-  private nextAudio = 0;
+  // First output frame after the audio scheduled so far, in whole frames of the
+  // context clock (0 = nothing scheduled). Kept as an integer: adding durations
+  // in seconds and rounding up occasionally lands one frame late, which is a
+  // one-sample hole (a click) between two buffers.
+  private nextFrame = 0;
   // A barge-in during playback waits for its transcript: if it only repeats what
   // the agent just said, it was the agent hearing itself and playback continues.
   private bargePending = false;
@@ -203,6 +215,12 @@ export class Voice {
       this.analyser.fftSize = 512;
       this.analyser.smoothingTimeConstant = 0;
       this.gain.connect(this.analyser);
+      // Test-only hook (tests/e2e-audio): lets a harness record the rendered signal.
+      (
+        window as unknown as {
+          __voiceTap?: (c: AudioContext, g: GainNode, s: string) => void;
+        }
+      ).__voiceTap?.(this.context, this.gain, this.session);
       Voice.active = this;
       this.cues = new VoiceCues(
         this.context,
@@ -772,7 +790,10 @@ export class Voice {
     const gen = this.generation;
     while (this.inflight < MAX_SPEECH_IN_FLIGHT && this.queue.length) {
       // Bound prepared audio; generation overlaps playback of the previous phrase.
-      if (this.context && this.nextAudio - this.context.currentTime > 8) {
+      if (
+        this.context &&
+        this.nextFrame / this.context.sampleRate - this.context.currentTime > 8
+      ) {
         if (!this.pumpTimer)
           this.pumpTimer = setTimeout(() => {
             this.pumpTimer = undefined;
@@ -947,6 +968,8 @@ export class Voice {
             }
           }
           flush();
+          // End of phrase: lets the resampler release its last few samples.
+          if (live()) this.deliver(phrase, new Uint8Array(0), gen);
           this.tr("speech.done", {
             id: phrase.id,
             reads,
@@ -994,7 +1017,7 @@ export class Voice {
   }
   // Audio of the head phrase plays as it arrives; any other phrase buffers.
   private deliver(phrase: Phrase, bytes: Uint8Array, gen: number) {
-    phrase.bursts++;
+    if (bytes.length) phrase.bursts++;
     if (this.order[0] === phrase) {
       this.cues?.cancel();
       this.play(bytes, gen, phrase);
@@ -1035,20 +1058,41 @@ export class Voice {
         },
         () => undefined,
       );
-    const buffer = ctx.createBuffer(1, bytes.length / 2, 24000);
-    const samples = buffer.getChannelData(0);
+    // The browser must never convert a sample rate itself: its per-buffer
+    // resampler can render a frame too many at a seam. Convert here, continuously
+    // across the phrase's bursts, so buffers are already at the context rate.
+    const rate = ctx.sampleRate;
+    const input = new Float32Array(bytes.length >> 1);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    for (let i = 0; i < samples.length; i++)
-      samples[i] = view.getInt16(i * 2, true) / 32768;
+    for (let i = 0; i < input.length; i++)
+      input[i] = view.getInt16(i * 2, true) / 32768;
+    let samples: Float32Array<ArrayBuffer> = input;
+    if (rate !== SPEECH_RATE) {
+      const r = phrase
+        ? (phrase.resampler ??= new Resampler(SPEECH_RATE, rate))
+        : new Resampler(SPEECH_RATE, rate);
+      samples = r.push(input, !bytes.length);
+    }
+    if (!samples.length) return;
+    const buffer = ctx.createBuffer(1, samples.length, rate);
+    buffer.copyToChannel(samples, 0);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gain!);
-    // Start on a sample of the output clock so consecutive buffers join exactly.
-    const rate = ctx.sampleRate;
+    // Start on a frame of the output clock. Audio that is still playing is
+    // continued on the frame right after it, with no floating-point rounding. The
+    // start lead applies only when starting from silence (or after an underrun):
+    // applying it to a buffer that arrives while the previous one still plays
+    // opens a silent gap of (arrival - previous end + lead), audible as a hiccup
+    // right after the first 0.64 s burst whenever the second one is a little late.
     const now = ctx.currentTime;
-    const previousEnd = this.nextAudio;
-    const at = Math.ceil(Math.max(now + START_LEAD, previousEnd) * rate) / rate;
-    this.nextAudio = at + buffer.duration;
+    const previousEnd = this.nextFrame / rate;
+    const startFrame =
+      this.nextFrame >= Math.ceil((now + CONTINUE_MARGIN) * rate)
+        ? this.nextFrame
+        : Math.ceil((now + START_LEAD) * rate);
+    const at = startFrame / rate;
+    this.nextFrame = startFrame + samples.length;
     // Waveform edges: a click shows as a jump at the buffer start or at a seam.
     let jump = 0;
     for (let i = 1; i < Math.min(samples.length, 256); i++)
@@ -1065,6 +1109,9 @@ export class Voice {
       flags.push("PHRASE_GAP");
     if (gap !== null && gap >= 0 && gap < 1.5 / rate && previousEnd >= now)
       flags.push("SEAM");
+    // Silence scheduled although the previous buffer was still playing.
+    if (gap !== null && previousEnd >= now && gap >= 1.5 / rate)
+      flags.push("SCHEDULE_GAP");
     let peak = 0;
     for (let i = 0; i < samples.length; i += 1)
       peak = Math.max(peak, Math.abs(samples[i]));
@@ -1091,7 +1138,11 @@ export class Voice {
       output_latency: ctx.outputLatency,
       active_sources: this.output.size,
     });
-    if (flags.includes("UNDERRUN") || flags.includes("SEAM"))
+    if (
+      flags.includes("UNDERRUN") ||
+      flags.includes("SEAM") ||
+      flags.includes("SCHEDULE_GAP")
+    )
       this.tr("audio.flag", { phrase: phrase?.id, flags });
     this.lastSample = last;
     this.lastPhrase = phrase?.id ?? "";
@@ -1170,7 +1221,7 @@ export class Voice {
       }
     }
     this.output.clear();
-    this.nextAudio = 0;
+    this.nextFrame = 0;
     this.lastSample = 0;
     this.lastPhrase = "";
     this.firstPlayback = false;
