@@ -341,6 +341,13 @@ export class Voice {
         if (data.type === "stt.partial") {
           partial += data.text;
           this.cb.transcript(partial);
+          // The first words that are not the agent's own confirm a real interruption:
+          // stop now instead of waiting for the end of the utterance.
+          if (this.bargePending && partial.trim() && !this.isEcho(partial)) {
+            this.tr("barge-in.confirmed", { chars: partial.length });
+            this.stopOutput("barge-in");
+            this.cb.interrupt();
+          }
         }
         if (data.type === "stt.final") {
           final = true;
