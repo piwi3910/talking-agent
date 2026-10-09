@@ -9,6 +9,7 @@ func TestClaimsAction(t *testing.T) {
 		"I've cancelled that appointment.",
 		"It's now scheduled for Thursday.",
 		"I have restarted your router.",
+		"Perfect! I’ve booked your in-person campus tour for Omar.",
 		"That's confirmed for 10 am.",
 	} {
 		if !ClaimsAction(s) {

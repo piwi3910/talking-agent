@@ -355,7 +355,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		emit("llm.completed", map[string]any{"duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "tool_calls": len(response.Message.ToolCalls), "diagnostics": response.Diagnostics})
 		s.History = append(s.History, response.Message)
 		if len(response.Message.ToolCalls) == 0 {
-			if !checked && !actioned && iteration+1 < max && hasMutation(defs) && ClaimsAction(response.Message.Content) {
+			if !checked && !actioned && iteration+1 < max && catalogMutates(catalog) && ClaimsAction(response.Message.Content) {
 				checked = true
 				emit("agent.claim.unbacked", map[string]any{"text": response.Message.Content})
 				emit("agent.response.delta", map[string]any{"text": "\n\n"})
