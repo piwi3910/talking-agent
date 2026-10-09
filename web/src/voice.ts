@@ -29,14 +29,22 @@ type Phrase = {
   done: boolean;
 };
 const PHRASE_RETRY_DELAYS = [150, 300, 600];
-const MAX_SPEECH_IN_FLIGHT = 2;
+// One /speech stream at a time: two concurrent streams share the GPU and delay
+// the head phrase's second burst past the end of its first, which is an audible
+// gap after the first word. A phrase downloads in about half its playback time,
+// so the next one is still ready before it is needed.
+const MAX_SPEECH_IN_FLIGHT = 1;
 const SPEECH_HEADERS_DEADLINE = 20000;
 // Streaming TTS sends audio in bursts that the network splits into many reads.
 // Joining reads that arrive within this window avoids a buffer seam (an audible
 // click) inside a burst.
 const BURST_GAP_MS = 25;
-// Lead before audio starts from silence; covers the gap until the second burst.
-const START_LEAD = 0.25;
+// Lead before audio starts from silence. The first burst is 0.64 s of audio and
+// the second arrives about 0.6-0.75 s later, so 0.4 s keeps ~0.3 s of margin.
+const START_LEAD = 0.4;
+// Speech needed before ducking playback. Echo of the agent's own voice can
+// briefly reach 64 ms; a real interruption keeps going to the 128 ms barge-in.
+const DUCK_SPEECH_MS = 96;
 const MIN_PHRASE = 25;
 const FIRST_CLAUSE_MIN = 40;
 // Abbreviations whose full stop does not end a sentence. "No" only counts before a number.
@@ -249,7 +257,7 @@ export class Voice {
     }
     // Duck at the first credible onset; commit without waiting for an STT result.
     if (playing && this.gain) {
-      const target = this.speechFrames >= 64 ? 0.12 : 1;
+      const target = this.speechFrames >= DUCK_SPEECH_MS ? 0.12 : 1;
       this.gain.gain.setTargetAtTime(target, this.context!.currentTime, 0.015);
       if (target !== this.lastGainTarget) {
         this.lastGainTarget = target;
