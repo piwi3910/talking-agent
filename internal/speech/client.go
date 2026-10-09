@@ -230,6 +230,8 @@ func omniBody(text string, ref *Reference) map[string]any {
 		"model": ModelQwen3Base, "input": text, "task_type": "Base", "language": "English",
 		"response_format": "pcm", "stream": true, "stream_format": "audio",
 		"ref_audio": ref.DataURI(), "ref_text": ref.Text, "initial_codec_chunk_frames": 8,
+		// A fixed seed keeps the cloned voice the same from phrase to phrase.
+		"seed": 42,
 	}
 }
 
