@@ -8,7 +8,12 @@ import (
 
 // claimPattern matches a reply that says a booking or change is done or about
 // to be done by the agent ("I'll book you", "you're booked", "I've cancelled").
-var claimPattern = regexp.MustCompile(`(?i)\b(i['’]?ve|i have|i['’]?ll|i will|i['’]?m going to|i am going to|you['’]?re|you are|it['’]?s|it is|that['’]?s|has been|have been|is now|are now)\s+(?:now\s+|all\s+|just\s+|gone\s+ahead\s+and\s+)?(book(?:ed)?|schedul(?:e|ed)|reserv(?:e|ed)|confirm(?:ed)?|cancel(?:l?ed)?|reschedul(?:e|ed)|chang(?:e|ed)|updat(?:e|ed)|restart(?:ed)?|optimi[sz](?:e|ed)|sen[dt]|logg?ed|set\s+up)\b`)
+var claimPattern = regexp.MustCompile(`(?i)\b(?:` +
+	// "I'll book you", "you're booked", "I've cancelled", "it's now scheduled"
+	`(?:i['’]?ve|i have|i['’]?ll|i will|i['’]?m going to|i am going to|you['’]?re|you are|it['’]?s|it is|that['’]?s|has been|have been|is now|are now)\s+(?:now\s+|all\s+|just\s+|gone\s+ahead\s+and\s+)?(?:book(?:ed)?|schedul(?:e|ed)|reserv(?:e|ed)|confirm(?:ed)?|cancel(?:l?ed)?|reschedul(?:e|ed)|chang(?:e|ed)|updat(?:e|ed)|restart(?:ed)?|optimi[sz](?:e|ed)|sen[dt]|logg?ed|set\s+up)` +
+	// "I'm booking Omar in", "I am scheduling that now"
+	`|(?:i['’]?m|i am)\s+(?:now\s+|just\s+)?(?:booking|scheduling|reserving|cancell?ing|rescheduling|changing|updating|restarting|sending|logging|setting\s+up)` +
+	`)\b`)
 
 // ClaimsAction reports whether text claims a booking or change by the agent.
 func ClaimsAction(text string) bool { return claimPattern.MatchString(text) }

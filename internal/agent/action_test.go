@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	"enterprise-ai-demo/internal/llm"
@@ -14,13 +15,22 @@ func TestActionPolicyInSystemPromptForEveryShippedAgent(t *testing.T) {
 	for id, a := range agents {
 		t.Run(id, func(t *testing.T) {
 			s := session.NewStore().Create(a, "C001")
+			// Only the turn's own request counts: background memory capture
+			// calls the same client afterwards with a different system prompt.
+			var mu sync.Mutex
 			system := ""
 			r.Clients[id] = errorClient{respond: func(req llm.Request, delta func(string)) (llm.Response, error) {
-				system = req.Messages[0].Content
+				mu.Lock()
+				if system == "" {
+					system = req.Messages[0].Content
+				}
+				mu.Unlock()
 				delta("Hello")
 				return llm.Response{Message: llm.Message{Role: "assistant", Content: "Hello"}}, nil
 			}}
 			r.Run(context.Background(), s, "turn", Turn{Text: "Hello"})
+			mu.Lock()
+			defer mu.Unlock()
 			if !strings.Contains(system, ActionPolicy) {
 				t.Fatal("action policy missing from system prompt")
 			}
