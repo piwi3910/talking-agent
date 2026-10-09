@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: __NAME__
+  labels: { app: e2e-audio }
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 5
+  securityContext: { fsGroup: 10001 }
+  initContainers:
+    # Seeds /app/var (voice settings, cloned voice references, cues) from the live app,
+    # so the test uses exactly the voices users hear. run.sh pipes the files in.
+    - name: seed
+      image: __IMAGE__
+      command: ["sh", "-c", "until [ -f /app/var/.seeded ]; do sleep 1; done"]
+      volumeMounts: [{ name: var, mountPath: /app/var }]
+  containers:
+    - name: app
+      image: __IMAGE__
+      ports: [{ containerPort: 8080 }]
+      env:
+        - { name: LISTEN_ADDR, value: "0.0.0.0:8080" }
+        - { name: VOICE_SETTINGS_FILE, value: /app/var/voice-settings.json }
+        - { name: VOICE_CUES_DIR, value: /app/var/voice-cues }
+        - { name: TRACE_DIR, value: /app/var/traces }
+        - { name: MCP_SERVERS_FILE, value: /app/var/mcp-servers.json }
+        - { name: LLM_DISABLE_THINKING, value: "true" }
+        - {
+            name: STT_URL,
+            value: "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
+          }
+        - {
+            name: TTS_URL,
+            value: "http://speech-tts-novanas.enterprise-ai-demo.svc.cluster.local:8095",
+          }
+        - {
+            name: TTS_RENDER_URL,
+            value: "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
+          }
+        - { name: TTS_PROVIDER, value: omni }
+        - { name: STT_MODEL, value: qwen3-asr-1.7b-utt }
+        - { name: STT_LANGUAGE, value: English }
+        - { name: MEMORY_PROVIDER, value: in-memory }
+        - { name: MAX_ITERATIONS, value: "12" }
+        - { name: LLM_PROVIDER, value: openai-compatible }
+        - {
+            name: LLM_BASE_URL,
+            value: "http://fastllm-proxy.fastllm.svc.cluster.local/v1",
+          }
+        - { name: LLM_MODEL, value: qwen3-6-35b-a3b }
+        - { name: LLM_API_KEY_ENV, value: LLM_API_KEY }
+        - name: LLM_API_KEY
+          valueFrom: { secretKeyRef: { name: fastllm-api, key: LLM_API_KEY } }
+      volumeMounts: [{ name: var, mountPath: /app/var }]
+      resources:
+        {
+          requests: { cpu: 100m, memory: 128Mi },
+          limits: { cpu: "1", memory: 512Mi },
+        }
+    - name: playwright
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      command: ["bash", "/scripts/runner.sh"]
+      env:
+        - { name: BASE, value: "http://localhost:8080" }
+        - { name: OUT, value: /out }
+        - { name: TURNS, value: "__TURNS__" }
+        - { name: CTX_RATE, value: "__CTX_RATE__" }
+      volumeMounts:
+        - { name: scripts, mountPath: /scripts }
+        - { name: out, mountPath: /out }
+      resources:
+        {
+          requests: { cpu: 500m, memory: 512Mi },
+          limits: { cpu: "2", memory: 2Gi },
+        }
+  volumes:
+    - { name: var, emptyDir: {} }
+    - { name: out, emptyDir: {} }
+    - name: scripts
+      configMap: { name: __NAME__ }

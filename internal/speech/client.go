@@ -285,14 +285,22 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 	trace(ctx, "upstream.headers", map[string]any{"status": resp.StatusCode})
 	buf := make([]byte, 8192)
 	total := 0
+	started := false
 	for {
 		n, e := resp.Body.Read(buf)
-		if n > 0 {
-			total += n
+		chunk := buf[:n]
+		if n > 0 && !started {
+			// The audio.cpp render path answers with a WAV file even when raw PCM is
+			// requested. Played as PCM its 44-byte header is a loud burst of noise.
+			started = true
+			chunk = stripWAVHeader(chunk)
+		}
+		if len(chunk) > 0 {
+			total += len(chunk)
 			if total > 24_000*2*120 {
 				return fmt.Errorf("speech output too long")
 			}
-			if err := emit(buf[:n]); err != nil {
+			if err := emit(chunk); err != nil {
 				return err
 			}
 		}
@@ -307,4 +315,20 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 		return fmt.Errorf("speech service returned no audio")
 	}
 	return nil
+}
+
+// stripWAVHeader returns the samples of the first read of a response when it
+// begins with a RIFF/WAVE header, and the read unchanged otherwise.
+func stripWAVHeader(b []byte) []byte {
+	if len(b) < 12 || string(b[0:4]) != "RIFF" || string(b[8:12]) != "WAVE" {
+		return b
+	}
+	for off := 12; off+8 <= len(b); {
+		size := int(uint32(b[off+4]) | uint32(b[off+5])<<8 | uint32(b[off+6])<<16 | uint32(b[off+7])<<24)
+		if string(b[off:off+4]) == "data" {
+			return b[off+8:]
+		}
+		off += 8 + size + size%2
+	}
+	return b
 }
