@@ -46,7 +46,11 @@ type Client struct {
 	// unchanged. FinalTimeout bounds the wait after the audio ends (default 1.5 s).
 	FinalURL, FinalModel string
 	FinalTimeout         time.Duration
-	HTTP                 *http.Client
+
+	// STTModel and STTLanguage select the recognizer at STTURL; empty means
+	// Nemotron 3.5 ASR in en-US.
+	STTModel, STTLanguage string
+	HTTP                  *http.Client
 
 	// Provider selects the TTS request format: "omni" or "qwen3" (the zero value).
 	Provider string
@@ -115,7 +119,21 @@ func (c *Client) Transcribe(ctx context.Context, audio io.Reader, emit func(stri
 	if c.HybridSTT() {
 		return c.transcribeHybrid(ctx, audio, emit)
 	}
-	return c.transcribeLive(ctx, c.STTURL, "nemotron-3.5-asr", "en-US", audio, emit)
+	return c.transcribeLive(ctx, c.STTURL, c.sttModel(), c.sttLanguage(), audio, emit)
+}
+
+func (c *Client) sttModel() string {
+	if c.STTModel != "" {
+		return c.STTModel
+	}
+	return "nemotron-3.5-asr"
+}
+
+func (c *Client) sttLanguage() string {
+	if c.STTLanguage != "" {
+		return c.STTLanguage
+	}
+	return "en-US"
 }
 
 // transcribeLive runs one audio.cpp live transcription: PCM up, SSE events down.

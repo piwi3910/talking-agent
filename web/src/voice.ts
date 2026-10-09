@@ -48,6 +48,9 @@ const DUCK_SPEECH_MS = 96;
 // Speech needed to treat sound during playback as an interruption. Echo of the
 // agent's own voice passes the browser's echo canceller in short bursts.
 const BARGE_SPEECH_MS = 250;
+// Continuous speech that confirms an interruption without waiting for a
+// transcript (the recognizer only returns text once the person stops).
+const BARGE_CONFIRM_MS = 800;
 // How long spoken phrases stay eligible for echo matching.
 const ECHO_WINDOW_MS = 20000;
 const MIN_PHRASE = 25;
@@ -279,6 +282,16 @@ export class Voice {
           vad: probability,
         });
       }
+    }
+    if (
+      this.bargePending &&
+      speaking &&
+      this.speechFrames >= BARGE_SPEECH_MS &&
+      performance.now() - this.firstSpeechAt >= BARGE_CONFIRM_MS
+    ) {
+      this.tr("barge-in.confirmed", { by: "sustained-speech" });
+      this.stopOutput("barge-in");
+      this.cb.interrupt();
     }
     // Sampled VAD while audio plays or the user speaks: shows echo-driven ducking.
     const nowMs = performance.now();

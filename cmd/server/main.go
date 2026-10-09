@@ -185,7 +185,7 @@ func run() error {
 	if ttsProvider == speech.ProviderOmni && os.Getenv("TTS_URL") != "" && os.Getenv("TTS_RENDER_URL") == "" {
 		return fmt.Errorf("TTS_PROVIDER omni needs TTS_RENDER_URL, the audio.cpp Qwen3-TTS worker that renders preset and designed voices")
 	}
-	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL"), Provider: ttsProvider, RenderURL: os.Getenv("TTS_RENDER_URL"), FinalURL: os.Getenv("STT_FINAL_URL"), FinalModel: os.Getenv("STT_FINAL_MODEL")}
+	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL"), Provider: ttsProvider, RenderURL: os.Getenv("TTS_RENDER_URL"), FinalURL: os.Getenv("STT_FINAL_URL"), FinalModel: os.Getenv("STT_FINAL_MODEL"), STTModel: os.Getenv("STT_MODEL"), STTLanguage: os.Getenv("STT_LANGUAGE")}
 	voiceStore, err := voices.Open(env("VOICE_SETTINGS_FILE", "var/voice-settings.json"), env("VOICE_CUES_DIR", "var/voice-cues"), agents, speechClient)
 	if err != nil {
 		return fmt.Errorf("voice settings: %w", err)

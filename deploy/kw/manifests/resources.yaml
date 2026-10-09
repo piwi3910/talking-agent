@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:6bb5bd4a0f8c9876fb4e91bcc33830f33158ae4a65dbe5e75ae29dd6e72a28bf",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:cf4be3c42f6a8bcf7457945bfeddf00619c48d808abf39895566c6c99a35ebb3",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -86,14 +86,6 @@
                           "value": "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
                         },
                         {
-                          "name": "STT_FINAL_URL",
-                          "value": "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
-                        },
-                        {
-                          "name": "STT_FINAL_MODEL",
-                          "value": "qwen3-asr-1.7b-utt",
-                        },
-                        {
                           "name": "TTS_URL",
                           "value": "http://speech-tts-novanas.enterprise-ai-demo.svc.cluster.local:8095",
                         },
@@ -102,6 +94,8 @@
                           "value": "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
                         },
                         { "name": "TTS_PROVIDER", "value": "omni" },
+                        { "name": "STT_MODEL", "value": "qwen3-asr-1.7b-utt" },
+                        { "name": "STT_LANGUAGE", "value": "English" },
                         { "name": "LISTEN_ADDR", "value": "0.0.0.0:8080" },
                         { "name": "MEMORY_PROVIDER", "value": "novamem" },
                         { "name": "MAX_ITERATIONS", "value": "12" },

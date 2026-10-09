@@ -25,6 +25,9 @@ func (c *Client) STTLabel() string {
 	if c.HybridSTT() {
 		return "Nemotron 3.5 ASR (live) + Qwen3-ASR 1.7B (final)"
 	}
+	if strings.HasPrefix(c.sttModel(), "qwen3-asr-1.7b") {
+		return "Qwen3-ASR 1.7B"
+	}
 	return "Nemotron 3.5 ASR"
 }
 
@@ -170,7 +173,7 @@ func (c *Client) transcribeHybrid(ctx context.Context, audio io.Reader, emit fun
 
 	var liveText string
 	var liveFinal bool
-	err := c.transcribeLive(ctx, c.STTURL, "nemotron-3.5-asr", "en-US", liveR, func(t string, final bool) error {
+	err := c.transcribeLive(ctx, c.STTURL, c.sttModel(), c.sttLanguage(), liveR, func(t string, final bool) error {
 		if final {
 			liveText, liveFinal = t, true
 			return nil
