@@ -440,7 +440,7 @@ export function McpSettings({ personas }: { personas: Persona[] }) {
                     autoComplete="off"
                     aria-label={`Header ${i + 1} value`}
                     value={h.value}
-                    placeholder={"Bearer ${ZAI_API_KEY}"}
+                    placeholder={"Bearer ${MCP_API_KEY}"}
                     onChange={(e) => setHeader(i, { value: e.target.value })}
                   />
                   <button

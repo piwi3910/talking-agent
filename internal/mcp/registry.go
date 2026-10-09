@@ -95,7 +95,7 @@ func (s *Server) Validate() error {
 // that a registry editor cannot send arbitrary process secrets to a server of
 // their choosing.
 func EnvAllowed(name string) bool {
-	if strings.HasPrefix(name, "MCP_") || name == "ZAI_API_KEY" {
+	if strings.HasPrefix(name, "MCP_") {
 		return true
 	}
 	for _, n := range strings.Split(os.Getenv("MCP_ENV_ALLOW"), ",") {

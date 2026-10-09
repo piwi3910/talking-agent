@@ -18,7 +18,7 @@ Access is checked again at call time: the agent must be allowed, the server enab
 
 ## Registry
 
-Servers come from two places. Defaults are built in (the Z.ai presets below) or provided as JSON in `MCP_DEFAULT_SERVERS`, for example from a Secret. A JSON file edited through the API overrides them by `id`: `MCP_SERVERS_FILE` (default `var/mcp-servers.json`, `/app/var/mcp-servers.json` on KW, on the PVC). Deleting a default writes a tombstone to the file.
+Servers come from two places. Defaults are built in (the Brave Search preset below) or provided as JSON in `MCP_DEFAULT_SERVERS`, for example from a Secret. A JSON file edited through the API overrides them by `id`: `MCP_SERVERS_FILE` (default `var/mcp-servers.json`, `/app/var/mcp-servers.json` on KW, on the PVC). Deleting a default writes a tombstone to the file.
 
 | Field         | Meaning                                                      |
 | ------------- | ------------------------------------------------------------ |
@@ -32,7 +32,7 @@ Servers come from two places. Defaults are built in (the Z.ai presets below) or 
 | `allow_tools` | Optional. Only these server tool names are offered           |
 | `deny_tools`  | Optional. These server tool names are never offered          |
 
-`${VAR}` references are expanded from the process environment when connecting, so secrets live in a Kubernetes Secret and not in the file. To stop a registry editor from sending arbitrary process secrets to a server of their choosing, only `MCP_*`, `ZAI_API_KEY` and the comma-separated names in `MCP_ENV_ALLOW` may be referenced. A server with an unset variable shows the status `unconfigured` and is not contacted.
+`${VAR}` references are expanded from the process environment when connecting, so secrets live in a Kubernetes Secret and not in the file. To stop a registry editor from sending arbitrary process secrets to a server of their choosing, only `MCP_*` and the comma-separated names in `MCP_ENV_ALLOW` may be referenced. A server with an unset variable shows the status `unconfigured` and is not contacted.
 
 URLs are not filtered: MCP servers legitimately live on private addresses. Anyone who can reach the API can point the app at any http(s) host, and the app has no login, so keep the API on a trusted network.
 
@@ -45,33 +45,30 @@ All mutating methods apply the same-origin rule as other writes (`Origin` must m
 - `POST /api/mcp/servers/{id}/test`: connect fresh and list tools.
 - `GET /api/mcp/servers/{id}/tools`: tools with their JSON Schema (cached).
 
-Header values are never returned. References such as `Bearer ${ZAI_API_KEY}` are shown as written; literal values come back as `********`. Send `********` unchanged on `PUT` to keep the stored value.
+Header values are never returned. References such as `Bearer ${MCP_EXAMPLE_KEY}` are shown as written; literal values come back as `********`. Send `********` unchanged on `PUT` to keep the stored value.
 
 ## Settings UI
 
 Settings has a **Tools (MCP)** section (`web/src/mcp-settings.tsx`): servers with state and tool count, add and edit (name, URL, transport, headers with masked values, agents, enabled), delete, test connection and a tool list.
 
-## Z.ai presets
+## Brave Search preset
 
-The same servers Claude Code uses, enabled for the `assistant` agent and authenticated with `Authorization: Bearer ${ZAI_API_KEY}`:
+The `assistant` agent gets web search from the official [Brave Search MCP server](https://github.com/brave/brave-search-mcp-server), deployed in the same namespace by `deploy/kw/manifests/brave-search-mcp.yaml` (image `docker.io/mcp/brave-search`, pinned by digest, `BRAVE_MCP_TRANSPORT=http`, port 8080, endpoint `/mcp`, stateless).
 
-| id                 | URL                                             | Transport                    |
-| ------------------ | ----------------------------------------------- | ---------------------------- |
-| `web-search-prime` | `https://api.z.ai/api/mcp/web_search_prime/mcp` | Streamable HTTP              |
-| `web-reader`       | `https://api.z.ai/api/mcp/web_reader/mcp`       | Streamable HTTP              |
-| `zread`            | `https://api.z.ai/api/mcp/zread/mcp`            | Streamable HTTP              |
-| `zai-mcp-server`   | `npx -y @z_ai/mcp-server` (vision)              | stdio: listed as unsupported |
+| id             | URL                                                                     | Transport       |
+| -------------- | ----------------------------------------------------------------------- | --------------- |
+| `brave-search` | `http://brave-search-mcp.enterprise-ai-demo.svc.cluster.local:8080/mcp` | Streamable HTTP |
 
-KW reads the key from Secret `enterprise-ai-demo/zai-mcp`, key `ZAI_API_KEY` (optional reference in `deploy/kw/manifests/resources.yaml`). Create or rotate it without writing the value anywhere:
+No headers are sent: the API key is only mounted into the MCP server, from Secret `enterprise-ai-demo/brave-search`, key `BRAVE_API_KEY`. Create or rotate it without writing the value anywhere:
 
 ```sh
-read -rs ZAI_KEY   # paste the key; nothing is echoed
-kubectl --context kw -n enterprise-ai-demo create secret generic zai-mcp \
-  --from-literal=ZAI_API_KEY="$ZAI_KEY" --dry-run=client -o yaml | kubectl --context kw apply -f -
-unset ZAI_KEY
+read -rs BRAVE_KEY   # paste the key; nothing is echoed
+kubectl --context kw -n enterprise-ai-demo create secret generic brave-search \
+  --from-literal=BRAVE_API_KEY="$BRAVE_KEY" --dry-run=client -o yaml | kubectl --context kw apply -f -
+unset BRAVE_KEY
 ```
 
-Restart the Deployment afterwards so the new value is picked up.
+Restart the `brave-search-mcp` Deployment afterwards so the new value is picked up. Tools: `brave_web_search`, `brave_local_search`, `brave_video_search`, `brave_image_search`, `brave_news_search`, `brave_summarizer`, `brave_llm_context`, `brave_place_search`. The server negotiates protocol versions 2025-06-18 and 2025-03-26.
 
 ## The assistant agent
 

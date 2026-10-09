@@ -6,21 +6,13 @@ import (
 	"os"
 )
 
-// ZaiPresets are the Z.ai GLM MCP servers, enabled for the assistant agent.
-// The credential is read from ZAI_API_KEY (a Kubernetes Secret on KW) and is
-// never stored. zai-mcp-server is a stdio/npx package; the container has no
-// Node runtime, so it is listed as unsupported.
-func ZaiPresets() []Server {
-	auth := map[string]string{"Authorization": "Bearer ${ZAI_API_KEY}"}
-	mk := func(id, name, path string) Server {
-		return Server{ID: id, Name: name, URL: "https://api.z.ai/api/mcp/" + path + "/mcp", Transport: TransportHTTP, Headers: auth, Enabled: true, Agents: []string{"assistant"}}
-	}
+// Presets are the built-in servers, enabled for the assistant agent. Brave
+// Search is the official brave-search-mcp-server deployed next to the app
+// (deploy/kw/manifests/brave-search-mcp.yaml); its API key lives in that
+// server, so no headers are sent.
+func Presets() []Server {
 	return []Server{
-		mk("web-search-prime", "Z.ai Web Search", "web_search_prime"),
-		mk("web-reader", "Z.ai Web Reader", "web_reader"),
-		mk("zread", "Z.ai Zread (GitHub repositories)", "zread"),
-		{ID: "zai-mcp-server", Name: "Z.ai Vision (stdio, not supported)", URL: "https://unsupported.invalid/stdio", Transport: TransportAuto, Enabled: false, Agents: []string{},
-			Unsupported: "Runs as a local npx (stdio) process, which this container cannot start."},
+		{ID: "brave-search", Name: "Brave Search", URL: "http://brave-search-mcp.enterprise-ai-demo.svc.cluster.local:8080/mcp", Transport: TransportHTTP, Enabled: true, Agents: []string{"assistant"}},
 	}
 }
 
@@ -28,7 +20,7 @@ func ZaiPresets() []Server {
 // MCP_DEFAULT_SERVERS environment variable (a JSON array of servers, typically
 // from a Secret; header values may use ${VAR}). Environment entries win on id.
 func Defaults() ([]Server, error) {
-	out := ZaiPresets()
+	out := Presets()
 	raw := os.Getenv("MCP_DEFAULT_SERVERS")
 	if raw == "" {
 		return out, nil

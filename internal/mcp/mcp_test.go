@@ -436,22 +436,22 @@ func TestPresetsAndEnvironmentDefaults(t *testing.T) {
 	for _, s := range d {
 		byID[s.ID] = s
 	}
-	for _, id := range []string{"web-search-prime", "web-reader", "zread"} {
-		s := byID[id]
-		if !s.Enabled || !s.AllowsAgent("assistant") || s.AllowsAgent("telecom-support") || s.Headers["Authorization"] != "Bearer ${ZAI_API_KEY}" || !strings.HasPrefix(s.URL, "https://api.z.ai/api/mcp/") {
-			t.Fatalf("preset %s = %+v", id, s)
-		}
-		if err := s.Validate(); err != nil {
-			t.Fatalf("preset %s invalid: %v", id, err)
-		}
+	s := byID["brave-search"]
+	if !s.Enabled || !s.AllowsAgent("assistant") || s.AllowsAgent("telecom-support") || len(s.Headers) != 0 || s.Transport != TransportHTTP || s.URL != "http://brave-search-mcp.enterprise-ai-demo.svc.cluster.local:8080/mcp" {
+		t.Fatalf("brave preset = %+v", s)
 	}
-	if byID["zai-mcp-server"].Unsupported == "" || byID["zai-mcp-server"].Enabled || byID["extra"].ID == "" {
-		t.Fatalf("unsupported/extra = %+v / %+v", byID["zai-mcp-server"], byID["extra"])
+	if err := s.Validate(); err != nil {
+		t.Fatalf("brave preset invalid: %v", err)
+	}
+	if byID["extra"].ID == "" {
+		t.Fatalf("extra missing: %+v", byID["extra"])
+	}
+	for _, id := range []string{"web-search-prime", "web-reader", "zread", "zai-mcp-server"} {
+		if _, ok := byID[id]; ok {
+			t.Fatalf("removed preset %s still present", id)
+		}
 	}
 	m := newManager(t, d...)
-	if st := m.Status(byID["zai-mcp-server"]); st.State != "unsupported" {
-		t.Fatalf("status = %+v", st)
-	}
 	if st := m.Status(byID["extra"]); st.State != "unconfigured" {
 		t.Fatalf("extra status = %+v", st)
 	}
