@@ -14,6 +14,7 @@ import (
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/speech"
+	"enterprise-ai-demo/internal/voices"
 	"github.com/emiago/diago"
 	"github.com/emiago/diago/media"
 	"github.com/emiago/sipgo"
@@ -29,7 +30,7 @@ type Server struct {
 	Sessions  *session.Store
 	Runtime   *agent.Runtime
 	Speech    *speech.Client
-	Voices    map[string]*speech.Reference
+	Voices    *voices.Store
 	wg        sync.WaitGroup
 	lifecycle sync.Mutex
 	closing   bool

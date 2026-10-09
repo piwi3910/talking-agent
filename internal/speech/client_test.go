@@ -73,7 +73,7 @@ func TestSynthesisStreamsAndCancels(t *testing.T) {
 	defer cancel()
 	c := Client{TTSURL: server.URL}
 	chunks := 0
-	err := c.Synthesize(ctx, "Hello", "Natural", nil, func(b []byte) error { chunks++; cancel(); return nil })
+	err := c.Synthesize(ctx, "Hello", Voice{Instruction: "Natural"}, func(b []byte) error { chunks++; cancel(); return nil })
 	if chunks != 1 || err == nil {
 		t.Fatalf("chunks=%d err=%v", chunks, err)
 	}
@@ -118,7 +118,7 @@ func TestReferenceIsIdenticalAcrossPhrases(t *testing.T) {
 	defer server.Close()
 	c := Client{TTSURL: server.URL}
 	for _, phrase := range []string{"Let me check.", "Here are your options."} {
-		if err := c.Synthesize(context.Background(), phrase, "Natural", ref, func([]byte) error { return nil }); err != nil {
+		if err := c.Synthesize(context.Background(), phrase, Voice{Instruction: "Natural", Reference: ref, Guidance: "4"}, func([]byte) error { return nil }); err != nil {
 			t.Fatal(err)
 		}
 	}

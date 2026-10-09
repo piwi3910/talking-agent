@@ -15,6 +15,7 @@ import (
 	"enterprise-ai-demo/internal/speech"
 	"enterprise-ai-demo/internal/telephony"
 	"enterprise-ai-demo/internal/tools"
+	"enterprise-ai-demo/internal/voices"
 	"fmt"
 	"log/slog"
 	"net"
@@ -169,15 +170,22 @@ func run() error {
 	if _, err := os.Stat(web); err != nil {
 		web = ""
 	}
-	voices := map[string]*speech.Reference{}
+	refs := map[string]*speech.Reference{}
 	for id, a := range agents {
 		ref, err := speech.LoadReference(a.Dir, a.Voice.ReferenceAudio, a.Voice.ReferenceText)
 		if err != nil {
 			return fmt.Errorf("load %s voice: %w", id, err)
 		}
-		voices[id] = ref
+		refs[id] = ref
 	}
-	app := &api.API{Voices: voices, Speech: &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}
+	voiceStore, err := voices.Open(env("VOICE_SETTINGS_FILE", "var/voice-settings.json"), env("VOICE_CUES_DIR", "var/voice-cues"), agents, refs, speechClient)
+	if err != nil {
+		return fmt.Errorf("voice settings: %w", err)
+	}
+	voiceStore.Start(ctx)
+	runtime.PromptAddendum = voiceStore.PromptAddendum
+	app := &api.API{Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
 	var sipCfg telephony.Config
 	if path := os.Getenv("SIP_CONFIG_FILE"); path != "" {
 		sipCfg, err = telephony.Load(path, agents)
@@ -190,7 +198,7 @@ func run() error {
 		return fmt.Errorf("phone settings: %w", err)
 	}
 	app.PhoneSettings = phoneSettings
-	gateway, err := telephony.OpenGateway(ctx, env("SIP_GATEWAY_FILE", "var/sip-gateway.json"), os.Getenv("SIP_ADVERTISE_IP"), telephony.Server{Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voices})
+	gateway, err := telephony.OpenGateway(ctx, env("SIP_GATEWAY_FILE", "var/sip-gateway.json"), os.Getenv("SIP_ADVERTISE_IP"), &telephony.Server{Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voiceStore})
 	if err != nil {
 		return fmt.Errorf("gateway settings: %w", err)
 	}
@@ -203,7 +211,7 @@ func run() error {
 	}
 	var sipDone chan error
 	if os.Getenv("SIP_CONFIG_FILE") != "" {
-		phone := &telephony.Server{Config: sipCfg, Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voices}
+		phone := &telephony.Server{Config: sipCfg, Settings: phoneSettings, Agents: agents, Sessions: app.Sessions, Runtime: runtime, Speech: app.Speech, Voices: voiceStore}
 		sipDone = make(chan error, 1)
 		go func() { sipDone <- phone.Run(ctx) }()
 		defer func() { stop(); <-sipDone }()

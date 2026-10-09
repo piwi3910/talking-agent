@@ -16,7 +16,15 @@ import (
 var cueID = regexp.MustCompile(`^[a-z]+-[0-9]+$`)
 
 func (s *Server) playCue(ctx context.Context, w io.Writer, pt uint8, sess *session.Session, category, turn string) error {
-	raw, err := os.ReadFile(filepath.Join(sess.Agent.Dir, "voice", "cues.json"))
+	dir := filepath.Join(sess.Agent.Dir, "voice")
+	if s.Voices != nil {
+		// Cues are muted until the active voice's set is complete.
+		var ok bool
+		if dir, ok = s.Voices.CueDir(sess.Agent.ID); !ok {
+			return nil
+		}
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "cues.json"))
 	if err != nil {
 		return nil
 	}
@@ -30,7 +38,7 @@ func (s *Server) playCue(ctx context.Context, w io.Writer, pt uint8, sess *sessi
 		if cue.Category != category || !cueID.MatchString(cue.ID) {
 			continue
 		}
-		wav, err := os.ReadFile(filepath.Join(sess.Agent.Dir, "voice", "cues", cue.ID+".wav"))
+		wav, err := os.ReadFile(filepath.Join(dir, "cues", cue.ID+".wav"))
 		if err != nil {
 			continue
 		}

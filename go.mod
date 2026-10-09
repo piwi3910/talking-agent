@@ -1,6 +1,6 @@
 module enterprise-ai-demo
 
-go 1.26
+go 1.26.0
 
 require gopkg.in/yaml.v3 v3.0.1
 
@@ -11,6 +11,7 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/emiago/diago v0.40.0
 	github.com/emiago/sipgo v1.6.0
+	github.com/icholy/digest v1.1.0
 	github.com/zaf/g711 v1.4.0
 )
 
@@ -21,7 +22,6 @@ require (
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/icholy/digest v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pion/dtls/v3 v3.1.5 // indirect
 	github.com/pion/ice/v4 v4.3.0 // indirect
@@ -36,10 +36,10 @@ require (
 	github.com/pion/transport/v4 v4.0.2 // indirect
 	github.com/pion/turn/v5 v5.0.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
-	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/hraban/opus.v2 v2.0.0-20230925203106-0188a62cb302 // indirect
 )

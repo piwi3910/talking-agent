@@ -17,7 +17,7 @@ import (
 func TestGatewayPersistenceAndCredentials(t *testing.T) {
 	agents := map[string]*config.Agent{"a": {ID: "a"}, "b": {ID: "b"}}
 	path := filepath.Join(t.TempDir(), "gateway.json")
-	g, err := OpenGateway(context.Background(), path, "127.0.0.1", Server{Agents: agents})
+	g, err := OpenGateway(context.Background(), path, "127.0.0.1", &Server{Agents: agents})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestGatewayPersistenceAndCredentials(t *testing.T) {
 	if err = g.Save(snap.Config); err != nil {
 		t.Fatal(err)
 	}
-	restored, err := OpenGateway(context.Background(), path, "", Server{Agents: agents})
+	restored, err := OpenGateway(context.Background(), path, "", &Server{Agents: agents})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestGatewayLifecycle(t *testing.T) {
 	go func() { _ = srv.ServeUDP(conn) }()
 	agents := map[string]*config.Agent{"a": {ID: "a"}}
 	settings, _ := OpenSettings(filepath.Join(t.TempDir(), "phones.json"), agents, nil)
-	g, err := OpenGateway(context.Background(), filepath.Join(t.TempDir(), "gateway.json"), "127.0.0.1", Server{Agents: agents, Settings: settings, Speech: &speech.Client{STTURL: "http://localhost", TTSURL: "http://localhost"}})
+	g, err := OpenGateway(context.Background(), filepath.Join(t.TempDir(), "gateway.json"), "127.0.0.1", &Server{Agents: agents, Settings: settings, Speech: &speech.Client{STTURL: "http://localhost", TTSURL: "http://localhost"}})
 	if err != nil {
 		t.Fatal(err)
 	}

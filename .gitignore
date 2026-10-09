@@ -11,3 +11,6 @@ __pycache__/
 *.pyc
 
 web/public/voice-assets/
+
+# Local AI coding hosts (procoder init); .procoder/ stays trackable.
+/.claude/

@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:8723d1d0a12f4da376b270c3453bbbea1c703191635d5f1cbd7cf2fbfca1e2c3",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:19d5de1946874d3386a506adca94eb54034bdd4457f9ab6fa126a361318891cf",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -66,6 +66,14 @@
                         {
                           "name": "PHONE_SETTINGS_FILE",
                           "value": "/app/var/phone-settings.json",
+                        },
+                        {
+                          "name": "VOICE_SETTINGS_FILE",
+                          "value": "/app/var/voice-settings.json",
+                        },
+                        {
+                          "name": "VOICE_CUES_DIR",
+                          "value": "/app/var/voice-cues",
                         },
                         { "name": "LLM_DISABLE_THINKING", "value": "true" },
                         {

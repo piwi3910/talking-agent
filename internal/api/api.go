@@ -9,6 +9,7 @@ import (
 	"enterprise-ai-demo/internal/speech"
 	"enterprise-ai-demo/internal/telephony"
 	"enterprise-ai-demo/internal/tools"
+	"enterprise-ai-demo/internal/voices"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,13 +19,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type API struct {
 	PhoneGateway  *telephony.Gateway
 	PhoneSettings *telephony.Settings
-	Voices        map[string]*speech.Reference
+	Voices        *voices.Store
+	previewing    atomic.Bool
 	Speech        *speech.Client
 	VoiceActive   sync.Map
 	Runtime       *agent.Runtime
@@ -46,7 +49,10 @@ func fail(w http.ResponseWriter, status int, msg string) {
 	write(w, status, map[string]string{"error": msg})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
-	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768))
+	return decodeLimit(w, r, v, 32768)
+}
+func decodeLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) error {
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
 		return err
@@ -84,6 +90,7 @@ func (a *API) Handler() http.Handler {
 	m := http.NewServeMux()
 	a.voiceRoutes(m)
 	a.settingsRoutes(m)
+	a.voiceSettingsRoutes(m)
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]string{"status": "ok", "memory": a.Runtime.Memory.Name()})
 	})

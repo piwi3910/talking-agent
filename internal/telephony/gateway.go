@@ -47,14 +47,14 @@ type Gateway struct {
 	op             sync.Mutex
 	path           string
 	root           context.Context
-	template       Server
+	template       *Server
 	config         GatewayConfig
 	state, problem string
 	cancel         context.CancelFunc
 	done           chan error
 }
 
-func OpenGateway(root context.Context, path, advertise string, template Server) (*Gateway, error) {
+func OpenGateway(root context.Context, path, advertise string, template *Server) (*Gateway, error) {
 	g := &Gateway{path: path, root: root, template: template, state: "disconnected", config: GatewayConfig{Host: "", Port: 5060, Transport: "udp", Mode: "trunk", AdvertiseIP: advertise, Registrations: map[string]Registration{}}}
 	raw, err := os.ReadFile(path)
 	if err == nil {

@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"enterprise-ai-demo/internal/speech"
 	"github.com/coder/websocket"
 )
 
@@ -24,7 +25,12 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 			fail(w, 404, "Unknown agent")
 			return
 		}
-		data, err := os.ReadFile(filepath.Join(c.Dir, "voice", "cues.json"))
+		dir, ok := a.cueDir(c.ID)
+		if !ok {
+			fail(w, 404, "No cues configured")
+			return
+		}
+		data, err := os.ReadFile(filepath.Join(dir, "cues.json"))
 		if err != nil {
 			fail(w, 404, "No cues configured")
 			return
@@ -40,11 +46,16 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 			fail(w, 404, "Unknown cue")
 			return
 		}
+		dir, ok := a.cueDir(c.ID)
+		if !ok {
+			fail(w, 404, "No cues configured")
+			return
+		}
 		w.Header().Set("Cache-Control", "no-cache")
-		http.ServeFile(w, r, filepath.Join(c.Dir, "voice", "cues", cue+".wav"))
+		http.ServeFile(w, r, filepath.Join(dir, "cues", cue+".wav"))
 	})
 	m.HandleFunc("GET /api/agents/{id}/voice-reference", func(w http.ResponseWriter, r *http.Request) {
-		ref := a.Voices[r.PathValue("id")]
+		ref := a.Voices.Reference(r.PathValue("id"))
 		if ref == nil {
 			fail(w, 404, "No voice reference configured")
 			return
@@ -63,6 +74,15 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 	})
 	m.HandleFunc("GET /api/sessions/{id}/transcribe", a.transcribe)
 	m.HandleFunc("POST /api/sessions/{id}/speech", a.synthesize)
+}
+
+// cueDir is the active cue set: baked, a completed render, or none.
+func (a *API) cueDir(agentID string) (string, bool) {
+	if a.Voices == nil {
+		c := a.Agents[agentID]
+		return filepath.Join(c.Dir, "voice"), true
+	}
+	return a.Voices.CueDir(agentID)
 }
 func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 	s := a.Sessions.Get(r.PathValue("id"))
@@ -198,17 +218,18 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	first := true
 	bytes := 0
-	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(in.Text), "reference_voice": a.Voices[s.Agent.ID] != nil})
-	instruction := "Speak in a warm, relaxed, conversational voice, with clear natural English. Avoid an announcer tone."
-	if style := s.Agent.Persona["voice_style"]; style != "" {
-		instruction = style
-	}
+	voice, events := a.Voices.Resolve(s.Agent.ID)
+	text := speech.VocalEvents(in.Text, events)
+	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(text), "reference_voice": voice.Reference != nil})
 	w.Header().Set("Content-Type", "audio/pcm")
 	w.Header().Set("X-Audio-Sample-Rate", "24000")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Trailer", "X-Speech-Error")
-	err := a.Speech.Synthesize(ctx, in.Text, instruction, a.Voices[s.Agent.ID], func(p []byte) error {
+	if text == "" {
+		return
+	}
+	err := a.Speech.Synthesize(ctx, text, voice, func(p []byte) error {
 		if first {
 			first = false
 			s.Events.Emit(in.TurnID, "tts.first_audio", map[string]any{"ttfa_ms": time.Since(started).Milliseconds()})

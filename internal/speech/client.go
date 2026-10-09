@@ -88,11 +88,27 @@ func (c *Client) Transcribe(ctx context.Context, audio io.Reader, emit func(stri
 	}
 	return nil
 }
-func (c *Client) Synthesize(ctx context.Context, text, instruction string, reference *Reference, emit func([]byte) error) error {
-	body := map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": map[string]string{"instruction": instruction, "seed": "42"}}
-	if reference != nil {
-		body["voice_ref"] = map[string]string{"type": "base64", "data": reference.AudioBase64}
-		body["reference_text"] = reference.Text
+
+// Voice is the resolved Breeze voice for one phrase: a reference clone, a
+// natural-language design instruction, or both. Guidance is sent as-is.
+type Voice struct {
+	Instruction string
+	Reference   *Reference
+	Guidance    string
+}
+
+func (c *Client) Synthesize(ctx context.Context, text string, v Voice, emit func([]byte) error) error {
+	options := map[string]string{"seed": "42"}
+	if v.Instruction != "" {
+		options["instruction"] = v.Instruction
+	}
+	if v.Guidance != "" {
+		options["guidance_scale"] = v.Guidance
+	}
+	body := map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": options}
+	if v.Reference != nil {
+		body["voice_ref"] = map[string]string{"type": "base64", "data": v.Reference.AudioBase64}
+		body["reference_text"] = v.Reference.Text
 	}
 	raw, _ := json.Marshal(body)
 	resp, err := c.do(ctx, strings.TrimRight(c.TTSURL, "/")+"/v1/audio/speech", bytes.NewReader(raw))

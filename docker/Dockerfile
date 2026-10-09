@@ -11,6 +11,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd/ cmd/
 COPY internal/ internal/
+COPY agents/ agents/
+COPY mock/ mock/
+# KW BuildKit is the CI: a failing vet or test stops the image from publishing.
+RUN CGO_ENABLED=0 go vet ./... && CGO_ENABLED=0 go test ./... -timeout 180s
 RUN CGO_ENABLED=0 go build -trimpath -o /out/server ./cmd/server && CGO_ENABLED=0 go build -trimpath -o /out/mock-backend ./cmd/mock-backend
 
 FROM alpine:3.22

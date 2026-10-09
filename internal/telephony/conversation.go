@@ -12,6 +12,7 @@ import (
 
 	"enterprise-ai-demo/internal/agent"
 	"enterprise-ai-demo/internal/session"
+	"enterprise-ai-demo/internal/speech"
 	"github.com/emiago/diago"
 )
 
@@ -256,15 +257,16 @@ func proposalText(p session.Pending) string {
 }
 
 func (s *Server) sayPhone(ctx context.Context, w io.Writer, pt uint8, sess *session.Session, text, turn string) error {
-	instruction := sess.Agent.Persona["voice_style"]
-	if instruction == "" {
-		instruction = "Speak naturally and clearly in conversational English."
+	voice, events := s.Voices.Resolve(sess.Agent.ID)
+	text = speech.VocalEvents(text, events)
+	if text == "" {
+		return nil
 	}
-	sess.Events.Emit(turn, "tts.started", map[string]any{"characters": len(text), "reference_voice": s.Voices[sess.Agent.ID] != nil, "transport": "sip"})
+	sess.Events.Emit(turn, "tts.started", map[string]any{"characters": len(text), "reference_voice": voice.Reference != nil, "transport": "sip"})
 	first := true
 	begin := time.Now()
 	err := playback(ctx, w, pt, func(emit func([]byte) error) error {
-		return s.Speech.Synthesize(ctx, text, instruction, s.Voices[sess.Agent.ID], func(chunk []byte) error {
+		return s.Speech.Synthesize(ctx, text, voice, func(chunk []byte) error {
 			if first {
 				first = false
 				sess.Events.Emit(turn, "tts.first_audio", map[string]any{"ttfa_ms": time.Since(begin).Milliseconds(), "transport": "sip"})
