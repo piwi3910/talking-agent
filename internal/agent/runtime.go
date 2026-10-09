@@ -32,6 +32,9 @@ type Runtime struct {
 	PromptAddendum func(agentID string) string
 	queue          chan memoryJob
 	workers        sync.WaitGroup
+	ctx            context.Context
+	captureSlots   chan struct{}
+	captures       sync.WaitGroup
 }
 type memoryJob struct {
 	Memory memory.Memory
@@ -50,6 +53,8 @@ type Turn struct {
 
 func (r *Runtime) Start(ctx context.Context) {
 	r.queue = make(chan memoryJob, 128)
+	r.ctx = ctx
+	r.captureSlots = make(chan struct{}, 4)
 	r.workers.Add(1)
 	go func() {
 		defer r.workers.Done()
@@ -80,7 +85,10 @@ func (r *Runtime) Start(ctx context.Context) {
 		}
 	}()
 }
-func (r *Runtime) Wait() { r.workers.Wait() }
+func (r *Runtime) Wait() {
+	r.captures.Wait()
+	r.workers.Wait()
+}
 func Scope(s *session.Session) memory.Scope {
 	return memory.Scope{Tenant: s.Agent.Tenant, Organization: s.Agent.Organization, Domain: s.Agent.MemoryDomain(), Namespace: s.Agent.Memory.Namespace, User: s.UserID}
 }
@@ -306,6 +314,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		if len(response.Message.ToolCalls) == 0 {
 			emit("agent.response.completed", map[string]any{"text": response.Message.Content})
 			trim(s)
+			if turn.Opening == "" {
+				r.capture(s, query, response.Message.Content, emit)
+			}
 			return
 		}
 		if response.Message.Content != "" {
@@ -373,6 +384,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		if direct && valid && ctx.Err() == nil {
 			emit("agent.response.grounded", map[string]any{"source": "tool_records", "tools": names})
 			answer(strings.Join(texts, "\n\n"))
+			if turn.Opening == "" {
+				r.capture(s, query, strings.Join(texts, "\n\n"), emit)
+			}
 			return
 		}
 	}

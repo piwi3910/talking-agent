@@ -32,6 +32,10 @@ type Agent struct {
 		Rules     []memory.Rule `yaml:"rules" json:"rules"`
 		Namespace string        `yaml:"namespace" json:"namespace"`
 		Domain    string        `yaml:"domain" json:"domain,omitempty"`
+
+		// AutoCapture opts in to a background LLM extraction of durable facts
+		// the person stated, after each normal conversational turn.
+		AutoCapture bool `yaml:"auto_capture" json:"auto_capture,omitempty"`
 	} `yaml:"memory" json:"memory"`
 	Skills    []string `yaml:"skills" json:"skills"`
 	Knowledge []string `yaml:"knowledge" json:"knowledge"`

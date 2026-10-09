@@ -18,6 +18,7 @@
       "provider": "novamem",
       "namespace": "aquila-demo",
       "domain": "aquila-school",
+      "auto_capture": true,
       "rules":
         [
           {
