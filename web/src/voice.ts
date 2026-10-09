@@ -361,10 +361,13 @@ export class Voice {
           ws.close();
         }
       };
-      ws.onerror = () =>
-        this.cb.error(
-          "Speech connection failed. You can still type your message.",
-        );
+      // Once the final transcript arrived, the server hanging up is not a failure.
+      ws.onerror = () => {
+        if (!final)
+          this.cb.error(
+            "Speech connection failed. You can still type your message.",
+          );
+      };
       ws.onclose = (e) => {
         this.tr("stt.ws.close", { code: e.code, final });
         if (this.socket === ws) {

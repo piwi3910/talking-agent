@@ -211,10 +211,11 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 		raw, _ := json.Marshal(map[string]string{"type": "error", "message": "Transcription failed; please try again."})
 		_ = c.Write(ctx, websocket.MessageText, raw)
 	}
-	cancel()
 	pr.Close()
 	pw.Close()
-	c.CloseNow()
+	// A normal close handshake; an abrupt close reads as a failure (1006) in the browser.
+	_ = c.Close(websocket.StatusNormalClosure, "")
+	cancel()
 	<-readerDone
 }
 

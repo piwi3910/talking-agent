@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:9bc8802ff35f6651de28d2873bf1627088ee080095cc38c2d5852649b44602b4",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:a00665a3730c4b1e7bda57616507f8f24706d483ddf645883e899abd8cfff951",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -95,7 +95,7 @@
                         },
                         {
                           "name": "TTS_URL",
-                          "value": "http://speech-tts-stream.enterprise-ai-demo.svc.cluster.local:8095",
+                          "value": "http://speech-tts-novanas.enterprise-ai-demo.svc.cluster.local:8095",
                         },
                         {
                           "name": "TTS_RENDER_URL",
