@@ -49,7 +49,7 @@
           summary:
             {
               type: string,
-              description: "One or two sentences starting with today's date, for example '2026-10-09: [parent] is still comparing fees; keen on the sibling discount for [child].'",
+              description: "One or two sentences starting with today's date, for example '2026-10-09: still comparing fees; keen on the sibling discount for the younger child.'",
             }
         required: [summary]
       mutation: false
