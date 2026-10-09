@@ -24,7 +24,7 @@ func OpeningTurn(a *config.Agent, contact string) (Turn, bool) {
 	switch a.Persona["opening"] {
 	case OpeningInbound:
 		return Turn{
-			Opening:     "[Call answered] Greet the caller in one or two sentences. If memory or the profile shows prior contact, greet them by name and briefly reference it.",
+			Opening:     "[Call answered] If a contact.profile or crm.history tool is available, call it first. Then greet the caller in one or two sentences. If memory or the profile shows prior contact, greet them by name and briefly reference it, using only names and facts from those sources.",
 			MemoryQuery: query,
 		}, true
 	case OpeningOutbound:
@@ -33,7 +33,7 @@ func OpeningTurn(a *config.Agent, contact string) (Turn, bool) {
 			who = "the selected contact"
 		}
 		return Turn{
-			Opening:     "[Outbound call connected] You placed this call to " + who + ". Introduce yourself and the school, check it's a good time, and reference their history and the reason for your call, in two sentences.",
+			Opening:     "[Outbound call connected] You placed this call to " + who + ". If a contact.profile or crm.history tool is available, call it first. Then introduce yourself and the school, check it's a good time, and reference their history and the reason for your call, in two sentences, using only names and facts from those sources and memory.",
 			MemoryQuery: query,
 		}, true
 	}

@@ -178,10 +178,18 @@ func (a *novaAdapter) Retrieve(ctx context.Context, r RetrieveRequest) ([]Memory
 	}
 	out := []Memory{}
 	for _, entry := range results.Entries {
-		var meta novaMetadata
-		raw, err := json.Marshal(entry.Metadata["enterprise_demo"])
-		if err != nil || json.Unmarshal(raw, &meta) != nil || meta.Version != 1 || meta.Scope != r.Scope || entry.Namespace != ScopeKey(r.Scope) || entry.Project != nil || entry.Source != novaSource {
+		if entry.Namespace != ScopeKey(r.Scope) || entry.Project != nil || entry.Source != novaSource {
 			return nil, errors.New("NovaMem returned a memory outside the requested scope or format")
+		}
+		// NovaMem derives typed facts ("[event] …") from stored content without copying
+		// our metadata. Account and namespace already bind them to this scope; metadata,
+		// when present, must still name it.
+		var meta novaMetadata
+		if tagged, ok := entry.Metadata["enterprise_demo"]; ok {
+			raw, err := json.Marshal(tagged)
+			if err != nil || json.Unmarshal(raw, &meta) != nil || meta.Version != 1 || meta.Scope != r.Scope {
+				return nil, errors.New("NovaMem returned a memory outside the requested scope or format")
+			}
 		}
 		if entry.Score <= 0 || strings.TrimSpace(entry.Content) == "" || entry.Signals == nil || (entry.Signals.Keyword <= 0 && entry.Signals.Vector < a.minVectorScore) {
 			continue

@@ -135,6 +135,32 @@ func TestNovaMemRejectsCrossScopeResults(t *testing.T) {
 	}
 }
 
+// NovaMem's derived facts carry no enterprise_demo metadata; they must still be
+// recalled from the scope's own namespace, and refused from any other.
+func TestNovaMemAcceptsDerivedFactsOnlyInOwnNamespace(t *testing.T) {
+	scope := isolationScopes()[0]
+	for _, tc := range []struct {
+		namespace string
+		ok        bool
+	}{{ScopeKey(scope), true}, {ScopeKey(isolationScopes()[5]), false}} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]any{"results": []any{map[string]any{"content": "[event] Sarah toured the school", "score": 1, "signals": map[string]any{"keyword": 1}, "namespace": tc.namespace, "source": novaSource}}})
+		}))
+		p, err := NewNovaMem(NovaMemConfig{BaseURL: server.URL, Credentials: []ScopedCredential{{scope, "token"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := p.Retrieve(context.Background(), RetrieveRequest{Scope: scope, Query: "tour"})
+		server.Close()
+		if tc.ok && (err != nil || len(got) != 1 || got[0].Text != "[event] Sarah toured the school") {
+			t.Fatal("derived fact not recalled", got, err)
+		}
+		if !tc.ok && (err == nil || len(got) != 0) {
+			t.Fatal("foreign-namespace fact accepted", got, err)
+		}
+	}
+}
+
 func TestNovaMemErrorsAndCancellation(t *testing.T) {
 	scope := isolationScopes()[0]
 	for _, body := range []string{`{"results":[],"degraded":true}`, `not-json`} {
