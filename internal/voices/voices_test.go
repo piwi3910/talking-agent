@@ -55,7 +55,7 @@ func request(s *Store, mutate func(*SaveRequest)) SaveRequest {
 	in := SaveRequest{Revision: snap.Revision, Voices: []Custom{}, Personas: snap.Personas}
 	for _, v := range snap.Voices {
 		if !v.Builtin {
-			in.Voices = append(in.Voices, Custom{ID: v.ID, Name: v.Name, Description: v.Description})
+			in.Voices = append(in.Voices, Custom{ID: v.ID, Name: v.Name, Description: v.Description, Kind: v.Kind})
 		}
 	}
 	if mutate != nil {

@@ -41,6 +41,11 @@ type Turn struct {
 	Text         string `json:"message"`
 	Confirmation string `json:"confirmation,omitempty"`
 	Reject       bool   `json:"reject,omitempty"`
+	// Opening is an internal instruction that starts a turn where the agent speaks
+	// first. It is never decoded from clients, stored as a user message or shown.
+	Opening string `json:"-"`
+	// MemoryQuery is the retrieval query used for an opening turn.
+	MemoryQuery string `json:"-"`
 }
 
 func (r *Runtime) Start(ctx context.Context) {
@@ -77,7 +82,7 @@ func (r *Runtime) Start(ctx context.Context) {
 }
 func (r *Runtime) Wait() { r.workers.Wait() }
 func Scope(s *session.Session) memory.Scope {
-	return memory.Scope{Tenant: s.Agent.Tenant, Organization: s.Agent.Organization, Domain: s.Agent.ID, Namespace: s.Agent.Memory.Namespace, User: s.UserID}
+	return memory.Scope{Tenant: s.Agent.Tenant, Organization: s.Agent.Organization, Domain: s.Agent.MemoryDomain(), Namespace: s.Agent.Memory.Namespace, User: s.UserID}
 }
 func (r *Runtime) remember(m memory.Memory, emit telemetry.Sink) {
 	emit("memory.store.started", map[string]any{"memory": m.Text})
@@ -105,6 +110,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		emit("agent.response.completed", map[string]any{"text": text})
 	}
 	query := turn.Text
+	original := ""
 	if turn.Confirmation != "" {
 		p, ok := s.Pending[turn.Confirmation]
 		if !ok || time.Now().After(p.Expires) {
@@ -136,6 +142,15 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		emit("agent.response.grounded", map[string]any{"source": "confirmed_tool", "tools": []string{p.Tool}})
 		answer(text)
 		return
+	} else if turn.Opening != "" {
+		// The agent speaks first. The instruction reaches the model but is
+		// neither stored in history nor shown; memory retrieval uses its own query.
+		s.Pending = map[string]session.Pending{}
+		query = turn.MemoryQuery
+		if query == "" {
+			query = turn.Opening
+		}
+		original = "Yes, please go ahead."
 	} else {
 		s.Pending = map[string]session.Pending{}
 		s.History = append(s.History, llm.Message{Role: "user", Content: query})
@@ -160,6 +175,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		for _, m := range memory.Extract(Scope(s), query, s.Agent.Memory.Rules) {
 			r.remember(m, emit)
 		}
+	}
+	if original == "" {
+		original = query
 	}
 	if err := ctx.Err(); err != nil {
 		fail(err)
@@ -246,6 +264,9 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		}
 		offered = append(offered, llm.Tool{Type: "function", Function: llm.ToolFunction{Name: llm.WireName("skills.activate"), Description: "Load tools and instructions for a relevant business skill", Parameters: tools.Schema{Type: "object", Properties: map[string]tools.Property{"skill_id": {Type: "string", Enum: ids}}, Required: []string{"skill_id"}}}})
 		messages := []llm.Message{{Role: "system", Content: base + instructions}, {Role: "system", Content: memoryText}}
+		if turn.Opening != "" {
+			messages = append(messages, llm.Message{Role: "user", Content: turn.Opening})
+		}
 		messages = append(messages, s.History...)
 		emit("llm.started", map[string]any{"provider": client.Name(), "iteration": iteration + 1})
 		begin := time.Now()
@@ -314,7 +335,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 				res = tools.Failure("invalid_input", e.Error())
 				emit("tool.failed", map[string]any{"tool": name, "duration_ms": 0, "result": res})
 			} else if d.Mutation {
-				p := session.Pending{ID: session.ID(), Tool: name, Arguments: args, Expires: time.Now().Add(5 * time.Minute), Original: query, Definition: d}
+				p := session.Pending{ID: session.ID(), Tool: name, Arguments: args, Expires: time.Now().Add(5 * time.Minute), Original: original, Definition: d}
 				s.Pending[p.ID] = p
 				emit("action.confirmation.required", p)
 				res = tools.Failure("confirmation_required", "The operator must approve this exact action before execution")

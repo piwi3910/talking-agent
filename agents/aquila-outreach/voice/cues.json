@@ -1,0 +1,101 @@
+{
+  "reference_sha256": "9a8dde3138bb2d393b698ec0bc296e0b81f9f925c2a8720418ef443657c6494b",
+  "cues": [
+    {
+      "id": "waiting-1",
+      "category": "waiting",
+      "text": "One moment.",
+      "duration_ms": 720
+    },
+    {
+      "id": "waiting-2",
+      "category": "waiting",
+      "text": "Just a moment.",
+      "duration_ms": 1280
+    },
+    {
+      "id": "waiting-3",
+      "category": "waiting",
+      "text": "Let me check that.",
+      "duration_ms": 1200
+    },
+    {
+      "id": "waiting-4",
+      "category": "waiting",
+      "text": "Let me take a look.",
+      "duration_ms": 880
+    },
+    {
+      "id": "lookup-1",
+      "category": "lookup",
+      "text": "I'm checking the details.",
+      "duration_ms": 1760
+    },
+    {
+      "id": "lookup-2",
+      "category": "lookup",
+      "text": "I'm looking that up.",
+      "duration_ms": 1040
+    },
+    {
+      "id": "lookup-3",
+      "category": "lookup",
+      "text": "Let me check the information.",
+      "duration_ms": 1280
+    },
+    {
+      "id": "lookup-4",
+      "category": "lookup",
+      "text": "I'll take a look at that.",
+      "duration_ms": 1280
+    },
+    {
+      "id": "listening-1",
+      "category": "listening",
+      "text": "I'm listening.",
+      "duration_ms": 720
+    },
+    {
+      "id": "listening-2",
+      "category": "listening",
+      "text": "Go ahead.",
+      "duration_ms": 560
+    },
+    {
+      "id": "listening-3",
+      "category": "listening",
+      "text": "Take your time.",
+      "duration_ms": 1040
+    },
+    {
+      "id": "acknowledge-1",
+      "category": "acknowledge",
+      "text": "Okay.",
+      "duration_ms": 480
+    },
+    {
+      "id": "acknowledge-2",
+      "category": "acknowledge",
+      "text": "All right.",
+      "duration_ms": 800
+    },
+    {
+      "id": "acknowledge-3",
+      "category": "acknowledge",
+      "text": "Thanks for explaining.",
+      "duration_ms": 1200
+    },
+    {
+      "id": "interrupted-1",
+      "category": "interrupted",
+      "text": "Okay, I've stopped.",
+      "duration_ms": 1440
+    },
+    {
+      "id": "interrupted-2",
+      "category": "interrupted",
+      "text": "All right, I'll pause here.",
+      "duration_ms": 960
+    }
+  ]
+}

@@ -16,7 +16,7 @@ type Agent = {
     role: string;
     industry: string;
     persona: Record<string, string>;
-    memory: { namespace: string };
+    memory: { namespace: string; domain?: string };
     skills: string[];
     knowledge: string[];
     branding: Record<string, string>;
@@ -64,11 +64,26 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
           body: JSON.stringify(body),
         },
   );
-  const data = await response.json();
+  // Some endpoints (e.g. session open) answer 202 with an empty body.
+  const raw = await response.text();
+  let data: { error?: string } = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    if (response.ok) data = {};
+    else throw new Error(`Request failed (${response.status})`);
+  }
   if (!response.ok)
     throw new Error(data.error || `Request failed (${response.status})`);
-  return data;
+  return data as T;
 }
+const industryLabels: Record<string, string> = {
+  hospital: "Demo patient",
+  school: "Demo family",
+  aquila: "Family / contact",
+};
+const industryLabel = (industry?: string) =>
+  (industry && industryLabels[industry]) || "Demo customer";
 function actionLabel(tool: string) {
   const labels: Record<string, string> = {
     "wifi.optimize": "Update your Wi-Fi settings?",
@@ -128,11 +143,17 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [starting, setStarting] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [openState, setOpenState] = useState<
+    "none" | "calling" | "connected" | "failed"
+  >("none");
   const [error, setError] = useState("");
   const source = useRef<EventSource | null>(null);
   const lastID = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
   const agent = agents.find((a) => a.config.id === agentID);
+  const openingMode = agent?.config.persona?.opening;
+  const opens = openingMode === "inbound" || openingMode === "outbound";
+  const outbound = openingMode === "outbound";
   useEffect(() => {
     let live = true;
     api<Agent[]>("/agents")
@@ -178,6 +199,7 @@ function App() {
     setMessage("");
     setBusy(false);
     setError("");
+    setOpenState("none");
     lastID.current = 0;
   }
   function changeAgent(id: string) {
@@ -208,8 +230,10 @@ function App() {
         if (event.type === "turn.started") {
           busyRef.current = true;
           setBusy(true);
+          setOpenState((s) => (s === "calling" ? "connected" : s));
         }
         if (event.type === "agent.response.delta") {
+          setOpenState((s) => (s === "calling" ? "connected" : s));
           voice.current?.delta(event.turn_id || "", event.data.text || "");
           setChat((old) => {
             const id = event.turn_id || "assistant";
@@ -236,6 +260,35 @@ function App() {
           voice.current?.complete();
         }
       };
+      if (opens) {
+        // The agent speaks first: wait for the event stream so the opening reply is not missed.
+        setOpenState("calling");
+        await new Promise<void>((resolve) => {
+          if (stream.readyState === 1) return resolve();
+          const timer = setTimeout(resolve, 1500);
+          stream.addEventListener(
+            "open",
+            () => {
+              clearTimeout(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+        if (source.current !== stream) return;
+        // Placing a call starts voice as well so the opening is spoken and the
+        // contact can answer by voice. Without voice it silently stays text.
+        if (outbound && voiceEnabled) {
+          await startVoice(data.id, true);
+          if (source.current !== stream) return;
+        }
+        try {
+          await api(`/sessions/${data.id}/open`, {});
+        } catch {
+          // 400/409: nothing to open. The session stays usable with the normal welcome.
+          if (source.current === stream) setOpenState("failed");
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -292,11 +345,17 @@ function App() {
       return;
     }
     if (!session) return;
+    await startVoice(session);
+  }
+  // Starts the browser voice session for sessionID. With silent set, a failure
+  // (for example a denied microphone) leaves the chat in text mode without an error.
+  async function startVoice(sessionID: string, silent = false) {
+    if (voice.current) return;
     setError("");
     setVoiceOn(true);
     setMicMuted(false);
     const v = new Voice(
-      session,
+      sessionID,
       {
         status: setVoiceStatus,
         transcript: setTranscript,
@@ -305,7 +364,7 @@ function App() {
           setBrowserMetrics((old) => ({ ...old, [name]: Math.round(ms) })),
         interrupt: () => {
           if (busyRef.current)
-            void api(`/sessions/${session}/cancel`, {}).catch((e) =>
+            void api(`/sessions/${sessionID}/cancel`, {}).catch((e) =>
               setError(e.message),
             );
         },
@@ -335,7 +394,8 @@ function App() {
       if (voice.current === v) {
         voice.current = null;
         setVoiceOn(false);
-        setError(`Microphone unavailable: ${(e as Error).message}`);
+        if (!silent)
+          setError(`Microphone unavailable: ${(e as Error).message}`);
       }
     }
   }
@@ -441,9 +501,11 @@ function App() {
                 </div>
                 <span className={connected ? "status connected" : "status"}>
                   {session
-                    ? connected
-                      ? "Connected"
-                      : "Reconnecting…"
+                    ? outbound && openState === "calling"
+                      ? "Calling…"
+                      : connected
+                        ? "Connected"
+                        : "Reconnecting…"
                     : "Ready to help"}
                 </span>
               </div>
@@ -453,31 +515,52 @@ function App() {
                 aria-label="Conversation messages"
                 aria-live="polite"
               >
-                {!chat.length && (
-                  <div className="welcome">
+                {!chat.length && session && opens && openState !== "failed" && (
+                  <div className="welcome call-state" role="status">
                     <div className="welcome-symbol" aria-hidden="true">
                       {brand.mark || "N"}
                     </div>
                     <h3>
-                      {session
-                        ? `Hi ${user?.name.split(" ")[0] || "there"}, I’m ${agent?.config.name}.`
-                        : `Hello, I’m ${agent?.config.name || "your assistant"}.`}
+                      {outbound
+                        ? openState === "connected"
+                          ? `Connected to ${user?.name || "contact"}`
+                          : `Calling ${user?.name || "contact"}…`
+                        : `${agent?.config.name} is picking up…`}
                     </h3>
-                    <p>
-                      {brand.welcome || "Tell me what you need a hand with."}
-                    </p>
-                    {!session && (
-                      <button
-                        className="primary start-chat"
-                        disabled={!agent || !userID || starting}
-                        onClick={start}
-                      >
-                        {starting ? "Connecting…" : "Start chat"}{" "}
-                        <span aria-hidden="true">↗</span>
-                      </button>
-                    )}
                   </div>
                 )}
+                {!chat.length &&
+                  !(session && opens && openState !== "failed") && (
+                    <div className="welcome">
+                      <div className="welcome-symbol" aria-hidden="true">
+                        {brand.mark || "N"}
+                      </div>
+                      <h3>
+                        {session
+                          ? `Hi ${user?.name.split(" ")[0] || "there"}, I’m ${agent?.config.name}.`
+                          : `Hello, I’m ${agent?.config.name || "your assistant"}.`}
+                      </h3>
+                      <p>
+                        {brand.welcome || "Tell me what you need a hand with."}
+                      </p>
+                      {!session && (
+                        <button
+                          className="primary start-chat"
+                          disabled={!agent || !userID || starting}
+                          onClick={start}
+                        >
+                          {starting
+                            ? outbound
+                              ? "Calling…"
+                              : "Connecting…"
+                            : outbound
+                              ? `Place call to ${user?.name || "contact"}`
+                              : "Start chat"}{" "}
+                          <span aria-hidden="true">↗</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 {chat.map((m) => (
                   <article
                     key={m.id}
@@ -732,8 +815,9 @@ function App() {
               <section>
                 <h3>Choose your experience</h3>
                 <p className="muted">
-                  Switch the brand, persona and service capabilities. Each agent
-                  keeps its own customer memory.
+                  Switch the brand, persona and service capabilities. Agents
+                  keep their own customer memory unless their organisation
+                  shares it.
                 </p>
                 <div className="persona-cards">
                   {agents.map((a) => (
@@ -762,13 +846,7 @@ function App() {
                 </div>
               </section>
               <section className="controls" aria-label="Session setup">
-                <h3>
-                  {agent?.config.industry === "hospital"
-                    ? "Demo patient"
-                    : agent?.config.industry === "school"
-                      ? "Demo family"
-                      : "Demo customer"}
-                </h3>
+                <h3>{industryLabel(agent?.config.industry)}</h3>
                 <label>
                   Demo identity
                   <select
@@ -954,7 +1032,9 @@ function App() {
               <section>
                 <h3>Memory isolation</h3>
                 <p className="muted">
-                  Organization → agent → namespace → selected user
+                  {agent?.config.memory.domain
+                    ? `Shared across ${agent.config.organization}’s agents for this contact`
+                    : "Organization → agent → namespace → selected user"}
                 </p>
                 <code>{agent?.config.memory.namespace}</code>
               </section>

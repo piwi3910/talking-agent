@@ -1,7 +1,6 @@
 package speech
 
 import (
-	"encoding/binary"
 	"regexp"
 	"strings"
 )
@@ -27,19 +26,4 @@ func VocalEvents(text string, allow bool) string {
 }
 
 // WAV wraps 24 kHz mono signed 16-bit PCM in a RIFF header.
-func WAV(pcm []byte) []byte {
-	h := make([]byte, 44, 44+len(pcm))
-	copy(h, "RIFF")
-	binary.LittleEndian.PutUint32(h[4:], uint32(36+len(pcm)))
-	copy(h[8:], "WAVEfmt ")
-	binary.LittleEndian.PutUint32(h[16:], 16)
-	binary.LittleEndian.PutUint16(h[20:], 1)
-	binary.LittleEndian.PutUint16(h[22:], 1)
-	binary.LittleEndian.PutUint32(h[24:], 24000)
-	binary.LittleEndian.PutUint32(h[28:], 48000)
-	binary.LittleEndian.PutUint16(h[32:], 2)
-	binary.LittleEndian.PutUint16(h[34:], 16)
-	copy(h[36:], "data")
-	binary.LittleEndian.PutUint32(h[40:], uint32(len(pcm)))
-	return append(h, pcm...)
-}
+func WAV(pcm []byte) []byte { return WAVAt(pcm, 24000) }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { VoiceCloneFlow } from "./voice-clone-flow";
 
 type Persona = { config: { id: string; name: string; organization: string } };
 type Voice = {
@@ -6,6 +7,8 @@ type Voice = {
   name: string;
   description: string;
   builtin: boolean;
+  // Older servers omit the kind: anything not builtin is a designed voice.
+  kind?: "builtin" | "design" | "clone";
 };
 type Assignment = { voice_id: string; direction: string; events: boolean };
 type CueState = {
@@ -14,15 +17,20 @@ type CueState = {
   total: number;
   error?: string;
 };
-type Snapshot = {
+export type Snapshot = {
   revision: number;
   voices: Voice[];
   personas: Record<string, Assignment>;
   cues: Record<string, CueState>;
 };
-type CustomVoice = { id: string; name: string; description: string };
+// A cloned voice has no description: its reference audio lives on the server.
+type CustomVoice = {
+  id: string;
+  name: string;
+  description: string;
+  kind?: "clone";
+};
 
-const PREVIEW_TEXT_LIMIT = 300;
 async function parse(response: Response) {
   try {
     return await response.json();
@@ -87,8 +95,17 @@ export function cueLabel(c?: CueState): string {
 }
 const customOf = (voices: Voice[]): CustomVoice[] =>
   voices
-    .filter((v) => !v.builtin)
-    .map((v) => ({ id: v.id, name: v.name, description: v.description }));
+    .filter((v) => !v.builtin && v.kind !== "builtin")
+    .map((v): CustomVoice =>
+      v.kind === "clone"
+        ? { id: v.id, name: v.name, description: "", kind: "clone" }
+        : { id: v.id, name: v.name, description: v.description },
+    );
+// The save body: designed voices carry a description, clones only id, name and kind.
+const payload = (v: CustomVoice) =>
+  v.kind === "clone"
+    ? { id: v.id, name: v.name, kind: "clone" }
+    : { id: v.id, name: v.name, description: v.description };
 
 // One preview at a time. Each result is a blob URL that is revoked when replaced or on unmount.
 function usePreview(setError: (m: string) => void) {
@@ -157,6 +174,7 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cloning, setCloning] = useState(false);
   const { busy, preview } = usePreview(setError);
 
   function adopt(data: Snapshot) {
@@ -201,7 +219,7 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
   function body(nextCustoms = customs) {
     return {
       revision: snapshot!.revision,
-      voices: nextCustoms,
+      voices: nextCustoms.map(payload),
       personas: assign,
     };
   }
@@ -287,6 +305,16 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
     snapshot &&
     (JSON.stringify(customs) !== JSON.stringify(customOf(snapshot.voices)) ||
       JSON.stringify(assign) !== JSON.stringify(snapshot.personas));
+  // A cloned voice is stored with the current settings and replaces the draft
+  // with the saved state, so it starts only from a clean draft.
+  function cloned(data: Snapshot, voiceName: string) {
+    adopt(data);
+    setCloning(false);
+    setError("");
+    setNotice(
+      `Voice “${voiceName}” cloned. Assign it to a persona and save; its cues render in the background.`,
+    );
+  }
 
   return (
     <section
@@ -359,6 +387,32 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
               </div>
             </fieldset>
           </form>
+          <div className="voice-clone-launch">
+            <button
+              type="button"
+              disabled={saving || cloning || !!dirty}
+              onClick={() => {
+                setNotice("");
+                setCloning(true);
+              }}
+            >
+              Clone a voice
+            </button>
+            {dirty && !cloning && (
+              <p className="quiet">
+                Save or reload your voice changes before cloning a voice.
+              </p>
+            )}
+          </div>
+          {cloning && (
+            <VoiceCloneFlow
+              revision={snapshot.revision}
+              takenIds={allVoices.map((v) => v.id)}
+              makeId={slugify}
+              onSaved={cloned}
+              onClose={() => setCloning(false)}
+            />
+          )}
           <form className="voice-settings-form" onSubmit={save}>
             <fieldset disabled={saving}>
               <h4>Voice list</h4>
@@ -367,7 +421,7 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
                   <li className="voice-item" key={v.id}>
                     <div>
                       <strong>{v.name}</strong>{" "}
-                      <span className="pill">Built in</span>
+                      <span className="pill">Original</span>
                     </div>
                     <div className="voice-actions">
                       <button
@@ -383,6 +437,11 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
                 ))}
                 {customs.map((v) => (
                   <li className="voice-item" key={v.id}>
+                    <div>
+                      <span className="pill">
+                        {v.kind === "clone" ? "Cloned" : "Designed"}
+                      </span>
+                    </div>
                     <label>
                       Name of voice {v.id}
                       <input
@@ -394,21 +453,26 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
                         }
                       />
                     </label>
-                    <label>
-                      Description of voice {v.id}
-                      <textarea
-                        rows={3}
-                        value={v.description}
-                        maxLength={500}
-                        onChange={(e) =>
-                          editVoice(v.id, { description: e.target.value })
-                        }
-                      />
-                    </label>
+                    {v.kind !== "clone" && (
+                      <label>
+                        Description of voice {v.id}
+                        <textarea
+                          rows={3}
+                          value={v.description}
+                          maxLength={500}
+                          onChange={(e) =>
+                            editVoice(v.id, { description: e.target.value })
+                          }
+                        />
+                      </label>
+                    )}
                     <div className="voice-actions">
                       <button
                         type="button"
-                        disabled={!!busy || !v.description.trim()}
+                        disabled={
+                          !!busy ||
+                          (v.kind !== "clone" && !v.description.trim())
+                        }
                         aria-label={`Preview ${v.name}`}
                         onClick={() => previewSaved(v)}
                       >

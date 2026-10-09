@@ -1,0 +1,106 @@
+[
+  {
+    "keywords": ["[call answered]"],
+    "steps": [],
+    "reply": "Hello, and welcome to The Aquila School. I’m Amelia in Admissions. How can I help your family today?"
+  },
+  {
+    "keywords": ["fee", "cost", "tuition", "price"],
+    "steps": [
+      {
+        "tool": "admissions.fee_quote",
+        "arguments": {
+          "year_group": "FS2, FS1",
+          "payment": "annual",
+          "referral": "yes"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["tour", "visit"],
+    "steps": [{ "tool": "tour.availability", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["scholarship"],
+    "steps": [
+      { "tool": "scholarship.check", "arguments": { "year_group": "Year 7" } }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["cat4", "assessment"],
+    "steps": [{ "tool": "assessment.availability", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["place", "vacanc", "waiting"],
+    "steps": [
+      {
+        "tool": "admissions.availability",
+        "arguments": { "year_group": "FS2" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["application"],
+    "steps": [{ "tool": "application.status", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["hemam", "inclusion"],
+    "steps": [
+      {
+        "tool": "school.information",
+        "arguments": { "topic": "Hemam inclusion support" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["meeting", "head of"],
+    "steps": [
+      {
+        "tool": "staff.meeting_book",
+        "arguments": {
+          "staff": "Head of Inclusion",
+          "topic": "Learning support and a personal plan"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["bus", "transport"],
+    "steps": [{ "tool": "transport.quote", "arguments": { "area": "$query" } }],
+    "reply": ""
+  },
+  {
+    "keywords": ["uniform"],
+    "steps": [{ "tool": "uniform.info", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["club"],
+    "steps": [{ "tool": "clubs.list", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["history", "previous"],
+    "steps": [{ "tool": "crm.history", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["profile"],
+    "steps": [{ "tool": "contact.profile", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["hello", "hi"],
+    "steps": [],
+    "reply": "Hello, I’m Amelia in Admissions at The Aquila School. I can help with tours, fees, places, assessments and scholarships. Safe, happy learning."
+  }
+]

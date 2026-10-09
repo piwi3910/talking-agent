@@ -1234,3 +1234,216 @@ pre {
     flex: 1 1 auto;
   }
 }
+
+/* ---- Guided voice cloning (Settings > Voices > Clone a voice) ---- */
+.voice-clone-launch {
+  margin: 8px 0 16px;
+}
+.voice-clone-launch .quiet {
+  margin: 8px 0 0;
+}
+.voice-clone {
+  margin: 0 0 20px;
+  padding: 14px;
+  border: 1px solid #cfe0d4;
+  border-radius: 12px;
+  background: #f8fbf9;
+}
+.voice-clone .section-heading {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.voice-clone .section-heading h4 {
+  margin: 0;
+}
+.voice-clone h5,
+.voice-clone h6 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+.voice-clone h6 {
+  margin-top: 0;
+  font-size: 12px;
+  color: #5d7165;
+}
+.voice-clone .error {
+  margin: 8px 0;
+}
+.clone-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 12px;
+  color: #7c8f80;
+}
+.clone-steps li.current {
+  color: #172b4d;
+  font-weight: 700;
+}
+.clone-steps li.done {
+  color: #378260;
+}
+.clone-step-number {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 9px;
+  background: #e5ece7;
+  font-size: 11px;
+}
+.clone-steps li.current .clone-step-number {
+  background: #172b4d;
+  color: #fff;
+}
+.clone-status {
+  min-height: 1.2em;
+  margin: 0 0 6px;
+}
+.clone-panel .speech-toggle {
+  align-items: flex-start;
+}
+.clone-scripts {
+  margin-top: 12px;
+}
+.clone-scripts legend {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+.clone-script {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-left: 3px solid #378260;
+  background: #fff;
+  border-radius: 0 8px 8px 0;
+  font-size: 16px;
+  line-height: 1.55;
+}
+.clone-tips {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #5d7165;
+}
+.clone-countdown {
+  margin: 12px 0 4px;
+  text-align: center;
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  color: #378260;
+}
+.clone-meter {
+  height: 10px;
+  margin: 12px 0 4px;
+  border-radius: 5px;
+  background: #e5ece7;
+  overflow: hidden;
+}
+.clone-meter span {
+  display: block;
+  height: 100%;
+  background: #378260;
+  transition: width 80ms linear;
+}
+.clone-timer {
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+.clone-playback {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+.clone-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.clone-check {
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid #dce2ea;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.clone-check .clone-detail {
+  color: #5d7165;
+}
+.clone-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e5ece7;
+}
+.clone-check.pass .clone-badge {
+  background: #dcf1e5;
+  color: #1f6a45;
+}
+.clone-check.warn .clone-badge {
+  background: #fdf0d2;
+  color: #8a5a00;
+}
+.clone-check.fail {
+  border-color: #f1d2ca;
+}
+.clone-check.fail .clone-badge {
+  background: #fbdcd5;
+  color: #a64230;
+}
+.clone-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 13px;
+}
+.clone-compare p {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #dce2ea;
+  border-radius: 8px;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.clone-diff {
+  background: #fdf0d2;
+  border-radius: 3px;
+}
+.clone-similarity {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.clone-summary {
+  margin: 0;
+  font-size: 13px;
+}
+.clone-summary dt {
+  margin-top: 8px;
+  font-weight: 700;
+}
+.clone-summary dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .clone-compare {
+    grid-template-columns: 1fr;
+  }
+  .clone-script {
+    font-size: 15px;
+  }
+  .voice-clone .voice-actions button {
+    flex: 1 1 100%;
+  }
+}
+/* ---- end guided voice cloning ---- */

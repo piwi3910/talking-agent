@@ -29,13 +29,24 @@ var ErrStorage = errors.New("could not save voice settings")
 
 var customID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`)
 
-const maxCustom = 50
+const (
+	maxCustom = 50 // designed voices
+	maxClones = 20
+)
+
+// Voice kinds. Builtin keeps the legacy Builtin flag for compatibility.
+const (
+	KindBuiltin = "builtin"
+	KindDesign  = "design"
+	KindClone   = "clone"
+)
 
 type Voice struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Builtin     bool   `json:"builtin"`
+	Kind        string `json:"kind"`
 }
 type Persona struct {
 	VoiceID   string `json:"voice_id"`
@@ -56,10 +67,14 @@ type Snapshot struct {
 }
 
 // Custom is the editable part of a voice; builtin voices are derived at startup.
+// Kind is empty or "design" for a designed voice, which needs a description,
+// and "clone" for a cloned voice, which has none: its reference audio lives in
+// its own directory and can only be created through CreateClone.
 type Custom struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Kind        string `json:"kind,omitempty"`
 }
 type SaveRequest struct {
 	Revision uint64             `json:"revision"`
@@ -89,12 +104,16 @@ type Store struct {
 	jobs     map[string]*job
 	queue    []string
 	wake     chan struct{}
+
+	cloneRoot string                       // <root>/<id>/reference.wav|txt, a sibling of the cue dir
+	clones    map[string]*speech.Reference // loaded clone references by voice id
 }
 
 // Open loads saved settings and removes render leftovers from a previous run.
 // refs holds each agent's reference voice (nil entries are agents without one).
 func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]*speech.Reference, tts *speech.Client) (*Store, error) {
-	s := &Store{path: path, cueDir: cueDir, tts: tts, agents: agents, refs: refs, manifest: map[string][]byte{}, personas: map[string]Persona{}, jobs: map[string]*job{}, wake: make(chan struct{}, 1)}
+	s := &Store{path: path, cueDir: cueDir, tts: tts, agents: agents, refs: refs, manifest: map[string][]byte{}, personas: map[string]Persona{}, jobs: map[string]*job{}, wake: make(chan struct{}, 1),
+		cloneRoot: filepath.Join(filepath.Dir(cueDir), "voices"), clones: map[string]*speech.Reference{}}
 	ids := make([]string, 0, len(agents))
 	for id := range agents {
 		ids = append(ids, id)
@@ -107,7 +126,7 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 			if name == "" {
 				name = a.Name
 			}
-			s.builtin = append(s.builtin, Voice{ID: "ref-" + id, Name: name + " (original)", Builtin: true})
+			s.builtin = append(s.builtin, Voice{ID: "ref-" + id, Name: name + " (original)", Builtin: true, Kind: KindBuiltin})
 		}
 		if raw, err := os.ReadFile(filepath.Join(a.Dir, "voice", "cues.json")); err == nil {
 			s.manifest[id] = raw
@@ -122,7 +141,7 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 		if err = json.Unmarshal(raw, &d); err != nil {
 			return nil, fmt.Errorf("voice settings: %w", err)
 		}
-		s.revision, s.custom = d.Revision, d.Voices
+		s.revision, s.custom = d.Revision, s.loadClones(d.Voices)
 		for id, p := range d.Personas {
 			if agents[id] == nil {
 				// A persona can vanish with its agent; never fail startup over it.
@@ -154,6 +173,11 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 			os.RemoveAll(d)
 		}
 	}
+	// A clone being stored when the process stopped never reached its final name.
+	leftovers, _ := filepath.Glob(filepath.Join(s.cloneRoot, ".tmp-*"))
+	for _, d := range leftovers {
+		os.RemoveAll(d)
+	}
 	return s, nil
 }
 func (s *Store) defaultPersona(id string) Persona {
@@ -182,24 +206,39 @@ func (s *Store) hasVoice(custom []Custom, id string) bool {
 // validate checks a candidate state. previous lists the custom voices that
 // exist today so a still-assigned deletion gets a precise message.
 func (s *Store) validate(custom []Custom, personas map[string]Persona, previous []Custom) error {
-	if len(custom) > maxCustom {
-		return fmt.Errorf("at most %d custom voices are allowed", maxCustom)
-	}
 	seen := map[string]bool{}
+	designs, clones := 0, 0
 	for _, v := range custom {
-		if !customID.MatchString(v.ID) || strings.HasPrefix(v.ID, "ref-") {
-			return fmt.Errorf("invalid voice id %q: use lowercase letters, digits and hyphens, up to 40 characters, not starting with ref-", v.ID)
+		if err := validID(v.ID); err != nil {
+			return err
 		}
 		if seen[v.ID] {
 			return fmt.Errorf("duplicate voice id %s", v.ID)
 		}
 		seen[v.ID] = true
-		if n := utf8.RuneCountInString(v.Name); n < 1 || n > 60 || n != utf8.RuneCountInString(strings.TrimSpace(v.Name)) {
-			return fmt.Errorf("voice %s: name must be 1 to 60 characters", v.ID)
+		if err := validName(v.ID, v.Name); err != nil {
+			return err
 		}
-		if n := utf8.RuneCountInString(v.Description); n < 1 || n > 500 || n != utf8.RuneCountInString(strings.TrimSpace(v.Description)) {
-			return fmt.Errorf("voice %s: description must be 1 to 500 characters", v.ID)
+		switch v.Kind {
+		case KindClone:
+			if v.Description != "" {
+				return fmt.Errorf("voice %s: a cloned voice has no description", v.ID)
+			}
+			clones++
+		case "", KindDesign:
+			if n := utf8.RuneCountInString(v.Description); n < 1 || n > 500 || n != utf8.RuneCountInString(strings.TrimSpace(v.Description)) {
+				return fmt.Errorf("voice %s: description must be 1 to 500 characters", v.ID)
+			}
+			designs++
+		default:
+			return fmt.Errorf("voice %s: unknown kind %q", v.ID, v.Kind)
 		}
+	}
+	if designs > maxCustom {
+		return fmt.Errorf("at most %d custom voices are allowed", maxCustom)
+	}
+	if clones > maxClones {
+		return fmt.Errorf("at most %d cloned voices are allowed", maxClones)
 	}
 	for id := range s.agents {
 		p, ok := personas[id]
@@ -229,6 +268,19 @@ func (s *Store) validate(custom []Custom, personas map[string]Persona, previous 
 	return nil
 }
 
+func validID(id string) error {
+	if !customID.MatchString(id) || strings.HasPrefix(id, "ref-") {
+		return fmt.Errorf("invalid voice id %q: use lowercase letters, digits and hyphens, up to 40 characters, not starting with ref-", id)
+	}
+	return nil
+}
+func validName(id, name string) error {
+	if n := utf8.RuneCountInString(name); n < 1 || n > 60 || n != utf8.RuneCountInString(strings.TrimSpace(name)) {
+		return fmt.Errorf("voice %s: name must be 1 to 60 characters", id)
+	}
+	return nil
+}
+
 func (s *Store) Snapshot() Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -237,7 +289,11 @@ func (s *Store) Snapshot() Snapshot {
 func (s *Store) snapshot() Snapshot {
 	out := Snapshot{Revision: s.revision, Voices: append([]Voice{}, s.builtin...), Personas: map[string]Persona{}, Cues: map[string]CueStatus{}}
 	for _, v := range s.custom {
-		out.Voices = append(out.Voices, Voice{ID: v.ID, Name: v.Name, Description: v.Description})
+		kind := KindDesign
+		if v.Kind == KindClone {
+			kind = KindClone
+		}
+		out.Voices = append(out.Voices, Voice{ID: v.ID, Name: v.Name, Description: v.Description, Kind: kind})
 	}
 	for id, p := range s.personas {
 		out.Personas[id] = p
@@ -255,7 +311,13 @@ func (s *Store) Save(in SaveRequest) (Snapshot, error) {
 	}
 	custom := make([]Custom, len(in.Voices))
 	for i, v := range in.Voices {
-		custom[i] = Custom{ID: v.ID, Name: strings.TrimSpace(v.Name), Description: strings.TrimSpace(v.Description)}
+		custom[i] = Custom{ID: v.ID, Name: strings.TrimSpace(v.Name), Description: strings.TrimSpace(v.Description), Kind: v.Kind}
+		if v.Kind == KindDesign {
+			custom[i].Kind = ""
+		}
+	}
+	if err := s.checkKinds(custom); err != nil {
+		return Snapshot{}, err
 	}
 	personas := map[string]Persona{}
 	for id, p := range in.Personas {
@@ -274,6 +336,7 @@ func (s *Store) Save(in SaveRequest) (Snapshot, error) {
 	}
 	s.revision++
 	s.custom, s.personas = custom, personas
+	s.dropRemovedClones(custom)
 	s.enqueueMissing(true)
 	return s.snapshot(), nil
 }
@@ -327,14 +390,13 @@ func (s *Store) Preview(voiceID, description, direction string) (speech.Voice, e
 }
 func (s *Store) resolve(voiceID, direction string) speech.Voice {
 	if agent, ok := strings.CutPrefix(voiceID, "ref-"); ok && s.refs[agent] != nil {
-		v := speech.Voice{Reference: s.refs[agent], Instruction: direction, Guidance: "1"}
-		if direction != "" {
-			v.Guidance = "4"
-		}
-		return v
+		return referenceVoice(s.refs[agent], direction)
+	}
+	if ref := s.clones[voiceID]; ref != nil {
+		return referenceVoice(ref, direction)
 	}
 	for _, c := range s.custom {
-		if c.ID == voiceID {
+		if c.ID == voiceID && c.Kind != KindClone {
 			return designVoice(c.Description, direction)
 		}
 	}

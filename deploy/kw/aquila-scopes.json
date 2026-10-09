@@ -1,0 +1,51 @@
+[
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "F001"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "F002"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "F003"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "L001"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "L002"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "L003"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-school",
+    "namespace": "aquila-demo",
+    "user": "L004"
+  }
+]

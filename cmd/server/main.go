@@ -155,7 +155,7 @@ func run() error {
 				return e
 			}
 			for _, seed := range seeds {
-				if e = mem.Store(ctx, memory.Memory{Scope: memory.Scope{Tenant: a.Tenant, Organization: a.Organization, Domain: a.ID, Namespace: a.Memory.Namespace, User: seed.User}, Text: seed.Text, Tags: seed.Tags}); e != nil {
+				if e = mem.Store(ctx, memory.Memory{Scope: memory.Scope{Tenant: a.Tenant, Organization: a.Organization, Domain: a.MemoryDomain(), Namespace: a.Memory.Namespace, User: seed.User}, Text: seed.Text, Tags: seed.Tags}); e != nil {
 					return e
 				}
 			}

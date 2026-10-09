@@ -91,6 +91,7 @@ func (a *API) Handler() http.Handler {
 	a.voiceRoutes(m)
 	a.settingsRoutes(m)
 	a.voiceSettingsRoutes(m)
+	a.openingRoutes(m)
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]string{"status": "ok", "memory": a.Runtime.Memory.Name()})
 	})

@@ -116,6 +116,10 @@ School tools cover family profiles, programs and annual tuition, application pro
 
 Before deploying new identities, provision memory using `python3 deploy/kw/provision-memory.py --scopes-file <scopes.json>` with an array of tenant/organization/domain/namespace/user objects. This reuses existing cluster credentials without embedding secrets. School live UI verification: `SCHOOL_LIVE_TESTS=true DEMO_BASE_URL=https://agent.kw.watteel.lab npx playwright test tests/school.spec.ts` from `web/`.
 
+## The Aquila School demo personas
+
+Three sales-demo personas for The Aquila School, Dubai live in `agents/aquila-*`: Amelia (admissions, inbound), Noor (reception, inbound) and Sophie (admissions outreach, outbound). They set `memory.domain` to `aquila-school`, so all three share one NovaMem scope per family and remember each other's conversations. Seven fictional contacts (`mock/aquila/contacts.json`) come with seeded multi-session history (`agents/aquila-admissions/memory-seeds.json`), and the mock backend simulates tours, CAT4 and meet-and-greet bookings, a fee quote engine on the real 2026-27 fees and discounts, absences, buses, clubs and outreach outcomes. Personas with `persona.opening` speak first through `POST /api/sessions/{id}/open` (and on SIP calls instead of a static greeting). Provision memory before deploying with `python3 deploy/kw/provision-memory.py --scopes-file deploy/kw/aquila-scopes.json`. See [the Aquila demo script](docs/aquila-demo.md).
+
 ## SIP phones and Hello PBX
 
 The optional SIP/RTP endpoint routes configurable phone numbers to agents and creates an independent conversation per call. See [Hello integration and deployment configuration](deploy/sip/README.md).

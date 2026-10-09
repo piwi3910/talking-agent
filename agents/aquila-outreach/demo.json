@@ -1,0 +1,88 @@
+[
+  {
+    "keywords": ["[outbound call connected]"],
+    "steps": [],
+    "reply": "Hello, it’s Sophie from The Aquila School admissions team. You enquired with us earlier this year and I wanted to say hello. Is now a good time for a quick chat?"
+  },
+  {
+    "keywords": ["not interested"],
+    "steps": [
+      {
+        "tool": "outreach.log_outcome",
+        "arguments": { "outcome": "not_interested", "notes": "$query" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["callback", "call back"],
+    "steps": [
+      {
+        "tool": "callback.schedule",
+        "arguments": { "when": "tomorrow morning", "topic": "$query" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["fee", "cost", "tuition", "price"],
+    "steps": [
+      {
+        "tool": "admissions.fee_quote",
+        "arguments": {
+          "year_group": "FS2, FS1",
+          "payment": "annual",
+          "referral": "yes"
+        }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["tour", "visit"],
+    "steps": [{ "tool": "tour.availability", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["scholarship"],
+    "steps": [
+      { "tool": "scholarship.check", "arguments": { "year_group": "Year 7" } }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["cat4", "assessment"],
+    "steps": [{ "tool": "assessment.availability", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["place", "vacancy", "waiting"],
+    "steps": [
+      {
+        "tool": "admissions.availability",
+        "arguments": { "year_group": "FS2" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["bus", "transport"],
+    "steps": [{ "tool": "transport.quote", "arguments": { "area": "$query" } }],
+    "reply": ""
+  },
+  {
+    "keywords": ["leads"],
+    "steps": [{ "tool": "outreach.leads", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["history", "previous"],
+    "steps": [{ "tool": "crm.history", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["hello", "hi"],
+    "steps": [],
+    "reply": "Hello, it’s Sophie from The Aquila School admissions team. I’m calling families who enquired earlier this year. Safe, happy learning."
+  }
+]

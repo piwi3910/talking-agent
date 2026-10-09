@@ -1,0 +1,65 @@
+[
+  {
+    "id": "F001",
+    "kind": "contact",
+    "name": "Fatima Al Mansoori",
+    "status": "current parent",
+    "email": "fatima.almansoori@example.invalid",
+    "location": "Arabian Ranches",
+    "scenario": "Current parent: Omar (Year 5) and Layla (Year 2). Layla was reported absent on 2 Oct (fever); asked about Arabic enrichment clubs."
+  },
+  {
+    "id": "F002",
+    "kind": "contact",
+    "name": "Michael Chen",
+    "status": "current parent",
+    "email": "michael.chen@example.invalid",
+    "location": "Motor City",
+    "scenario": "Current parent: Emily (Year 10). Interested in the Sixth Form Options Evening, IBDP vs IBCP and the Tomorrow's Leaders scholarship."
+  },
+  {
+    "id": "F003",
+    "kind": "contact",
+    "name": "Aisha Rahman",
+    "status": "new enquiry",
+    "email": "aisha.rahman@example.invalid",
+    "location": "Dubailand",
+    "scenario": "Brand new enquiry, no history yet. Shows the first-contact experience."
+  },
+  {
+    "id": "L001",
+    "kind": "contact",
+    "name": "Sarah Ahmed",
+    "status": "lost lead",
+    "email": "sarah.ahmed@example.invalid",
+    "location": "Mudon",
+    "scenario": "Lost lead: FS2 for Mia (4). Toured on 14 May and loved the urban farm; went quiet after fee talks, comparing a school in Arabian Ranches. Adam (2) is FS1 in 2027."
+  },
+  {
+    "id": "L002",
+    "kind": "contact",
+    "name": "Raj and Priya Menon",
+    "status": "lost lead",
+    "email": "raj.menon@example.invalid",
+    "location": "Dubai Silicon Oasis",
+    "scenario": "Lost lead: Year 7 for Arjun (11), keen on robotics. Started an application on 2 Jun but never booked the CAT4; worried about the move from an Indian curriculum."
+  },
+  {
+    "id": "L003",
+    "kind": "contact",
+    "name": "Olivia Brown",
+    "status": "lost lead",
+    "email": "olivia.brown@example.invalid",
+    "location": "JVC",
+    "scenario": "Lost lead: relocating from London in Jan 2027 with Year 4 twins Ella and Jack. Virtual tour on 3 Jul; worried about Arabic and the JVC bus. Stopped replying in August."
+  },
+  {
+    "id": "L004",
+    "kind": "contact",
+    "name": "Hassan Khoury",
+    "status": "active enquiry",
+    "email": "hassan.khoury@example.invalid",
+    "location": "Falcon City",
+    "scenario": "Active enquiry: son Karim (8, Year 3) has dyslexia. Spoke to admissions on 20 Sep about Hemam; promised a meeting with Claire Hitchings, Head of Inclusion."
+  }
+]

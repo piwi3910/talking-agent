@@ -109,6 +109,18 @@ func (s *Server) converse(parent context.Context, m *diago.DialogMedia, sess *se
 				continue
 			}
 			if job.greeting {
+				// Personas with persona.opening speak first through a real turn
+				// (memory, tools) instead of the static welcome text.
+				if opening, ok := agent.OpeningTurn(sess.Agent, ""); ok {
+					sess.Events.Emit(job.id, "turn.started", map[string]any{"opening": true, "transport": "sip"})
+					sess.Busy.Store(true)
+					sess.SetCancel(job.cancel)
+					if err := s.runPhoneTurn(job.ctx, w, props.Codec.PayloadType, sess, job.id, opening, output, cues); err != nil && job.ctx.Err() == nil {
+						sess.Events.Emit(job.id, "tts.failed", map[string]any{"transport": "sip"})
+					}
+					job.cancel()
+					continue
+				}
 				greeting := sess.Agent.Branding["welcome"]
 				if greeting == "" {
 					greeting = "Hello, you have reached " + sess.Agent.Name + ". How can I help you?"

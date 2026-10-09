@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:19d5de1946874d3386a506adca94eb54034bdd4457f9ab6fa126a361318891cf",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:5d27372372de699343797d04af1004e25e0fc2d972781e4f5e11a72d26fa5bc8",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -200,6 +200,7 @@
       "labels": { "app.kubernetes.io/name": "enterprise-ai-demo" },
       "annotations":
         {
+          "nginx.ingress.kubernetes.io/proxy-body-size": "4m",
           "nginx.ingress.kubernetes.io/proxy-buffering": "off",
           "nginx.ingress.kubernetes.io/proxy-read-timeout": "600",
           "nginx.ingress.kubernetes.io/proxy-send-timeout": "600",

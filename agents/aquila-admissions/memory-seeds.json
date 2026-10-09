@@ -1,0 +1,115 @@
+[
+  {
+    "user": "L001",
+    "text": "2026-04-22: Sarah Ahmed enquired online about an FS2 place for her daughter Mia (age 4) and mentioned her younger son Adam (age 2), who would join FS1 in 2027. They live in Mudon.",
+    "tags": ["enquiry", "fs2", "family", "mia", "adam"]
+  },
+  {
+    "user": "L001",
+    "text": "2026-05-14: Sarah Ahmed toured the school with Mia and loved the urban farm, the hydroponics and the play-based Early Years. She asked about class sizes (about 20 to 24 with a teaching assistant) and how Mia would settle.",
+    "tags": ["tour", "urban farm", "eyfs", "mia"]
+  },
+  {
+    "user": "L001",
+    "text": "2026-05-20: Admissions call with Sarah Ahmed about fees for Mia in FS2 (AED 51,917). She felt the total was high compared with a school in Arabian Ranches she is also considering and asked for time to think. Sibling discount for Adam, early-bird payment and the referral offer were not discussed.",
+    "tags": ["fees", "objection", "comparison", "arabian ranches", "discount"]
+  },
+  {
+    "user": "L001",
+    "text": "2026-06-10: Follow-up email to Sarah Ahmed received no reply; she has been quiet since.",
+    "tags": ["follow-up", "quiet"]
+  },
+  {
+    "user": "L002",
+    "text": "2026-05-27: Raj and Priya Menon enquired about Year 7 for their son Arjun (age 11). Arjun is keen on robotics and STEAM and asked about First Lego League and the drone arena. He is currently at an Indian curriculum school. They live in Dubai Silicon Oasis.",
+    "tags": ["enquiry", "year 7", "robotics", "steam", "arjun"]
+  },
+  {
+    "user": "L002",
+    "text": "2026-06-02: Raj and Priya Menon started an online application for Arjun (Year 7). Documents are outstanding and the CAT4 assessment was never booked.",
+    "tags": ["application", "cat4", "year 7", "arjun"]
+  },
+  {
+    "user": "L002",
+    "text": "2026-06-09: Sent CAT4 slot options and a transition guide to the Menons; no reply.",
+    "tags": ["follow-up", "cat4", "transition"]
+  },
+  {
+    "user": "L002",
+    "text": "2026-06-23: Priya Menon said they are worried about Arjun moving from an Indian curriculum to the British GCSE pathway and about Arabic. A conversation with Yasmine Dannawy, Head of Secondary, was suggested but never scheduled.",
+    "tags": ["concern", "transition", "arabic", "head of secondary"]
+  },
+  {
+    "user": "L003",
+    "text": "2026-06-18: Olivia Brown enquired from London about two Year 4 places for her twins Ella and Jack from January 2027, when the family relocates to Dubai. They plan to live in JVC.",
+    "tags": ["enquiry", "year 4", "twins", "relocation", "ella", "jack"]
+  },
+  {
+    "user": "L003",
+    "text": "2026-07-03: Olivia Brown had a virtual tour. She loved the multicultural community but is concerned about Ella and Jack catching up on Arabic, and asked about a school bus from JVC.",
+    "tags": ["virtual tour", "arabic", "bus", "jvc", "concern"]
+  },
+  {
+    "user": "L003",
+    "text": "2026-07-10: Sent Olivia Brown a fee overview (Years 3 to 4: AED 56,244 per child) and Arabic support information. She said she would confirm once her visa and house move were settled.",
+    "tags": ["fees", "arabic support", "visa", "follow-up"]
+  },
+  {
+    "user": "L003",
+    "text": "2026-08-12: Chased Olivia Brown by email; she has not replied since.",
+    "tags": ["follow-up", "quiet"]
+  },
+  {
+    "user": "L004",
+    "text": "2026-09-14: Hassan Khoury enquired online about Year 3 for his son Karim (age 8), who has dyslexia, and asked what learning support is available. They live in Falcon City.",
+    "tags": ["enquiry", "year 3", "dyslexia", "karim", "inclusion"]
+  },
+  {
+    "user": "L004",
+    "text": "2026-09-20: Admissions call with Hassan Khoury about the Hemam Learning Support Centre and in-class support. He wants Karim to be understood, not labelled. Amelia promised a meeting with Claire Hitchings, Head of Inclusion, which has not yet been scheduled. Hassan prefers phone calls to email.",
+    "tags": [
+      "hemam",
+      "inclusion",
+      "meeting promised",
+      "claire hitchings",
+      "preference"
+    ]
+  },
+  {
+    "user": "L004",
+    "text": "2026-09-28: Hassan Khoury asked whether Claire Hitchings can review Karim's educational psychology report at the meeting; the answer was yes.",
+    "tags": ["hemam", "report", "meeting promised"]
+  },
+  {
+    "user": "F001",
+    "text": "2026-09-02: Fatima Al Mansoori called reception to confirm the Arabian Ranches bus pick-up for Omar (Year 5) and Layla (Year 2). Both settled well into the new term.",
+    "tags": ["bus", "arabian ranches", "omar", "layla", "reception"]
+  },
+  {
+    "user": "F001",
+    "text": "2026-09-24: Fatima Al Mansoori mentioned that Omar loves football and is hoping for the Year 5 team.",
+    "tags": ["omar", "football", "interest"]
+  },
+  {
+    "user": "F001",
+    "text": "2026-10-02: Fatima Al Mansoori reported Layla (Year 2) absent with a fever, and asked about Arabic enrichment clubs for both children. Noor logged the absence and promised club options.",
+    "tags": ["absence", "layla", "fever", "arabic", "clubs"]
+  },
+  {
+    "user": "F002",
+    "text": "2026-09-10: Michael Chen called reception about the Year 10 option blocks and Emily's progress.",
+    "tags": ["emily", "year 10", "options", "reception"]
+  },
+  {
+    "user": "F002",
+    "text": "2026-09-25: Michael Chen asked admissions about Sixth Form for his daughter Emily (Year 10): IBDP versus IBCP, the Sixth Form Options Evening on 29 October 2026 and the Tomorrow's Leaders scholarship. Emily is interested in Computer Science and Business and is unsure about the IBDP workload.",
+    "tags": [
+      "sixth form",
+      "ibdp",
+      "ibcp",
+      "scholarship",
+      "options evening",
+      "emily"
+    ]
+  }
+]

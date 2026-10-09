@@ -1,0 +1,79 @@
+[
+  {
+    "keywords": ["[call answered]"],
+    "steps": [],
+    "reply": "Good morning, The Aquila School reception, Noor speaking. How can I help?"
+  },
+  {
+    "keywords": ["absent", "absence", "sick", "fever", "unwell"],
+    "steps": [
+      {
+        "tool": "reception.report_absence",
+        "arguments": { "child": "$query", "date": "today", "reason": "$query" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["message", "teacher"],
+    "steps": [
+      {
+        "tool": "reception.message_staff",
+        "arguments": { "staff": "Class teacher", "message": "$query" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["meeting", "head of", "principal"],
+    "steps": [
+      {
+        "tool": "staff.meeting_book",
+        "arguments": { "staff": "$query", "topic": "$query" }
+      }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["bus", "transport"],
+    "steps": [{ "tool": "transport.quote", "arguments": { "area": "$query" } }],
+    "reply": ""
+  },
+  {
+    "keywords": ["uniform"],
+    "steps": [{ "tool": "uniform.info", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["club", "arabic"],
+    "steps": [{ "tool": "clubs.list", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["tour", "visit"],
+    "steps": [{ "tool": "tour.availability", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["hours", "timings", "calendar", "term", "holiday"],
+    "steps": [
+      { "tool": "school.information", "arguments": { "topic": "$query" } }
+    ],
+    "reply": ""
+  },
+  {
+    "keywords": ["history", "previous"],
+    "steps": [{ "tool": "crm.history", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["profile"],
+    "steps": [{ "tool": "contact.profile", "arguments": {} }],
+    "reply": ""
+  },
+  {
+    "keywords": ["hello", "hi"],
+    "steps": [],
+    "reply": "Hello, I’m Noor at The Aquila School reception. I can help with absences, messages, buses, uniform, clubs and visits. Safe, happy learning."
+  }
+]

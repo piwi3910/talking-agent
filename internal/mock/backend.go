@@ -37,7 +37,7 @@ type Backend struct {
 
 func Load(root string, now time.Time) (*Backend, error) {
 	b := &Backend{users: map[string]map[string]*User{}, catalogs: map[string][]tools.Record{}, records: map[string][]tools.Record{}}
-	for industry, file := range map[string]string{"telecom": "customers", "hospital": "patients", "school": "families"} {
+	for industry, file := range map[string]string{"telecom": "customers", "hospital": "patients", "school": "families", "aquila": "contacts"} {
 		var users []User
 		if err := read(filepath.Join(root, industry, file+".json"), &users); err != nil {
 			return nil, err
@@ -90,6 +90,7 @@ func Load(root string, now time.Time) (*Backend, error) {
 		b.records["technician_slots"] = append(b.records["technician_slots"], tools.Record{ID: fmt.Sprintf("TECH-%02d", i), Kind: "technician_slot", Status: "available", Start: day.AddDate(0, 0, i).Add(9 * time.Hour).Format(time.RFC3339)})
 	}
 	b.seedSchool(now)
+	b.seedAquila(now)
 	return b, nil
 }
 func read(path string, v any) error {
@@ -187,6 +188,9 @@ func (b *Backend) Execute(req tools.Request) tools.Result {
 	}
 	if req.Industry == "school" {
 		return b.school(u, req.Name, a)
+	}
+	if req.Industry == "aquila" {
+		return b.aquila(u, req.Name, a)
 	}
 	return tools.Failure("unknown_industry", "Unknown backend industry")
 }

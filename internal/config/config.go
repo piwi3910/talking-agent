@@ -31,6 +31,7 @@ type Agent struct {
 		Provider  string        `yaml:"provider" json:"provider"`
 		Rules     []memory.Rule `yaml:"rules" json:"rules"`
 		Namespace string        `yaml:"namespace" json:"namespace"`
+		Domain    string        `yaml:"domain" json:"domain,omitempty"`
 	} `yaml:"memory" json:"memory"`
 	Skills    []string `yaml:"skills" json:"skills"`
 	Knowledge []string `yaml:"knowledge" json:"knowledge"`
@@ -44,6 +45,17 @@ type Agent struct {
 	Branding map[string]string          `yaml:"branding" json:"branding"`
 	Prompt   string                     `yaml:"-" json:"-"`
 	Dir      string                     `yaml:"-" json:"-"`
+}
+
+var memoryDomain = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+// MemoryDomain is the domain used in memory scopes: the configured shared
+// domain, or the agent ID when none is set.
+func (a *Agent) MemoryDomain() string {
+	if a.Memory.Domain != "" {
+		return a.Memory.Domain
+	}
+	return a.ID
 }
 
 func Load(root string) (map[string]*Agent, error) {
@@ -68,6 +80,9 @@ func Load(root string) (map[string]*Agent, error) {
 		}
 		if _, ok := out[a.ID]; ok {
 			return nil, fmt.Errorf("duplicate agent %s", a.ID)
+		}
+		if a.Memory.Domain != "" && !memoryDomain.MatchString(a.Memory.Domain) {
+			return nil, fmt.Errorf("%s: invalid memory domain %q", p, a.Memory.Domain)
 		}
 		for _, rule := range a.Memory.Rules {
 			if _, e := regexp.Compile(rule.Pattern); e != nil {

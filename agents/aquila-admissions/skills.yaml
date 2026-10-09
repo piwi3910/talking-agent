@@ -1,0 +1,469 @@
+- id: family
+  description: "The family on this call: profile, children, earlier conversations and notes"
+  keywords:
+    [
+      family,
+      profile,
+      previous,
+      history,
+      remember,
+      note,
+      child,
+      children,
+      daughter,
+      son,
+      enquiry,
+    ]
+  instructions: "Call crm.history early in every conversation and contact.profile when you need children and year groups. Use what you find naturally, never read it out like a record, and never reveal internal references. Log anything worth remembering with crm.note, starting the summary with today's date."
+  tools:
+    - name: contact.profile
+      description: "Read the caller's profile and their children (names, year groups)"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+    - name: crm.history
+      description: "Read this family's earlier conversations, notes, bookings and applications, oldest first"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+    - name: crm.note
+      description: "Save a short note on the family record so every colleague remembers it next time. Use for names, ages, year groups, preferences, concerns, decisions and next steps"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          summary:
+            {
+              type: string,
+              description: "One or two sentences starting with today's date, for example '2026-10-09: Prefers morning tours; Mia starts FS2 in January.'",
+            }
+        required: [summary]
+      mutation: false
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Noted"
+        text: "{summary}"
+        tags: [note, crm]
+
+- id: information
+  description: "Published information about the school: curriculum, results, facilities, inclusion, timings, calendar, uniform, clubs, bus routes and more"
+  keywords:
+    [
+      school,
+      information,
+      curriculum,
+      results,
+      ratings,
+      campus,
+      facilities,
+      inclusion,
+      hemam,
+      send,
+      hours,
+      timings,
+      calendar,
+      term,
+      uniform,
+      club,
+      activity,
+      activities,
+      bus,
+      transport,
+      route,
+      arabic,
+      steam,
+      robotics,
+      safeguarding,
+      leadership,
+      events,
+    ]
+  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Times are Dubai time."
+  tools:
+    - name: school.information
+      description: "Look up published information about The Aquila School on any topic (curriculum, results, inclusion, campus, timings, calendar, ratings, leadership, events and more)"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          topic:
+            {
+              type: string,
+              description: "The topic in a few words, for example 'Hemam support' or 'school day timings'",
+            }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: clubs.list
+      description: "List clubs, sports and wrap-around care with their costs; optional interest filter"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          query:
+            {
+              type: string,
+              description: "Optional interest such as Arabic, robotics, swimming or Primary",
+            }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: uniform.info
+      description: "Uniform requirements, supplier and the approximate cost of a full set"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+    - name: transport.quote
+      description: "School bus zone and annual fee for a community or area, for example JVC or Arabian Ranches"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          area:
+            {
+              type: string,
+              description: "Community or area the family lives in",
+            }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: transport.request
+      description: "Request a school bus seat for a child from their area; the transport team confirms the stop and times"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          area:
+            {
+              type: string,
+              description: "Community or area the family lives in",
+            }
+          child_name: { type: string, description: "The child's first name" }
+        required: [area, child_name]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Bus seat requested"
+        text: "Bus seat requested for {child_name} from {area}."
+        tags: [transport, bus]
+
+- id: admissions
+  description: "Admissions: year group availability, fee quotes with sibling, early-bird and Family Circle discounts, enquiries, applications and scholarships"
+  keywords:
+    [
+      admission,
+      admissions,
+      apply,
+      application,
+      enrol,
+      fee,
+      fees,
+      tuition,
+      discount,
+      sibling,
+      referral,
+      early bird,
+      cost,
+      price,
+      afford,
+      year,
+      place,
+      places,
+      vacancy,
+      waiting,
+      scholarship,
+      deposit,
+      documents,
+    ]
+  instructions: "For any fee question call admissions.fee_quote with the real year groups, the number of children, payment (termly or annual) and whether the family has a Family Circle referral. For places call admissions.availability. For scholarships call scholarship.check. Start an application with application.start only when the family wants to proceed. Quote figures exactly as returned. No application fee; the AED 5,000 deposit is credited against Term 1."
+  tools:
+    - name: admissions.availability
+      description: "Places and waiting-list position for a year group, with annual tuition. Leave empty for all year groups"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          year_group:
+            { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: admissions.fee_quote
+      description: "Exact 2026-27 tuition for one or more children with sibling, early-bird full-year payment and Family Circle referral discounts applied"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          year_group:
+            {
+              type: string,
+              description: "Year group of the child, or several separated by commas, for example 'FS2, FS1' or 'Year 7, Year 4'",
+            }
+          children:
+            {
+              type: string,
+              description: "Optional total number of children if siblings share the same year group",
+            }
+          payment:
+            {
+              type: string,
+              description: "termly (default, 40/30/30) or annual for the full year in one payment, which earns the early-bird discount (annual by 31 May is 7%, 30 June 5%, 31 July 3%)",
+            }
+          referral:
+            {
+              type: string,
+              description: "yes if the family joins through the Aquila Family Circle referral (20% off until 31 October 2026), otherwise leave empty",
+            }
+        required: [year_group]
+      mutation: false
+      timeout_ms: 5000
+    - name: scholarship.check
+      description: "Scholarship options and requirements for a year group (ISP Middle East scholarships, Tomorrow's Leaders, performing arts)"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          year_group:
+            { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: admissions.enquire
+      description: "Log an admissions enquiry so the admissions team follows up personally; it does not reserve a place"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          year_group:
+            { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
+          summary:
+            { type: string, description: "What the family is looking for" }
+        required: [year_group, summary]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Enquiry logged"
+        text: "Admissions enquiry logged ({year_group}): {summary}"
+        tags: [admissions, enquiry]
+    - name: application.start
+      description: "Open an online application for a child; there is no application fee"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          child_name: { type: string, description: "The child's first name" }
+          year_group:
+            { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
+          intake:
+            {
+              type: string,
+              description: "Optional start date or term, for example 'January 2027'",
+            }
+        required: [child_name, year_group]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Application started"
+        text: "Application started for {child_name} ({year_group})."
+        tags: [admissions, application]
+    - name: application.status
+      description: "Read this family's application progress and the next step"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+
+- id: visits
+  description: "Tours (in person, virtual, Saturday open morning) and assessments (CAT4 or meet and greet): availability, booking and cancelling"
+  keywords:
+    [
+      tour,
+      visit,
+      open morning,
+      saturday,
+      virtual,
+      assessment,
+      cat4,
+      meet and greet,
+      book,
+      booking,
+      cancel,
+      slot,
+      available,
+    ]
+  instructions: "Call tour.availability or assessment.availability straight away and offer two or three real options, using any remembered preference. Book the exact slot chosen with tour.book or assessment.book, passing the slot ID and the day and time in words. CAT4 is for Secondary entry; the meet and greet is for FS1 to Year 6. Times are Dubai time. Use tour.cancel with the booking reference from crm.history."
+  tools:
+    - name: tour.availability
+      description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. All times Dubai time"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          type:
+            {
+              type: string,
+              description: "Optional: in-person, virtual or open-morning",
+            }
+          from: { type: string, description: "Optional first date YYYY-MM-DD" }
+          to: { type: string, description: "Optional last date YYYY-MM-DD" }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: tour.book
+      description: "Book the exact tour slot the family chose"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          slot_id:
+            {
+              type: string,
+              description: "Exact slot ID from tour.availability",
+            }
+          when:
+            {
+              type: string,
+              description: "Day and time of that slot in words, for example 'Monday 19 October, 9:00 am'",
+            }
+        required: [slot_id, when]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Tour booked"
+        text: "Tour booked for {when} (Dubai time)."
+        tags: [tour, booking]
+    - name: tour.cancel
+      description: "Cancel a tour booking owned by this family"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          booking_id:
+            {
+              type: string,
+              description: "Exact booking reference from crm.history",
+            }
+        required: [booking_id]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "cancelled"
+        text: "A tour booking was cancelled at the family's request."
+        tags: [tour, booking]
+    - name: assessment.availability
+      description: "Find CAT4 or meet-and-greet slots. All times Dubai time"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          type:
+            { type: string, description: "Optional: cat4 or meet-and-greet" }
+          from: { type: string, description: "Optional first date YYYY-MM-DD" }
+          to: { type: string, description: "Optional last date YYYY-MM-DD" }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: assessment.book
+      description: "Book the exact CAT4 or meet-and-greet slot the family chose for a child"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          slot_id:
+            {
+              type: string,
+              description: "Exact slot ID from assessment.availability",
+            }
+          child_name: { type: string, description: "The child's first name" }
+          when:
+            {
+              type: string,
+              description: "Day and time of that slot in words, for example 'Tuesday 20 October, 10:00 am'",
+            }
+        required: [slot_id, child_name, when]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Assessment booked"
+        text: "Assessment booked for {child_name}: {when} (Dubai time)."
+        tags: [assessment, booking]
+
+- id: meetings
+  description: "Meetings with school leaders (Head of Primary, Secondary, Inclusion and others) and callbacks"
+  keywords:
+    [
+      meeting,
+      meet,
+      head of,
+      principal,
+      inclusion,
+      hemam,
+      callback,
+      call back,
+      ring me,
+      phone me,
+      speak to,
+    ]
+  instructions: "Use staff.meeting_book to arrange a meeting with a named leader: Kylie Cleworth (Head of Primary), Yasmine Dannawy (Head of Secondary), Claire Hitchings (Head of Inclusion), Dr Mahmoud Khalil (Arabic and Islamic), Wayne Howsen (Principal). Use callback.schedule when the family prefers a call at a set time. Times are Dubai time."
+  tools:
+    - name: staff.meeting_book
+      description: "Book a meeting with a school leader; the school confirms a time and sends an invitation"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          staff:
+            {
+              type: string,
+              description: "Leader or role, for example 'Head of Inclusion' or 'Claire Hitchings'",
+            }
+          topic:
+            { type: string, description: "What the family wants to discuss" }
+        required: [staff, topic]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Meeting booked"
+        text: "Meeting booked with {staff} about {topic}."
+        tags: [meeting, staff]
+    - name: callback.schedule
+      description: "Schedule a callback from the admissions team at a time the family prefers"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          when:
+            {
+              type: string,
+              description: "When the family would like the call, in words",
+            }
+          topic: { type: string, description: "What the call is about" }
+        required: [when, topic]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Callback scheduled"
+        text: "Callback scheduled for {when} about {topic}."
+        tags: [callback]

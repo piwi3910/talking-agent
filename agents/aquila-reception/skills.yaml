@@ -1,0 +1,331 @@
+- id: family
+  description: "The family on this call: profile, children, earlier conversations and notes"
+  keywords:
+    [
+      family,
+      profile,
+      previous,
+      history,
+      remember,
+      note,
+      child,
+      children,
+      daughter,
+      son,
+      pupil,
+    ]
+  instructions: "Call crm.history early in every conversation and contact.profile when you need children and year groups. Use what you find naturally, never read it out like a record, and never reveal internal references. Log anything worth remembering with crm.note, starting the summary with today's date."
+  tools:
+    - name: contact.profile
+      description: "Read the caller's profile and their children (names, year groups)"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+    - name: crm.history
+      description: "Read this family's earlier conversations, notes, bookings and applications, oldest first"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+    - name: crm.note
+      description: "Save a short note on the family record so every colleague remembers it next time. Use for names, preferences, concerns, decisions and next steps"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          summary:
+            {
+              type: string,
+              description: "One or two sentences starting with today's date, for example '2026-10-09: Omar is trying out for the Year 5 football team.'",
+            }
+        required: [summary]
+      mutation: false
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Noted"
+        text: "{summary}"
+        tags: [note, crm]
+
+- id: information
+  description: "Published information about the school: timings, calendar, term dates, uniform, clubs, bus routes, curriculum, leadership, events and more"
+  keywords:
+    [
+      school,
+      information,
+      hours,
+      timings,
+      finish,
+      drop-off,
+      calendar,
+      term,
+      holiday,
+      half term,
+      uniform,
+      club,
+      clubs,
+      activity,
+      activities,
+      arabic,
+      event,
+      events,
+      curriculum,
+      leadership,
+      safeguarding,
+      parking,
+      directions,
+      contact,
+      canteen,
+      lunch,
+      wrap-around,
+    ]
+  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Times are Dubai time."
+  tools:
+    - name: school.information
+      description: "Look up published information about The Aquila School on any topic (timings, calendar, term dates, events, curriculum, leadership, contact details and more)"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          topic:
+            {
+              type: string,
+              description: "The topic in a few words, for example 'half term dates' or 'drop-off times'",
+            }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: clubs.list
+      description: "List clubs, sports and wrap-around care with their costs; optional interest filter"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          query:
+            {
+              type: string,
+              description: "Optional interest such as Arabic, robotics, swimming or Primary",
+            }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: uniform.info
+      description: "Uniform requirements, supplier and the approximate cost of a full set"
+      input:
+        {
+          type: object,
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        }
+      mutation: false
+      timeout_ms: 5000
+    - name: transport.quote
+      description: "School bus zone and annual fee for a community or area, for example JVC or Arabian Ranches"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          area:
+            {
+              type: string,
+              description: "Community or area the family lives in",
+            }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+
+- id: reception
+  description: "Front office: report a pupil absence, leave a message for a member of staff, book a meeting with a school leader, request a bus seat"
+  keywords:
+    [
+      absence,
+      absent,
+      sick,
+      ill,
+      fever,
+      unwell,
+      late,
+      message,
+      tell,
+      teacher,
+      staff,
+      meeting,
+      meet,
+      head of,
+      principal,
+      inclusion,
+      bus seat,
+      transport,
+      pick up,
+      collect,
+    ]
+  instructions: "Report absences with reception.report_absence (child, the date as YYYY-MM-DD or today, and the reason); be kind and brief. Use reception.message_staff for messages to teachers or leaders, staff.meeting_book for meetings with Kylie Cleworth (Head of Primary), Yasmine Dannawy (Head of Secondary), Claire Hitchings (Head of Inclusion), Dr Mahmoud Khalil (Arabic and Islamic) or Wayne Howsen (Principal), and transport.request for bus seats. Safeguarding concerns go to Pauline Lamond, the Safeguarding Lead, via reception.message_staff; never promise confidentiality. Times are Dubai time."
+  tools:
+    - name: reception.report_absence
+      description: "Report that a pupil will be absent; the class teacher and attendance team are told"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          child: { type: string, description: "The pupil's first name" }
+          date:
+            {
+              type: string,
+              description: "Date of absence as YYYY-MM-DD, or today or tomorrow",
+            }
+          reason:
+            {
+              type: string,
+              description: "Reason in a few words, for example 'fever'",
+            }
+        required: [child, date, reason]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Absence recorded"
+        text: "{date}: absence reported for {child} ({reason})."
+        tags: [absence, attendance]
+    - name: reception.message_staff
+      description: "Leave a message for a teacher or school leader; they reply within one working day"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          staff:
+            {
+              type: string,
+              description: "Who the message is for: a name, class teacher or role",
+            }
+          message: { type: string, description: "The message" }
+        required: [staff, message]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Message sent"
+        text: "Message left for {staff}: {message}"
+        tags: [message, staff]
+    - name: staff.meeting_book
+      description: "Book a meeting with a school leader; the school confirms a time and sends an invitation"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          staff:
+            {
+              type: string,
+              description: "Leader or role, for example 'Head of Primary' or 'Kylie Cleworth'",
+            }
+          topic:
+            { type: string, description: "What the parent wants to discuss" }
+        required: [staff, topic]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Meeting booked"
+        text: "Meeting booked with {staff} about {topic}."
+        tags: [meeting, staff]
+    - name: transport.request
+      description: "Request a school bus seat for a child from their area; the transport team confirms the stop and times"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          area:
+            {
+              type: string,
+              description: "Community or area the family lives in",
+            }
+          child_name: { type: string, description: "The child's first name" }
+        required: [area, child_name]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Bus seat requested"
+        text: "Bus seat requested for {child_name} from {area}."
+        tags: [transport, bus]
+
+- id: tours
+  description: "Visitor tours (in person, virtual, Saturday open morning): availability, booking and cancelling"
+  keywords:
+    [
+      tour,
+      visit,
+      open morning,
+      saturday,
+      virtual,
+      show someone around,
+      friend,
+      cousin,
+      neighbour,
+      cancel,
+    ]
+  instructions: "For friends and family who want to see the school, call tour.availability straight away and offer two or three real options. Book the exact slot chosen with tour.book, passing the slot ID and the day and time in words. Times are Dubai time. Use tour.cancel with the booking reference from crm.history."
+  tools:
+    - name: tour.availability
+      description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. All times Dubai time"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          type:
+            {
+              type: string,
+              description: "Optional: in-person, virtual or open-morning",
+            }
+          from: { type: string, description: "Optional first date YYYY-MM-DD" }
+          to: { type: string, description: "Optional last date YYYY-MM-DD" }
+        required: []
+      mutation: false
+      timeout_ms: 5000
+    - name: tour.book
+      description: "Book the exact tour slot the family chose"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          slot_id:
+            {
+              type: string,
+              description: "Exact slot ID from tour.availability",
+            }
+          when:
+            {
+              type: string,
+              description: "Day and time of that slot in words, for example 'Monday 19 October, 9:00 am'",
+            }
+        required: [slot_id, when]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "Tour booked"
+        text: "Tour booked for {when} (Dubai time)."
+        tags: [tour, booking]
+    - name: tour.cancel
+      description: "Cancel a tour booking owned by this family"
+      input:
+        type: object
+        additionalProperties: false
+        properties:
+          booking_id:
+            {
+              type: string,
+              description: "Exact booking reference from crm.history",
+            }
+        required: [booking_id]
+      mutation: true
+      timeout_ms: 5000
+      memory_effect:
+        contains: "cancelled"
+        text: "A tour booking was cancelled at the family's request."
+        tags: [tour, booking]
