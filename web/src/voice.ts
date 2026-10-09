@@ -45,6 +45,11 @@ const START_LEAD = 0.4;
 // Speech needed before ducking playback. Echo of the agent's own voice can
 // briefly reach 64 ms; a real interruption keeps going to the 128 ms barge-in.
 const DUCK_SPEECH_MS = 96;
+// Speech needed to treat sound during playback as an interruption. Echo of the
+// agent's own voice passes the browser's echo canceller in short bursts.
+const BARGE_SPEECH_MS = 250;
+// How long spoken phrases stay eligible for echo matching.
+const ECHO_WINDOW_MS = 20000;
 const MIN_PHRASE = 25;
 const FIRST_CLAUSE_MIN = 40;
 // Abbreviations whose full stop does not end a sentence. "No" only counts before a number.
@@ -85,6 +90,10 @@ export class Voice {
   private turn = "";
   private blockedTurn = "";
   private nextAudio = 0;
+  // A barge-in during playback waits for its transcript: if it only repeats what
+  // the agent just said, it was the agent hearing itself and playback continues.
+  private bargePending = false;
+  private recentSpoken: { text: string; at: number }[] = [];
   private lastSpeech = 0;
   private firstPlayback = false;
   private outputEnabled = true;
@@ -257,7 +266,8 @@ export class Voice {
     }
     // Duck at the first credible onset; commit without waiting for an STT result.
     if (playing && this.gain) {
-      const target = this.speechFrames >= DUCK_SPEECH_MS ? 0.12 : 1;
+      const target =
+        this.bargePending || this.speechFrames >= DUCK_SPEECH_MS ? 0.12 : 1;
       this.gain.gain.setTargetAtTime(target, this.context!.currentTime, 0.015);
       if (target !== this.lastGainTarget) {
         this.lastGainTarget = target;
@@ -284,7 +294,7 @@ export class Voice {
     if (
       !this.active &&
       !this.socket &&
-      this.speechFrames >= (playing ? 128 : 224)
+      this.speechFrames >= (playing ? BARGE_SPEECH_MS : 224)
     ) {
       this.active = true;
       this.silence = 0;
@@ -296,13 +306,16 @@ export class Voice {
         vad: probability,
         since_onset_ms: performance.now() - this.firstSpeechAt,
       });
-      this.stopOutput(playing ? "barge-in" : "speech-start");
-      if (playing)
+      if (playing) {
+        this.bargePending = true;
         this.cb.metric(
           "Interruption detection",
           performance.now() - this.firstSpeechAt,
         );
-      this.cb.interrupt();
+      } else {
+        this.stopOutput("speech-start");
+        this.cb.interrupt();
+      }
       this.cb.transcript("");
       this.cb.status("Listening to you…");
       const ws = new WebSocket(
@@ -335,6 +348,18 @@ export class Voice {
           this.socket = undefined;
           ws.close();
           const text = (data.text || partial).trim();
+          if (this.bargePending) {
+            this.bargePending = false;
+            if (this.isEcho(text)) {
+              this.tr("barge-in.echo", { text });
+              this.restoreGain();
+              this.cb.transcript("");
+              this.cb.status(this.output.size ? "Speaking" : "Listening");
+              return;
+            }
+            this.stopOutput("barge-in");
+            this.cb.interrupt();
+          }
           this.cb.transcript(text);
           this.cb.metric(
             "STT after speech",
@@ -373,6 +398,10 @@ export class Voice {
         if (this.socket === ws) {
           this.socket = undefined;
           this.active = false;
+          if (this.bargePending) {
+            this.bargePending = false;
+            this.restoreGain();
+          }
           if (!final) {
             this.cb.status("Listening");
             this.cb.error("Transcription interrupted. Please try again.");
@@ -547,7 +576,29 @@ export class Voice {
       .replace(/^\s*-\s*/gm, "")
       .trim();
   }
+  // True when a transcript heard during playback only repeats the agent's own
+  // recent words: the microphone picked up the speakers.
+  private isEcho(text: string): boolean {
+    const words = (t: string) => t.toLowerCase().match(/[a-z0-9']+/g) || [];
+    const heard = words(text);
+    if (!heard.length) return true;
+    const since = performance.now() - ECHO_WINDOW_MS;
+    this.recentSpoken = this.recentSpoken.filter((p) => p.at >= since);
+    const spoken = new Set(this.recentSpoken.flatMap((p) => words(p.text)));
+    const known = heard.filter(
+      (w) =>
+        spoken.has(w) ||
+        (w.length >= 3 && [...spoken].some((s) => s.startsWith(w))),
+    );
+    return heard.length <= 12 && known.length / heard.length >= 0.6;
+  }
+  private restoreGain() {
+    if (this.gain && this.context)
+      this.gain.gain.setTargetAtTime(1, this.context.currentTime, 0.015);
+    this.lastGainTarget = 1;
+  }
   private enqueue(text: string): boolean {
+    this.recentSpoken.push({ text, at: performance.now() });
     if (this.queue.length >= 40) {
       this.cb.error("Spoken reply is too long; the full answer is in chat.");
       this.text = "";
@@ -984,6 +1035,7 @@ export class Voice {
     }
   }
   stopOutput(reason = "stop") {
+    this.bargePending = false;
     this.tr("output.stop", {
       reason,
       ct: this.context?.currentTime,
