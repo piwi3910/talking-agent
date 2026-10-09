@@ -165,7 +165,10 @@ func run() error {
 			}
 			for _, seed := range seeds {
 				if e = mem.Store(ctx, memory.Memory{Scope: memory.Scope{Tenant: a.Tenant, Organization: a.Organization, Domain: a.MemoryDomain(), Namespace: a.Memory.Namespace, User: seed.User}, Text: seed.Text, Tags: seed.Tags}); e != nil {
-					return e
+					// Demo seeds are a convenience: a slow or unreachable memory
+					// service must not keep the whole app from starting.
+					slog.Warn("memory seeding skipped", "agent", id, "error", e)
+					break
 				}
 			}
 		} else if !os.IsNotExist(e) {
