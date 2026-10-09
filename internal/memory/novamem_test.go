@@ -19,7 +19,7 @@ func isolationScopes() []Scope {
 	out := []Scope{base, base, base, base, base, base}
 	out[1].Tenant = "other"
 	out[2].Organization = "other"
-	out[3].Domain = "hospital"
+	out[3].Domain = "school"
 	out[4].Namespace = "other"
 	out[5].User = "other"
 	return out

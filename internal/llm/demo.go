@@ -142,9 +142,6 @@ func (d *Demo) Chat(ctx context.Context, in Request, delta func(string)) (Respon
 				if strings.Contains(m.Content, "upstairs") && strings.Contains(strings.ToLower(m.Content), "previous") && strings.Contains(m.Content, "interference") && (strings.Contains(lower, "upstairs") || strings.Contains(lower, "wi-fi")) {
 					memoryPrefix = "It looks like the upstairs Wi-Fi problem has returned. Last time we found channel interference. I’ve checked the current service state.\n\n"
 				}
-				if strings.Contains(m.Content, "morning") && (strings.Contains(lower, "appointment") || strings.Contains(lower, "ahmed") || strings.Contains(lower, "dermatolog")) {
-					memoryPrefix = "You usually prefer mornings. Here are the service results using that preference.\n\n"
-				}
 			}
 		}
 		for _, r := range results {
@@ -193,7 +190,7 @@ func demoText(ctx context.Context, s string, delta func(string)) (Response, erro
 	return Response{Message: Message{Role: "assistant", Content: s}}, nil
 }
 func demoValue(key, query string, messages []Message, results []tools.Result) string {
-	patterns := map[string]string{"$slot": `(?i)\bS-D\d{3}-\d{8}-\d{2}\b`, "$appointment": `(?i)\bA-(?:P\d{3}|\d{4})\b`, "$doctor": `(?i)\bD\d{3}\b`, "$technician": `(?i)\bTECH-\d{2}\b`, "$ticket": `(?i)\b(?:T-C\d{3}|TICKET-\d+)\b`, "$plan": `(?i)\b(?:fiber-100|fiber-500|mobile-50)\b`}
+	patterns := map[string]string{"$technician": `(?i)\bTECH-\d{2}\b`, "$ticket": `(?i)\b(?:T-C\d{3}|TICKET-\d+)\b`, "$plan": `(?i)\b(?:fiber-100|fiber-500|mobile-50)\b`}
 	if p, ok := patterns[key]; ok {
 		returnValue := regexp.MustCompile(p).FindString(query)
 		if key == "$plan" {
@@ -202,49 +199,11 @@ func demoValue(key, query string, messages []Message, results []tools.Result) st
 		if returnValue != "" {
 			return strings.ToUpper(returnValue)
 		}
-		if key == "$doctor" && strings.Contains(strings.ToLower(query), "ahmed") {
-			return "D001"
-		}
 		return ""
 	}
 	switch key {
 	case "$query":
 		return query
-	case "$morning":
-		for _, m := range messages {
-			if m.Role == "system" && strings.Contains(m.Content, "prefers morning") {
-				return "morning"
-			}
-		}
-		if strings.Contains(strings.ToLower(query), "morning") {
-			return "morning"
-		}
-	case "$specialty":
-		for _, s := range []string{"Dermatology", "Cardiology", "Orthopedics", "Pediatrics", "General Medicine"} {
-			if strings.Contains(strings.ToLower(query), strings.ToLower(s[:len(s)-1])) {
-				return s
-			}
-		}
-	case "$from":
-		return time.Now().UTC().Format("2006-01-02")
-	case "$to":
-		if strings.Contains(strings.ToLower(query), "this week") {
-			now := time.Now().UTC()
-			offset := (7 - int(now.Weekday())) % 7
-			return now.AddDate(0, 0, offset).Format("2006-01-02")
-		}
-	case "$provider":
-		for _, s := range []string{"DemoCare", "HealthFirst"} {
-			if strings.Contains(strings.ToLower(query), strings.ToLower(s)) {
-				return s
-			}
-		}
-	case "$insurance_plan":
-		for _, s := range []string{"Standard", "Plus", "Gold", "Silver", "Platinum"} {
-			if strings.Contains(strings.ToLower(query), strings.ToLower(s)) {
-				return s
-			}
-		}
 	}
 	return ""
 }

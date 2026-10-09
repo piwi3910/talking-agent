@@ -7,15 +7,15 @@ test("launcher picks the persona, the stage keeps operator detail in the X-ray",
   await expect(
     page.getByRole("button", { name: /Nova Telecom/ }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Crescent Hospital" }).click();
+  await page.getByRole("button", { name: "Willowbrook School" }).click();
   await expect(
-    page.getByRole("button", { name: /Crescent Hospital/ }),
+    page.getByRole("button", { name: /Willowbrook School/ }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Demo identity", { exact: true })).toHaveValue(
-    "P001",
+    "F001",
   );
   await page.getByRole("button", { name: "Web chat" }).click();
-  await page.getByRole("button", { name: /^Go live with Maya/ }).click();
+  await page.getByRole("button", { name: /^Go live with Emma/ }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   const customer = page.getByRole("region", {
     name: "Customer experience",
@@ -38,7 +38,7 @@ test("launcher picks the persona, the stage keeps operator detail in the X-ray",
   await expect(xray).toBeVisible();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.screenshot({
-    path: "/tmp/enterprise-stage-hospital.png",
+    path: "/tmp/enterprise-stage-school.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -56,6 +56,6 @@ test("launcher picks the persona, the stage keeps operator detail in the X-ray",
   await expect(page.getByRole("button", { name: "New session" })).toBeEnabled();
   await page.goto("/settings/personas");
   await expect(
-    page.getByRole("region", { name: "Maya capabilities" }),
-  ).toContainText("hospital-demo");
+    page.getByRole("region", { name: "Emma capabilities" }),
+  ).toContainText("school-demo");
 });

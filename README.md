@@ -1,6 +1,6 @@
 # Enterprise AI Agent Demo
 
-A working Go + React/TypeScript chat and voice demonstration of **one AI platform, many industries, any frontend**. Nova Telecom support, Crescent Hospital patient services, and Willowbrook School admissions/reception use the same runtime, streaming API, skill activation, HTTP tool execution, session management, and memory interface.
+A working Go + React/TypeScript chat and voice demonstration of **one AI platform, many industries, any frontend**. Nova Telecom support, Willowbrook School admissions/reception, and three Aquila School personas use the same runtime, streaming API, skill activation, HTTP tool execution, session management, and memory interface.
 
 The default provider for local runs is an explicitly labeled **offline scripted demo**. It exercises real tools and stateful mock services without an inference server. Connect an OpenAI-compatible endpoint for open-ended AI conversation. No model is hard-coded.
 
@@ -49,14 +49,14 @@ The implementation follows the [official OpenAI function-calling and streaming f
 
 ## Included
 
-- 3 configuration-driven agents, 23 business skills, and 60 tools (28 telecom, 21 hospital, 11 school).
-- 20 fictional telecom customers, 20 school families, 20 fictional patients, and 20 doctors across five specialties.
-- All T1–T8 and H1–H6 scenarios, relative-date appointment calendars, insurance, facilities, referrals, and prescription fulfillment status.
+- 5 configuration-driven agents: telecom, school and three Aquila School personas.
+- 20 fictional telecom customers and 20 school families, plus fictional Aquila contacts.
+- All T1–T8 telecom scenarios and relative-date technician and tour calendars.
 - Stateful mutations with exact-action operator confirmation, ownership checks, atomic slot allocation, and no automatic mutation retries. Successful changes are acknowledged directly from backend records.
-- Calendar results rendered with exact UTC dates and slot IDs; empty model explanations after successful tools can recover from verified service results.
+- Record results rendered with exact UTC dates and slot IDs; empty model explanations after successful tools can recover from verified service results.
 - Relevant memory retrieval, asynchronous allowlisted fact extraction, prior-resolution memory, and isolation across tenant / organization / agent / namespace / user.
 - Separate session history, bounded tool loops, timeout/cancellation, structured errors/logs, SSE event replay, and live tool/memory/LLM telemetry.
-- Deterministic hospital emergency handling before model/tool execution; patient services only.
+- Deterministic emergency handling before model/tool execution for agents that configure emergency keywords.
 
 ## NovaMem status
 
@@ -90,16 +90,16 @@ Tests cover every configured tool, all telecom scenarios, memory isolation in al
 
 ## Phase 1 boundaries
 
-Only fictional data and trusted operator-selected identities are supported. Authentication is a demo assertion, not identity verification. Session IDs act as capabilities; this local console has no production login, authorization gateway, durable session storage, or rate limiter. Mock changes reset when their process restarts. Hospital keyword safety is intentionally conservative and not a clinical triage system. The offline provider recognizes documented phrases and IDs, rather than general natural language.
+Only fictional data and trusted operator-selected identities are supported. Authentication is a demo assertion, not identity verification. Session IDs act as capabilities; this local console has no production login, authorization gateway, durable session storage, or rate limiter. Mock changes reset when their process restarts. Emergency keyword safety is intentionally conservative and not a clinical triage system. The offline provider recognizes documented phrases and IDs, rather than general natural language.
 
 Agent files are discovered at startup; switching loaded agents requires no restart or code changes. Editing configuration files or adding an agent requires restarting the server. Phase 2 now adds browser voice and STT/TTS; WebRTC, avatars, engines, and production UI remain out of scope.
 
 The live LLM adapter uses `github.com/azrtydxb/go-ai-sdk` v0.6.0 with its OpenAI-compatible provider. Go 1.26+ is required. Endpoint, model and credential environment variable remain configurable; the platform runtime owns tool execution and telemetry.
 
-For the live KW hospital flow (uses fictional P018 and ends by cancelling the test appointment):
+For the live KW school flow (uses fictional F020 and ends by cancelling the test tour):
 
 ```sh
-DEMO_BASE_URL=https://agent.kw.watteel.lab DEMO_IGNORE_HTTPS_ERRORS=true LIVE_MODEL_TESTS=true npm --prefix web run test:e2e -- tests/live.spec.ts
+DEMO_BASE_URL=https://agent.kw.watteel.lab DEMO_IGNORE_HTTPS_ERRORS=true SCHOOL_LIVE_TESTS=true npm --prefix web run test:e2e -- tests/school.spec.ts
 ```
 
 The live test checks exact calendar dates and slot IDs, booking, rescheduling, cancellation, and operator confirmation. The original `demo.spec.ts` suite targets the offline scripted provider.

@@ -49,23 +49,20 @@ func TestTelecomScenarios(t *testing.T) {
 		t.Fatal("optimization did not change state")
 	}
 }
-func TestHospitalAtomicBookingsAndOwnership(t *testing.T) {
+func TestTechnicianAtomicBookingsAndIsolation(t *testing.T) {
 	b := fixture(t)
-	if len(b.Users("hospital")) < 20 || len(b.catalogs["doctors"]) < 20 {
-		t.Fatal("insufficient fixtures")
-	}
-	available := call(b, "hospital", "P001", "appointment.availability", map[string]string{"specialty": "Dermatology", "time_preference": "morning"})
+	available := call(b, "telecom", "C001", "technician.availability", nil)
 	if len(available.Records) < 2 {
 		t.Fatal(available)
 	}
 	slot := available.Records[0].ID
 	var wg sync.WaitGroup
 	out := make(chan tools.Result, 2)
-	for _, user := range []string{"P001", "P002"} {
+	for _, user := range []string{"C001", "C002"} {
 		wg.Add(1)
 		go func(u string) {
 			defer wg.Done()
-			out <- call(b, "hospital", u, "appointment.book", map[string]string{"slot_id": slot})
+			out <- call(b, "telecom", u, "technician.book", map[string]string{"slot_id": slot})
 		}(user)
 	}
 	wg.Wait()
@@ -79,37 +76,10 @@ func TestHospitalAtomicBookingsAndOwnership(t *testing.T) {
 	if success != 1 {
 		t.Fatalf("double booking: %d", success)
 	}
-	if call(b, "hospital", "P002", "appointment.cancel", map[string]string{"appointment_id": "A-P001"}).Error == nil {
-		t.Fatal("cross-patient cancellation allowed")
-	}
-	r := call(b, "hospital", "P001", "appointment.reschedule", map[string]string{"appointment_id": "A-P001", "slot_id": available.Records[4].ID})
-	if r.Error != nil {
-		t.Fatal(r)
-	}
-	r = call(b, "hospital", "P001", "appointment.cancel", map[string]string{"appointment_id": "A-P001"})
-	if r.Error != nil {
-		t.Fatal(r)
-	}
-	r = call(b, "hospital", "P003", "appointment.book", map[string]string{"slot_id": available.Records[4].ID})
-	if r.Error != nil {
-		t.Fatal("cancelled slot was not released", r)
-	}
-}
-func TestUnavailableDoctorInsuranceAndIsolation(t *testing.T) {
-	b := fixture(t)
-	today := time.Now().UTC()
-	r := call(b, "hospital", "P002", "appointment.availability", map[string]string{"doctor_id": "D002", "from": today.Format("2006-01-02"), "to": today.AddDate(0, 0, 6).Format("2006-01-02")})
-	if len(r.Records) != 0 {
-		t.Fatal("doctor on leave has slots")
-	}
-	r = call(b, "hospital", "P001", "insurance.check", map[string]string{"provider": "DemoCare", "plan": "Gold"})
-	if !strings.Contains(r.Summary, "not listed") {
-		t.Fatal(r)
-	}
-	if call(b, "hospital", "C001", "patient.profile", nil).Error == nil {
+	if call(b, "telecom", "F001", "technician.availability", nil).Error == nil {
 		t.Fatal("cross-domain identity accepted")
 	}
-	if call(b, "hospital", "P001", "wifi.status", nil).Error == nil {
+	if call(b, "telecom", "C001", "family.profile", nil).Error == nil {
 		t.Fatal("cross-domain tool accepted")
 	}
 }

@@ -45,7 +45,7 @@ func TestPromptAddendumOnlyWhenHookReturnsText(t *testing.T) {
 
 func TestScopePolicyInSystemPromptForEveryShippedAgent(t *testing.T) {
 	r, agents, _ := setup(t)
-	if len(agents) < 6 {
+	if len(agents) < 5 {
 		t.Fatalf("expected the shipped agents, got %d", len(agents))
 	}
 	for id, a := range agents {

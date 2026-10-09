@@ -1,5 +1,7 @@
 # Validation record
 
+The hospital agent has since been removed from the demo. Entries below that mention it are historical.
+
 Verified in the workspace on 2026-09-29 with Go 1.27.1 (Linux arm64) and Node.js 24.21.0:
 
 - Go unit/integration tests, including the race detector.

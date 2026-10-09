@@ -8,7 +8,6 @@
   "allowed_peers": ["192.0.2.20/32"],
   "numbers": {
     "500": "telecom-support",
-    "501": "hospital-services",
     "502": "school-services"
   }
 }

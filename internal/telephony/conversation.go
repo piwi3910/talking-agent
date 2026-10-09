@@ -251,7 +251,7 @@ func (s *Server) converse(parent context.Context, m *diago.DialogMedia, sess *se
 }
 
 func proposalText(p session.Pending) string {
-	labels := map[string]string{"wifi.optimize": "update your Wi-Fi settings", "wifi.restart": "restart your router", "plan.change": "change your plan", "appointment.book": "book an appointment", "appointment.reschedule": "reschedule an appointment", "appointment.cancel": "cancel an appointment", "technician.book": "book a technician visit", "ticket.create": "create a support ticket", "ticket.update": "update a support ticket", "support.create_request": "send your service request"}
+	labels := map[string]string{"wifi.optimize": "update your Wi-Fi settings", "wifi.restart": "restart your router", "plan.change": "change your plan", "technician.book": "book a technician visit", "ticket.create": "create a support ticket", "ticket.update": "update a support ticket", "support.create_request": "send your service request"}
 	label := labels[p.Tool]
 	if label == "" {
 		label = strings.ReplaceAll(p.Tool, ".", " ")
@@ -368,7 +368,7 @@ func (s *Server) runPhoneTurn(ctx context.Context, w io.Writer, pt uint8, sess *
 					if strings.HasPrefix(tool, "network.") || strings.HasPrefix(tool, "wifi.") {
 						category = "network"
 					}
-					if tool == "appointment.availability" || tool == "technician.availability" {
+					if tool == "technician.availability" {
 						category = "availability"
 					}
 				}

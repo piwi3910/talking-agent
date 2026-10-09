@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/knowledge"
 	"enterprise-ai-demo/internal/llm"
@@ -59,11 +58,11 @@ func conversation(s *session.Session) string {
 func TestMemoryAcrossSessionsAndIndustrySwitch(t *testing.T) {
 	r, agents, _ := setup(t)
 	store := session.NewStore()
-	first := store.Create(agents["hospital-services"], "P001")
-	r.Run(context.Background(), first, "t1", Turn{Text: "Mornings normally work better for me."})
+	first := store.Create(agents["telecom-support"], "C001")
+	r.Run(context.Background(), first, "t1", Turn{Text: "I prefer troubleshooting before you send a technician."})
 	deadline := time.Now().Add(time.Second)
 	for {
-		ms, _ := r.Memory.Retrieve(context.Background(), memory.RetrieveRequest{Scope: Scope(first), Query: "appointment"})
+		ms, _ := r.Memory.Retrieve(context.Background(), memory.RetrieveRequest{Scope: Scope(first), Query: "technician"})
 		if len(ms) == 1 {
 			break
 		}
@@ -72,23 +71,19 @@ func TestMemoryAcrossSessionsAndIndustrySwitch(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	second := store.Create(agents["hospital-services"], "P001")
-	r.Run(context.Background(), second, "t2", Turn{Text: "Can I make another appointment with Dr. Ahmed?"})
-	if !strings.Contains(conversation(second), "Available appointments (UTC)") {
-		t.Fatal(conversation(second))
-	}
+	second := store.Create(agents["telecom-support"], "C001")
+	r.Run(context.Background(), second, "t2", Turn{Text: "My upstairs Wi-Fi is poor again"})
+	completed := false
 	for _, e := range second.Events.Since(0) {
-		if e.Type == "tool.completed" {
-			raw, _ := json.Marshal(e.Data)
-			if strings.Contains(string(raw), "T14:") {
-				t.Fatal("afternoon returned despite preference")
-			}
-		}
+		completed = completed || e.Type == "memory.retrieval.completed"
 	}
-	tele := store.Create(agents["telecom-support"], "P001")
-	mems, _ := r.Memory.Retrieve(context.Background(), memory.RetrieveRequest{Scope: Scope(tele), Query: "appointment"})
+	if !completed {
+		t.Fatal("stored preference not retrieved in a new session")
+	}
+	school := store.Create(agents["school-services"], "C001")
+	mems, _ := r.Memory.Retrieve(context.Background(), memory.RetrieveRequest{Scope: Scope(school), Query: "technician"})
 	if len(mems) != 0 {
-		t.Fatal("hospital memory leaked to telecom")
+		t.Fatal("telecom memory leaked to school")
 	}
 }
 func TestConfirmationAndOutageProtection(t *testing.T) {
@@ -122,12 +117,12 @@ func TestConfirmationAndOutageProtection(t *testing.T) {
 		t.Fatal(conversation(outage))
 	}
 }
-func TestHospitalSafetyBypassesModelAndTools(t *testing.T) {
+func TestEmergencySafetyBypassesModelAndTools(t *testing.T) {
 	r, agents, _ := setup(t)
-	s := session.NewStore().Create(agents["hospital-services"], "P001")
+	s := session.NewStore().Create(agents["aquila-reception"], "F001")
 	r.Clients[s.Agent.ID] = panicClient{}
-	r.Run(context.Background(), s, "t1", Turn{Text: "I have chest pain and can't breathe; book an appointment"})
-	r.Run(context.Background(), s, "t2", Turn{Text: "Book an appointment now"})
+	r.Run(context.Background(), s, "t1", Turn{Text: "I have chest pain and can't breathe; book a tour"})
+	r.Run(context.Background(), s, "t2", Turn{Text: "Book a tour now"})
 	if !strings.Contains(conversation(s), "emergency services") {
 		t.Fatal(conversation(s))
 	}
@@ -180,7 +175,7 @@ func TestMultipleCallsAndBoundedLoop(t *testing.T) {
 	calls = 0
 	r.Clients[s.Agent.ID] = testClient{respond: func(_ llm.Request, _ func(string)) llm.Response {
 		calls++
-		return llm.Response{Message: llm.Message{Role: "assistant", ToolCalls: []llm.Call{{ID: session.ID(), Type: "function", Function: llm.Function{Name: "patient__profile", Arguments: "{}"}}}}}
+		return llm.Response{Message: llm.Message{Role: "assistant", ToolCalls: []llm.Call{{ID: session.ID(), Type: "function", Function: llm.Function{Name: "family__profile", Arguments: "{}"}}}}}
 	}}
 	r.Run(context.Background(), s, "loop", Turn{Text: "Check my account"})
 	if calls != 3 {
@@ -203,16 +198,16 @@ func TestMultipleCallsAndBoundedLoop(t *testing.T) {
 func TestMemoryOutageIsNotEmptyHistory(t *testing.T) {
 	r, agents, _ := setup(t)
 	r.Memory = memory.NovaMemProvider{} // explicit outage, not a successful empty search
-	s := session.NewStore().Create(agents["hospital-services"], "P001")
+	s := session.NewStore().Create(agents["telecom-support"], "C001")
 	called := false
 	r.Clients[s.Agent.ID] = testClient{respond: func(req llm.Request, delta func(string)) llm.Response {
 		called = true
 		if !strings.Contains(req.Messages[1].Content, "Memory lookup is currently unavailable") {
 			t.Fatal("model not told lookup failed")
 		}
-		return llm.Response{Message: llm.Message{Role: "assistant", Content: "I can help with current appointments."}}
+		return llm.Response{Message: llm.Message{Role: "assistant", Content: "I can help with your current services."}}
 	}}
-	r.Run(context.Background(), s, "outage", Turn{Text: "Show appointments"})
+	r.Run(context.Background(), s, "outage", Turn{Text: "Show my services"})
 	failed, completed := false, false
 	for _, event := range s.Events.Since(0) {
 		failed = failed || event.Type == "memory.retrieval.failed"

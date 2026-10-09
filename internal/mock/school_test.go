@@ -70,10 +70,10 @@ func TestSchoolBookingsOwnershipAndRequests(t *testing.T) {
 	if len(call(b, "school", "F002", "reception.requests", nil).Records) != 0 {
 		t.Fatal("request leaked")
 	}
-	if call(b, "hospital", "P001", "family.profile", nil).Error == nil {
+	if call(b, "telecom", "C001", "family.profile", nil).Error == nil {
 		t.Fatal("cross-industry tool accepted")
 	}
-	if call(b, "school", "P001", "family.profile", nil).Error == nil {
+	if call(b, "school", "C001", "family.profile", nil).Error == nil {
 		t.Fatal("cross-industry identity accepted")
 	}
 	if call(b, "school", "F001", "tour.availability", map[string]string{"from": "not-a-date"}).Error == nil {

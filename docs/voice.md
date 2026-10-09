@@ -22,7 +22,7 @@ Real LLM deltas pass through SDK → runtime journal → flushed SSE → React. 
 
 ## Validation and limits
 
-Run `go test ./...`, `npm --prefix web run build`, and the Playwright suite. Opt-in `VOICE_TESTS=true` uses a prerecorded WAV as Chromium's microphone and the actual deployed speech services; set `VOICE_WAV` to a mono WAV containing a short English utterance and trailing silence. `LIVE_MODEL_TESTS=true` exercises real model appointment tools on fictional P018 records.
+Run `go test ./...`, `npm --prefix web run build`, and the Playwright suite. Opt-in `VOICE_TESTS=true` uses a prerecorded WAV as Chromium's microphone and the actual deployed speech services; set `VOICE_WAV` to a mono WAV containing a short English utterance and trailing silence. `LIVE_MODEL_TESTS=true` checks that live model text renders before the turn finishes.
 
 This is a low-concurrency English demo. Silero v6 classifies speech in the browser, alongside browser noise suppression and echo cancellation. A turn starts only after 224 ms of confident speech; playback ducks after 64 ms of credible speech and interrupts after 128 ms; normal listening still requires 224 ms. This rejects many non-speech noises but cannot distinguish a nearby person or television speech from the operator. Noisy rooms and loudspeakers still need hands-on tuning. Browser tests verify real inference, audio scheduling, cancellation and UI behavior, not subjective naturalness or acoustic echo cancellation. GPU contention can add queuing latency. Speech model services serialize inference. No voice authentication, voice cloning, WebRTC, avatar, or production call-center concurrency is claimed.
 

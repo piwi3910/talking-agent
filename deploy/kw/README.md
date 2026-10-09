@@ -55,7 +55,7 @@ The existing three scripted browser scenario tests are designed for offline mode
 
 ```sh
 DEMO_BASE_URL=https://agent.kw.watteel.lab \
-DEMO_IGNORE_HTTPS_ERRORS=true LIVE_MODEL_TESTS=true npm --prefix web run test:e2e -- tests/live.spec.ts
+DEMO_IGNORE_HTTPS_ERRORS=true SCHOOL_LIVE_TESTS=true npm --prefix web run test:e2e -- tests/school.spec.ts
 ```
 
 The browser override accommodates the lab CA in an isolated test browser. Separately verify the real certificate with the CA-pinned curl command above. These tests modify fictional data; use a fresh deployment when reproducing the original scenarios.

@@ -74,7 +74,6 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 
 const industryLabels: Record<string, string> = {
-  hospital: "Demo patient",
   school: "Demo family",
   aquila: "Family / contact",
 };
@@ -100,7 +99,6 @@ export function actionLabel(tool: string) {
 // Stage accents: bright on the dark stage, the persona's own brand colour in light mode.
 const stageAccents: Record<string, string> = {
   telecom: "#6E9BFF",
-  hospital: "#2FD1B9",
   school: "#B3A1FF",
   aquila: "#7FB0F5",
 };
