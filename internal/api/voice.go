@@ -70,7 +70,11 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 		w.Write(wav)
 	})
 	m.HandleFunc("GET /api/voice", func(w http.ResponseWriter, r *http.Request) {
-		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": "Nemotron 3.5 ASR", "tts": "Breeze TTS 2", "input_sample_rate": 16000, "output_sample_rate": 24000})
+		tts := "Breeze TTS 2"
+		if a.Speech.Qwen3() {
+			tts = "Qwen3-TTS 1.7B"
+		}
+		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": "Nemotron 3.5 ASR", "tts": tts, "input_sample_rate": 16000, "output_sample_rate": 24000})
 	})
 	m.HandleFunc("GET /api/sessions/{id}/transcribe", a.transcribe)
 	m.HandleFunc("POST /api/sessions/{id}/speech", a.synthesize)
@@ -187,6 +191,32 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 	c.CloseNow()
 	<-readerDone
 }
+
+// maxSpeechPerSession bounds concurrent /speech requests of one session.
+const maxSpeechPerSession = 2
+
+// acquireSpeech takes one of the session's speech slots; false when all are taken.
+func (a *API) acquireSpeech(session string) bool {
+	a.speechMu.Lock()
+	defer a.speechMu.Unlock()
+	if a.speechActive == nil {
+		a.speechActive = map[string]int{}
+	}
+	if a.speechActive[session] >= maxSpeechPerSession {
+		return false
+	}
+	a.speechActive[session]++
+	return true
+}
+func (a *API) releaseSpeech(session string) {
+	a.speechMu.Lock()
+	defer a.speechMu.Unlock()
+	if a.speechActive[session] <= 1 {
+		delete(a.speechActive, session)
+		return
+	}
+	a.speechActive[session]--
+}
 func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	s := a.Sessions.Get(r.PathValue("id"))
 	if s == nil {
@@ -205,12 +235,12 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "Invalid speech request")
 		return
 	}
-	key := "tts:" + s.ID
-	if _, loaded := a.VoiceActive.LoadOrStore(key, true); loaded {
+	// The browser pipelines the next phrase while the current one plays.
+	if !a.acquireSpeech(s.ID) {
 		fail(w, 409, "Speech already active")
 		return
 	}
-	defer a.VoiceActive.Delete(key)
+	defer a.releaseSpeech(s.ID)
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	stop := context.AfterFunc(a.Root, cancel)
@@ -220,11 +250,11 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	bytes := 0
 	voice, events := a.Voices.Resolve(s.Agent.ID)
 	// Only the audio text is normalised; the chat text stays as written.
-	text := speech.Spoken(speech.VocalEvents(in.Text, events))
+	text := speech.Spoken(speech.VocalEvents(in.Text, events && a.Speech.EventsSupported()))
 	s.Events.Emit(in.TurnID, "tts.started", map[string]any{"characters": len(text), "reference_voice": voice.Reference != nil})
 	w.Header().Set("Content-Type", "audio/pcm")
 	w.Header().Set("X-Audio-Sample-Rate", "24000")
-	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Cache-Control", "no-store, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Trailer", "X-Speech-Error")
 	if text == "" {

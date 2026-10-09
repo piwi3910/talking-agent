@@ -43,6 +43,12 @@ func (a *API) voiceSettingsRoutes(m *http.ServeMux) {
 			fail(w, 409, err.Error())
 			return
 		}
+		if errors.Is(err, voices.ErrSynthesis) {
+			// The voice sample could not be rendered; nothing was saved.
+			slog.Warn("render voice sample", "error", err)
+			fail(w, 502, err.Error()+". Nothing was saved; try again.")
+			return
+		}
 		if errors.Is(err, voices.ErrStorage) {
 			// The cause can contain file paths; keep it in the log only.
 			slog.Error("save voice settings", "error", err)
@@ -248,7 +254,7 @@ func (a *API) previewVoice(w http.ResponseWriter, r *http.Request) {
 	stop := context.AfterFunc(a.Root, cancel)
 	defer stop()
 	var pcm bytes.Buffer
-	err = a.Speech.Synthesize(ctx, speech.Spoken(speech.VocalEvents(in.Text, true)), voice, func(p []byte) error { pcm.Write(p); return nil })
+	err = a.Speech.Synthesize(ctx, speech.Spoken(speech.VocalEvents(in.Text, a.Speech.EventsSupported())), voice, func(p []byte) error { pcm.Write(p); return nil })
 	if err != nil || pcm.Len()%2 != 0 {
 		fail(w, 502, "Speech generation failed")
 		return

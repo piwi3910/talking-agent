@@ -47,6 +47,7 @@ type Voice struct {
 	Description string `json:"description"`
 	Builtin     bool   `json:"builtin"`
 	Kind        string `json:"kind"`
+	Unavailable bool   `json:"unavailable,omitempty"` // a designed voice whose sample is not rendered yet
 }
 type Persona struct {
 	VoiceID   string `json:"voice_id"`
@@ -59,11 +60,18 @@ type CueStatus struct {
 	Total int    `json:"total"`
 	Error string `json:"error"`
 }
+
+// Capabilities tells the UI what the active TTS model supports.
+type Capabilities struct {
+	VocalEvents bool `json:"vocal_events"`
+}
 type Snapshot struct {
-	Revision uint64               `json:"revision"`
-	Voices   []Voice              `json:"voices"`
-	Personas map[string]Persona   `json:"personas"`
-	Cues     map[string]CueStatus `json:"cues"`
+	Revision     uint64               `json:"revision"`
+	Provider     string               `json:"provider"`
+	Capabilities Capabilities         `json:"capabilities"`
+	Voices       []Voice              `json:"voices"`
+	Personas     map[string]Persona   `json:"personas"`
+	Cues         map[string]CueStatus `json:"cues"`
 }
 
 // Custom is the editable part of a voice; builtin voices are derived at startup.
@@ -107,13 +115,14 @@ type Store struct {
 
 	cloneRoot string                       // <root>/<id>/reference.wav|txt, a sibling of the cue dir
 	clones    map[string]*speech.Reference // loaded clone references by voice id
+	designs   map[string]*designSample     // qwen3: rendered sample of each design voice, by voice id
 }
 
 // Open loads saved settings and removes render leftovers from a previous run.
 // refs holds each agent's reference voice (nil entries are agents without one).
 func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]*speech.Reference, tts *speech.Client) (*Store, error) {
 	s := &Store{path: path, cueDir: cueDir, tts: tts, agents: agents, refs: refs, manifest: map[string][]byte{}, personas: map[string]Persona{}, jobs: map[string]*job{}, wake: make(chan struct{}, 1),
-		cloneRoot: filepath.Join(filepath.Dir(cueDir), "voices"), clones: map[string]*speech.Reference{}}
+		cloneRoot: filepath.Join(filepath.Dir(cueDir), "voices"), clones: map[string]*speech.Reference{}, designs: map[string]*designSample{}}
 	ids := make([]string, 0, len(agents))
 	for id := range agents {
 		ids = append(ids, id)
@@ -131,6 +140,10 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 		if raw, err := os.ReadFile(filepath.Join(a.Dir, "voice", "cues.json")); err == nil {
 			s.manifest[id] = raw
 		}
+	}
+	if tts.Qwen3() {
+		// Preset speakers only exist for Qwen3-TTS CustomVoice.
+		s.builtin = append(s.builtin, presetVoices()...)
 	}
 	for _, id := range ids {
 		s.personas[id] = s.defaultPersona(id)
@@ -166,6 +179,7 @@ func Open(path, cueDir string, agents map[string]*config.Agent, refs map[string]
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
+	s.loadDesigns()
 	// Temp and aside dirs only exist when a render was interrupted; they are never visible as a set.
 	for _, pattern := range []string{".tmp-*", ".old-*"} {
 		leftovers, _ := filepath.Glob(filepath.Join(cueDir, "*", pattern))
@@ -269,8 +283,8 @@ func (s *Store) validate(custom []Custom, personas map[string]Persona, previous 
 }
 
 func validID(id string) error {
-	if !customID.MatchString(id) || strings.HasPrefix(id, "ref-") {
-		return fmt.Errorf("invalid voice id %q: use lowercase letters, digits and hyphens, up to 40 characters, not starting with ref-", id)
+	if !customID.MatchString(id) || strings.HasPrefix(id, "ref-") || strings.HasPrefix(id, presetPrefix) {
+		return fmt.Errorf("invalid voice id %q: use lowercase letters, digits and hyphens, up to 40 characters, not starting with ref- or preset-", id)
 	}
 	return nil
 }
@@ -287,13 +301,13 @@ func (s *Store) Snapshot() Snapshot {
 	return s.snapshot()
 }
 func (s *Store) snapshot() Snapshot {
-	out := Snapshot{Revision: s.revision, Voices: append([]Voice{}, s.builtin...), Personas: map[string]Persona{}, Cues: map[string]CueStatus{}}
+	out := Snapshot{Revision: s.revision, Provider: s.Provider(), Capabilities: Capabilities{VocalEvents: !s.qwen()}, Voices: append([]Voice{}, s.builtin...), Personas: map[string]Persona{}, Cues: map[string]CueStatus{}}
 	for _, v := range s.custom {
 		kind := KindDesign
 		if v.Kind == KindClone {
 			kind = KindClone
 		}
-		out.Voices = append(out.Voices, Voice{ID: v.ID, Name: v.Name, Description: v.Description, Kind: kind})
+		out.Voices = append(out.Voices, Voice{ID: v.ID, Name: v.Name, Description: v.Description, Kind: kind, Unavailable: s.unavailable(v.ID)})
 	}
 	for id, p := range s.personas {
 		out.Personas[id] = p
@@ -304,6 +318,12 @@ func (s *Store) snapshot() Snapshot {
 
 // Save validates, persists atomically, then publishes and queues cue renders.
 func (s *Store) Save(in SaveRequest) (Snapshot, error) {
+	// Under qwen3 a design voice needs its reference sample before anything is
+	// persisted; the render runs outside the lock so live speech never waits.
+	fresh, err := s.prepareDesigns(in)
+	if err != nil {
+		return Snapshot{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if in.Revision != s.revision {
@@ -337,6 +357,7 @@ func (s *Store) Save(in SaveRequest) (Snapshot, error) {
 	s.revision++
 	s.custom, s.personas = custom, personas
 	s.dropRemovedClones(custom)
+	s.adoptDesigns(custom, fresh)
 	s.enqueueMissing(true)
 	return s.snapshot(), nil
 }
@@ -372,7 +393,8 @@ func (s *Store) Resolve(agentID string) (speech.Voice, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	p := s.personas[agentID]
-	return s.resolve(p.VoiceID, p.Direction), p.Events
+	// Qwen3-TTS does not understand inline vocal events, whatever the setting.
+	return s.resolve(s.effectiveVoiceID(agentID), p.Direction), p.Events && !s.qwen()
 }
 
 // Preview resolves a draft: a saved voice or an unsaved design description,
@@ -381,14 +403,24 @@ func (s *Store) Preview(voiceID, description, direction string) (speech.Voice, e
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if voiceID == "" {
+		if s.qwen() {
+			// An unsaved description previews straight from the design model.
+			return speech.Voice{Model: speech.ModelQwen3Design, Instruct: description}, nil
+		}
 		return designVoice(description, direction), nil
 	}
 	if !s.hasVoice(s.custom, voiceID) {
 		return speech.Voice{}, fmt.Errorf("unknown voice %q", voiceID)
 	}
+	if s.unavailable(voiceID) {
+		return speech.Voice{}, fmt.Errorf("the sample of voice %q is not available yet; save the voice again", voiceID)
+	}
 	return s.resolve(voiceID, direction), nil
 }
 func (s *Store) resolve(voiceID, direction string) speech.Voice {
+	if s.qwen() {
+		return s.resolveQwen(voiceID, direction)
+	}
 	if agent, ok := strings.CutPrefix(voiceID, "ref-"); ok && s.refs[agent] != nil {
 		return referenceVoice(s.refs[agent], direction)
 	}

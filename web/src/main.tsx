@@ -210,6 +210,10 @@ function App() {
   async function start() {
     reset();
     setStarting(true);
+    // Outbound calls start voice only after several awaits, long after the click.
+    // Create the AudioContext now, inside the gesture, so the browser lets it run.
+    const primed = outbound && voiceEnabled ? Voice.prime() : undefined;
+    let handedOver = false;
     try {
       const data = await api<{ id: string }>("/sessions", {
         agent_id: agentID,
@@ -279,7 +283,8 @@ function App() {
         // Placing a call starts voice as well so the opening is spoken and the
         // contact can answer by voice. Without voice it silently stays text.
         if (outbound && voiceEnabled) {
-          await startVoice(data.id, true);
+          handedOver = true;
+          await startVoice(data.id, true, primed);
           if (source.current !== stream) return;
         }
         try {
@@ -292,6 +297,7 @@ function App() {
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      if (primed && !handedOver) void primed.close().catch(() => undefined);
       setStarting(false);
     }
   }
@@ -349,8 +355,15 @@ function App() {
   }
   // Starts the browser voice session for sessionID. With silent set, a failure
   // (for example a denied microphone) leaves the chat in text mode without an error.
-  async function startVoice(sessionID: string, silent = false) {
-    if (voice.current) return;
+  async function startVoice(
+    sessionID: string,
+    silent = false,
+    context?: AudioContext,
+  ) {
+    if (voice.current) {
+      void context?.close().catch(() => undefined);
+      return;
+    }
     setError("");
     setVoiceOn(true);
     setMicMuted(false);
@@ -384,6 +397,7 @@ function App() {
         },
       },
       agentID,
+      context,
     );
     voice.current = v;
     v.enableOutput(spoken);

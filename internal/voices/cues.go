@@ -33,9 +33,9 @@ func (s *Store) original(agentID string) bool {
 }
 func (s *Store) voice(agentID string) speech.Voice {
 	p := s.personas[agentID]
-	return s.resolve(p.VoiceID, p.Direction)
+	return s.resolve(s.effectiveVoiceID(agentID), p.Direction)
 }
-func (s *Store) key(agentID string) string         { return cueKey(s.voice(agentID)) }
+func (s *Store) key(agentID string) string         { return s.cueKey(s.voice(agentID)) }
 func (s *Store) setDir(agentID, key string) string { return filepath.Join(s.cueDir, agentID, key) }
 func (s *Store) ready(agentID, key string) bool {
 	_, err := os.Stat(filepath.Join(s.setDir(agentID, key), "cues.json"))
@@ -49,6 +49,10 @@ func (s *Store) count(agentID string) int {
 
 // needed reports whether the persona's current cue set has to be rendered.
 func (s *Store) needed(agentID string) bool {
+	// A design voice still waiting for its sample renders once the sample exists.
+	if s.unavailable(s.personas[agentID].VoiceID) {
+		return false
+	}
 	return !s.original(agentID) && s.count(agentID) > 0 && !s.ready(agentID, s.key(agentID))
 }
 func (s *Store) status(agentID string) CueStatus {
@@ -99,7 +103,7 @@ func (s *Store) enqueueMissing(retry bool) {
 }
 func (s *Store) queueLocked(id string, force bool) {
 	v := s.voice(id)
-	s.jobs[id] = &job{key: cueKey(v), voice: v, state: "queued", total: s.count(id), force: force}
+	s.jobs[id] = &job{key: s.cueKey(v), voice: v, state: "queued", total: s.count(id), force: force}
 	s.queue = append(s.queue, id)
 	select {
 	case s.wake <- struct{}{}:
@@ -129,8 +133,15 @@ func (s *Store) Force(agentID string) (Snapshot, error) {
 // Start queues missing sets and runs the single render worker until ctx ends.
 func (s *Store) Start(ctx context.Context) {
 	s.mu.Lock()
-	s.enqueueMissing(false)
+	missing := s.missingDesigns()
+	if len(missing) == 0 {
+		s.enqueueMissing(false)
+	}
 	s.mu.Unlock()
+	if len(missing) > 0 {
+		// Design voices lost their sample (qwen3): regenerate, then queue cue sets.
+		go s.regenDesigns(ctx, missing)
+	}
 	go func() {
 		for {
 			for {
@@ -224,8 +235,12 @@ func (s *Store) render(ctx context.Context, agentID string, j *job) {
 		for i := range m.Cues {
 			c := &m.Cues[i]
 			var pcm []byte
+			// Background renders never delay a caller: wait while live speech runs.
+			if err = s.tts.WaitIdle(ctx); err != nil {
+				return err
+			}
 			cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
-			err = s.tts.Synthesize(cctx, speech.Spoken(c.Text), voice, func(b []byte) error { pcm = append(pcm, b...); return nil })
+			err = s.tts.SynthesizeBackground(cctx, speech.Spoken(c.Text), voice, func(b []byte) error { pcm = append(pcm, b...); return nil })
 			cancel()
 			if err != nil {
 				return err

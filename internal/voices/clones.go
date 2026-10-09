@@ -132,6 +132,12 @@ func (s *Store) CreateClone(in CloneRequest) (Snapshot, error) {
 // writeClone stores the reference in a temp dir and renames it into place, so a
 // clone directory is either complete or absent.
 func (s *Store) writeClone(id string, wav []byte, text string) error {
+	return s.writeReference(id, wav, text, nil)
+}
+
+// writeReference is writeClone plus extra small files (a design sample keeps the
+// description it was rendered from).
+func (s *Store) writeReference(id string, wav []byte, text string, extra map[string]string) error {
 	if err := os.MkdirAll(s.cloneRoot, 0700); err != nil {
 		return err
 	}
@@ -145,6 +151,11 @@ func (s *Store) writeClone(id string, wav []byte, text string) error {
 	}
 	if err = os.WriteFile(filepath.Join(tmp, cloneTextFile), []byte(text), 0600); err != nil {
 		return err
+	}
+	for name, content := range extra {
+		if err = os.WriteFile(filepath.Join(tmp, name), []byte(content), 0600); err != nil {
+			return err
+		}
 	}
 	// Anything already at the final name is an orphan of a clone that is not in the settings.
 	if err = os.RemoveAll(s.cloneDir(id)); err != nil {

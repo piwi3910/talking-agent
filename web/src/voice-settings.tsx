@@ -8,7 +8,10 @@ type Voice = {
   description: string;
   builtin: boolean;
   // Older servers omit the kind: anything not builtin is a designed voice.
-  kind?: "builtin" | "design" | "clone";
+  // "preset" is a built-in speaker of the Qwen3 TTS model.
+  kind?: "builtin" | "design" | "clone" | "preset";
+  // A designed voice whose sample could not be rendered yet (Qwen3 only).
+  unavailable?: boolean;
 };
 type Assignment = { voice_id: string; direction: string; events: boolean };
 type CueState = {
@@ -19,6 +22,9 @@ type CueState = {
 };
 export type Snapshot = {
   revision: number;
+  // Older servers omit these: they mean Breeze, which supports vocal events.
+  provider?: string;
+  capabilities?: { vocal_events?: boolean };
   voices: Voice[];
   personas: Record<string, Assignment>;
   cues: Record<string, CueState>;
@@ -212,6 +218,7 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
   }, [active]);
 
   const builtins = snapshot?.voices.filter((v) => v.builtin) || [];
+  const eventsSupported = snapshot?.capabilities?.vocal_events !== false;
   const allVoices = [
     ...builtins,
     ...customs.map((c) => ({ ...c, builtin: false })),
@@ -331,6 +338,12 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
         background and stay silent until ready.
       </p>
       {loading && <p role="status">Loading voice settings…</p>}
+      {saving && snapshot?.provider === "qwen3" && (
+        <p className="quiet" role="status">
+          Saving. A new or changed designed voice renders its voice sample
+          first, which can take up to 30 seconds.
+        </p>
+      )}
       {error && (
         <p className="error voice-error" role="alert">
           {error}
@@ -421,7 +434,9 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
                   <li className="voice-item" key={v.id}>
                     <div>
                       <strong>{v.name}</strong>{" "}
-                      <span className="pill">Original</span>
+                      <span className="pill">
+                        {v.kind === "preset" ? "Preset" : "Original"}
+                      </span>
                     </div>
                     <div className="voice-actions">
                       <button
@@ -536,7 +551,8 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
                     <label className="speech-toggle">
                       <input
                         type="checkbox"
-                        checked={p.events}
+                        checked={p.events && eventsSupported}
+                        disabled={!eventsSupported}
                         onChange={(e) =>
                           change(id, { events: e.target.checked })
                         }
@@ -545,8 +561,9 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
                       <span className="sr-only"> for {name}</span>
                     </label>
                     <p className="quiet">
-                      Lets {name} occasionally laugh, sigh, cough or clear their
-                      throat. Hidden in chat text.
+                      {eventsSupported
+                        ? `Lets ${name} occasionally laugh, sigh, cough or clear their throat. Hidden in chat text.`
+                        : "Not supported by the current TTS model."}
                     </p>
                     <div className="voice-actions">
                       <button

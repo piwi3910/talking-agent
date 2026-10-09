@@ -178,7 +178,11 @@ func run() error {
 		}
 		refs[id] = ref
 	}
-	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL")}
+	ttsProvider := env("TTS_PROVIDER", speech.ProviderBreeze)
+	if ttsProvider != speech.ProviderBreeze && ttsProvider != speech.ProviderQwen3 {
+		return fmt.Errorf("unknown TTS_PROVIDER %q (use breeze or qwen3)", ttsProvider)
+	}
+	speechClient := &speech.Client{STTURL: os.Getenv("STT_URL"), TTSURL: os.Getenv("TTS_URL"), Provider: ttsProvider}
 	voiceStore, err := voices.Open(env("VOICE_SETTINGS_FILE", "var/voice-settings.json"), env("VOICE_CUES_DIR", "var/voice-cues"), agents, refs, speechClient)
 	if err != nil {
 		return fmt.Errorf("voice settings: %w", err)

@@ -30,6 +30,8 @@ type API struct {
 	previewing    atomic.Bool
 	Speech        *speech.Client
 	VoiceActive   sync.Map
+	speechMu      sync.Mutex
+	speechActive  map[string]int // concurrent /speech requests per session
 	Runtime       *agent.Runtime
 	Agents        map[string]*config.Agent
 	Sessions      *session.Store

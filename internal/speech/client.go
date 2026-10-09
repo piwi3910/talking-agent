@@ -11,14 +11,68 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
+	"time"
 )
+
+// TTS providers. Breeze is the default and what local runs and tests use.
+const (
+	ProviderBreeze = "breeze"
+	ProviderQwen3  = "qwen3"
+)
+
+// Qwen3-TTS model ids served by the audio.cpp worker.
+const (
+	ModelQwen3Base   = "qwen3-tts-base"   // voice cloning from a reference
+	ModelQwen3Custom = "qwen3-tts-custom" // preset speakers
+	ModelQwen3Design = "qwen3-tts-design" // voice from a description
+)
+
+// DefaultQwen3Speaker is used when a CustomVoice request names no speaker, which
+// the server would otherwise reject.
+const DefaultQwen3Speaker = "Ryan"
 
 type Client struct {
 	STTURL, TTSURL string
 	HTTP           *http.Client
+
+	// Provider selects the TTS request format: "breeze" (default) or "qwen3".
+	Provider string
+
+	live atomic.Int64 // live syntheses in flight (web and SIP), not cue renders
 }
 
 func (c *Client) Enabled() bool { return c != nil && c.STTURL != "" && c.TTSURL != "" }
+
+// Qwen3 reports whether synthesis goes to Qwen3-TTS.
+func (c *Client) Qwen3() bool { return c != nil && c.Provider == ProviderQwen3 }
+
+// EventsSupported reports whether the TTS model understands inline vocal events.
+func (c *Client) EventsSupported() bool { return !c.Qwen3() }
+
+// Live is the number of live (caller-facing) syntheses currently in flight.
+func (c *Client) Live() int64 {
+	if c == nil {
+		return 0
+	}
+	return c.live.Load()
+}
+
+// idlePoll is how often WaitIdle re-checks for live speech.
+const idlePoll = 200 * time.Millisecond
+
+// WaitIdle blocks while any live synthesis is in flight, so background renders
+// never delay a caller. It returns the context's error if it ends first.
+func (c *Client) WaitIdle(ctx context.Context) error {
+	for c.Live() > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(idlePoll):
+		}
+	}
+	return ctx.Err()
+}
 func (c *Client) do(ctx context.Context, endpoint string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, body)
 	if err != nil {
@@ -89,26 +143,87 @@ func (c *Client) Transcribe(ctx context.Context, audio io.Reader, emit func(stri
 	return nil
 }
 
-// Voice is the resolved Breeze voice for one phrase: a reference clone, a
-// natural-language design instruction, or both. Guidance is sent as-is.
+// Voice is the resolved voice for one phrase. For Breeze it is a reference
+// clone, a natural-language design instruction, or both; Guidance is sent as-is.
+// Model, Speaker and Instruct are used by Qwen3-TTS only: Model is one of the
+// ModelQwen3* ids (empty means Base with a Reference, otherwise CustomVoice),
+// Speaker names a CustomVoice preset and Instruct is a style or, for the design
+// model, the voice description.
 type Voice struct {
 	Instruction string
 	Reference   *Reference
 	Guidance    string
+
+	Model    string
+	Speaker  string
+	Instruct string
 }
 
-func (c *Client) Synthesize(ctx context.Context, text string, v Voice, emit func([]byte) error) error {
+// qwen3Body builds the offline Qwen3-TTS request: no streaming, raw PCM, fixed seed.
+func qwen3Body(text string, v Voice) map[string]any {
+	model := v.Model
+	if model == "" {
+		if v.Reference != nil {
+			model = ModelQwen3Base
+		} else {
+			model = ModelQwen3Custom
+		}
+	}
 	options := map[string]string{"seed": "42"}
-	if v.Instruction != "" {
-		options["instruction"] = v.Instruction
+	body := map[string]any{"model": model, "input": text, "stream": false, "response_format": "pcm", "options": options}
+	switch model {
+	case ModelQwen3Base:
+		// Base has no instruction support: only the reference shapes the voice.
+		if v.Reference != nil {
+			body["voice_ref"] = map[string]string{"type": "base64", "data": v.Reference.AudioBase64}
+			body["reference_text"] = v.Reference.Text
+		}
+	case ModelQwen3Design:
+		options["instruct"] = v.Instruct
+	default:
+		speaker := v.Speaker
+		if speaker == "" {
+			speaker = DefaultQwen3Speaker
+		}
+		body["voice"] = speaker
+		if v.Instruct != "" {
+			options["instruct"] = v.Instruct
+		}
 	}
-	if v.Guidance != "" {
-		options["guidance_scale"] = v.Guidance
-	}
-	body := map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": options}
-	if v.Reference != nil {
-		body["voice_ref"] = map[string]string{"type": "base64", "data": v.Reference.AudioBase64}
-		body["reference_text"] = v.Reference.Text
+	return body
+}
+
+// Synthesize streams the phrase's PCM to emit as it arrives. It counts as live
+// speech: background renders wait for it.
+func (c *Client) Synthesize(ctx context.Context, text string, v Voice, emit func([]byte) error) error {
+	c.live.Add(1)
+	defer c.live.Add(-1)
+	return c.synthesize(ctx, text, v, emit)
+}
+
+// SynthesizeBackground is Synthesize for background renders, which do not count
+// as live speech.
+func (c *Client) SynthesizeBackground(ctx context.Context, text string, v Voice, emit func([]byte) error) error {
+	return c.synthesize(ctx, text, v, emit)
+}
+
+func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func([]byte) error) error {
+	var body map[string]any
+	if c.Qwen3() {
+		body = qwen3Body(text, v)
+	} else {
+		options := map[string]string{"seed": "42"}
+		if v.Instruction != "" {
+			options["instruction"] = v.Instruction
+		}
+		if v.Guidance != "" {
+			options["guidance_scale"] = v.Guidance
+		}
+		body = map[string]any{"model": "breeze", "input": text, "stream": true, "stream_format": "audio", "response_format": "pcm", "options": options}
+		if v.Reference != nil {
+			body["voice_ref"] = map[string]string{"type": "base64", "data": v.Reference.AudioBase64}
+			body["reference_text"] = v.Reference.Text
+		}
 	}
 	raw, _ := json.Marshal(body)
 	resp, err := c.do(ctx, strings.TrimRight(c.TTSURL, "/")+"/v1/audio/speech", bytes.NewReader(raw))
