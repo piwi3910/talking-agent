@@ -32,7 +32,7 @@ func TestSchoolRuntimeAndMemoryIsolation(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	for _, tc := range []struct{ agent, user string }{{"school-services", "F002"}, {"telecom-support", "F001"}, {"hospital-services", "F001"}} {
+	for _, tc := range []struct{ agent, user string }{{"school-services", "F002"}, {"telecom-support", "F001"}, {"aquila-reception", "F001"}} {
 		other := store.Create(agents[tc.agent], tc.user)
 		got, err := r.Memory.Retrieve(context.Background(), memory.RetrieveRequest{Scope: Scope(other), Query: "tour"})
 		if err != nil || len(got) != 0 {

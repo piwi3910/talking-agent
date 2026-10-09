@@ -27,11 +27,10 @@ Phone detection currently uses PCM energy with 128 ms sustained speech and 700 m
 
 Copy `config.example.json` into your deployment configuration and set `SIP_CONFIG_FILE` to its mounted path. Replace documentation IPs with real addresses. `advertise_ip` must be reachable by Hello signaling and the RTP sender; it is advertised in SIP Contact and SDP. `allowed_peers` contains Hello's actual source IPs, including NAT. Both `STT_URL` and `TTS_URL` are required. Without `SIP_CONFIG_FILE`, settings can be saved but the UI shows SIP not connected.
 
-| Example number | Hello destination | Persona |
-| --- | --- | --- |
-| 500 | sip:500@AGENT_IP:5060 | telecom-support |
-| 501 | sip:501@AGENT_IP:5060 | hospital-services |
-| 502 | sip:502@AGENT_IP:5060 | school-services |
+| Example number | Hello destination     | Persona         |
+| -------------- | --------------------- | --------------- |
+| 500            | sip:500@AGENT_IP:5060 | telecom-support |
+| 502            | sip:502@AGENT_IP:5060 | school-services |
 
 The number is the exact SIP Request-URI user. Configure actual DIDs as settings entries or rewrite them in Hello. SIP uses UDP/TCP and G.711 PCMU/PCMA at 8 kHz. Other codecs require Hello's media tier to transcode. Untrusted peers receive 403; unknown numbers receive 404; capacity exhaustion receives 486. TLS/SRTP and REGISTER-based trunks are not yet implemented.
 

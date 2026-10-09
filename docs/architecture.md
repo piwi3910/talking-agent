@@ -15,7 +15,7 @@ flowchart TD
   Runtime --> Skills[Configuration-loaded skills]
   Skills --> Tools[Validated HTTP tools]
   Tools --> Telecom[Telecom mock services]
-  Tools --> Hospital[Hospital mock services]
+  Tools --> School[School and Aquila mock services]
   Runtime --> Events[Versioned event journal]
   Events --> API
 ```
@@ -38,7 +38,7 @@ To add an agent using existing backend capabilities:
 
 1. Copy an agent directory and assign a unique ID and memory namespace.
 2. Set its persona, organization, enabled skills, knowledge, safety, and branding.
-3. Set `backend.url` or its `backend.url_env` environment variable and provide compatible user/tool endpoints. Supplied agents use `TELECOM_BACKEND_URL` and `HOSPITAL_BACKEND_URL`, falling back to the shared mock service.
+3. Set `backend.url` or its `backend.url_env` environment variable and provide compatible user/tool endpoints. Supplied agents use `TELECOM_BACKEND_URL`, falling back to the shared mock service.
 4. Add offline scripts only if the offline provider will be used.
 5. Restart to discover the new configuration. No runtime or frontend changes are needed to select it.
 
@@ -54,9 +54,9 @@ All memory keys include **tenant + organization + agent/domain + namespace + use
 
 ## Safety and mock state
 
-Hospital emergency rules run before retrieval, extraction, or model calls. Matching sessions remain in the urgent-assistance path until a new session is started, preventing follow-up booking from bypassing the signal. Conservative keywords can cause false positives and cannot cover every emergency phrasing. Clinical request patterns produce an administrative-only response; model prompts reinforce the boundary.
+Emergency rules (configured per agent under `safety`) run before retrieval, extraction, or model calls. Matching sessions remain in the urgent-assistance path until a new session is started, preventing a follow-up request from bypassing the signal. Conservative keywords can cause false positives and cannot cover every emergency phrasing. Model prompts reinforce the boundary.
 
-Mock state is protected by a mutex. Appointment booking checks the slot and patient conflicts in one critical section. Rescheduling releases the previous slot only after validating the new one. Cancelling releases the slot. An unavailable doctor has no slots during the first week, but does in the second. All dates use UTC and are generated relative to server startup.
+Mock state is protected by a mutex. Technician and tour booking check the slot in one critical section, so a slot is never double-booked. All dates use UTC and are generated relative to server startup.
 
 Telecom outages, restrictions, and physical line faults block equipment mutations. Restart repairs unhealthy routers. Wi-Fi optimization changes the channel and diagnostics. Itemized invoices expose roaming and installation charges. Plan recommendations are grounded in the catalog.
 
@@ -74,4 +74,4 @@ If that retry is empty after successful service calls, the runtime formats only 
 
 After operator confirmation, a successful mutation is acknowledged directly from the backend result (`agent.response.grounded`); no further model turn is required. Failure remains an error, and the consumed confirmation cannot replay the mutation. This shared behavior applies to both industries.
 
-Read tools may set `response_mode: records` in `skills.yaml`. If that tool returns non-empty records and the whole tool batch succeeds, the runtime ends the turn using the shared result formatter and emits `agent.response.grounded` with `source: tool_records`. The tool description should explain that its results finalize the answer, so prerequisite lookups happen first. Empty results continue the model loop to seek alternatives. Failed batches and pending confirmations cannot use this path. Hospital availability opts in to prevent invented weekday labels and missing slot IDs; the runtime contains no industry-specific branch for it.
+Read tools may set `response_mode: records` in `skills.yaml`. If that tool returns non-empty records and the whole tool batch succeeds, the runtime ends the turn using the shared result formatter and emits `agent.response.grounded` with `source: tool_records`. The tool description should explain that its results finalize the answer, so prerequisite lookups happen first. Empty results continue the model loop to seek alternatives. Failed batches and pending confirmations cannot use this path. Opt in for availability tools to prevent invented weekday labels and missing slot IDs; the runtime contains no industry-specific branch for it.

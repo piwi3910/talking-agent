@@ -30,7 +30,7 @@ Adding an agent or demo user requires provisioning its complete scope before usi
 
 ## Storage and retrieval
 
-The bounded asynchronous worker stores allowlisted preferences, recurring issues and successful resolutions. `Remember` is used for these already-extracted facts, not NovaMem's transcript extraction. Its content-hash dedup makes fixture replay and repeated facts idempotent. Seed memories belong only to fictional Telecom C001; hospital preferences are learned from explicit statements.
+The bounded asynchronous worker stores allowlisted preferences, recurring issues and successful resolutions. `Remember` is used for these already-extracted facts, not NovaMem's transcript extraction. Its content-hash dedup makes fixture replay and repeated facts idempotent. Seed memories belong only to fictional Telecom C001; other preferences are learned from explicit statements.
 
 Retrieval requests at most five facts, with keyword/vector relevance and no recency-only weighting. A result must have a keyword match or vector similarity of at least `NOVAMEM_MIN_VECTOR_SCORE` (default `0.5`, calibrated against the current KW embeddings). Weak semantic matches are excluded even when the search returns them; recalibrate this threshold if the embedding model changes. Session history remains separate. Errors and degraded retrieval are reported as unavailable, never as proof that no prior history exists. Failed writes do not emit a successful storage event.
 
@@ -42,6 +42,6 @@ Normal Go tests cover request scope, credential selection, every scope dimension
 
 `deploy/kw/verify-memory.sh` provisions six dedicated validation accounts, runs the opt-in live contract suite and deletes only the fact created by that run. It checks NovaMem's real deduplication, retrieval after constructing a fresh provider, and isolation across all five dimensions. Validation tokens live in a separate Secret and are not mounted in the app.
 
-For deployment persistence, store “Mornings normally work better for me” as a hospital patient, wait for `memory.store.completed`, deploy a fresh app pod through Sync, then start a new session with the same patient and ask for another appointment. `memory.retrieval.completed` should contain the morning preference; a different patient and the telecom agent must not receive it.
+For deployment persistence, run `python3 deploy/kw/verify-memory-conversation.py store` (stores a telecom preference for C006 and waits for `memory.store.completed`), deploy a fresh app pod through Sync, then run it with `recall`. `memory.retrieval.completed` should contain the preference for C006; telecom C007 and the school agent must not receive it.
 
-The repeatable API check is `python3 deploy/kw/verify-memory-conversation.py store`, followed by a fresh pod deployed through Sync, then `python3 deploy/kw/verify-memory-conversation.py recall`. It uses P006, checks P007 and Telecom C001 for leakage, and validates CA-signed HTTPS plus the NovaMem event labels. Use other identities if P007 has deliberately learned the same preference independently.
+The repeatable API check is `python3 deploy/kw/verify-memory-conversation.py store`, followed by a fresh pod deployed through Sync, then `python3 deploy/kw/verify-memory-conversation.py recall`. It uses telecom C006, checks telecom C007 and a school family for leakage, and validates CA-signed HTTPS plus the NovaMem event labels. Use other identities if C007 has deliberately learned the same preference independently.

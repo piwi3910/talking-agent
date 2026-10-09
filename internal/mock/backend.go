@@ -37,7 +37,7 @@ type Backend struct {
 
 func Load(root string, now time.Time) (*Backend, error) {
 	b := &Backend{users: map[string]map[string]*User{}, catalogs: map[string][]tools.Record{}, records: map[string][]tools.Record{}}
-	for industry, file := range map[string]string{"telecom": "customers", "hospital": "patients", "school": "families", "aquila": "contacts"} {
+	for industry, file := range map[string]string{"telecom": "customers", "school": "families", "aquila": "contacts"} {
 		var users []User
 		if err := read(filepath.Join(root, industry, file+".json"), &users); err != nil {
 			return nil, err
@@ -48,35 +48,14 @@ func Load(root string, now time.Time) (*Backend, error) {
 			b.users[industry][u.ID] = &u
 		}
 	}
-	for _, x := range []struct{ industry, name string }{{"telecom", "plans"}, {"hospital", "doctors"}, {"hospital", "departments"}, {"hospital", "facilities"}, {"hospital", "insurance"}, {"school", "programs"}, {"school", "school_info"}} {
+	for _, x := range []struct{ industry, name string }{{"telecom", "plans"}, {"school", "programs"}, {"school", "school_info"}} {
 		var r []tools.Record
 		if err := read(filepath.Join(root, x.industry, x.name+".json"), &r); err != nil {
 			return nil, err
 		}
 		b.catalogs[x.name] = r
 	}
-	// Relative dates keep sales demos useful without editing fixture dates each week.
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	for _, d := range b.catalogs["doctors"] {
-		for offset := 0; offset < 14; offset++ {
-			if d.ID == "D002" && offset < 7 {
-				continue
-			}
-			for _, hour := range []int{9, 10, 14} {
-				at := day.AddDate(0, 0, offset).Add(time.Duration(hour)*time.Hour + 30*time.Minute)
-				if !at.After(now) {
-					continue
-				}
-				b.records["slots"] = append(b.records["slots"], tools.Record{ID: fmt.Sprintf("S-%s-%s-%02d", d.ID, at.Format("20060102"), hour), Kind: "slot", Name: d.Name, RelatedID: d.ID, Specialty: d.Specialty, Start: at.Format(time.RFC3339), Status: "available", Location: d.Location})
-			}
-		}
-	}
-	for id := range b.users["hospital"] {
-		slot := tools.Record{ID: "A-" + id, Kind: "appointment", Name: "Dr. Ahmed", UserID: id, RelatedID: "D001", Specialty: "Dermatology", Start: day.AddDate(0, 0, 16).Add(time.Duration(len(b.records["appointments"]))*30*time.Minute + 9*time.Hour).Format(time.RFC3339), Status: "booked"}
-		b.records["appointments"] = append(b.records["appointments"], slot)
-		b.records["referrals"] = append(b.records["referrals"], tools.Record{ID: "REF-" + id, Kind: "referral", UserID: id, Status: "received", Description: "Administrative review complete; ready for scheduling."})
-		b.records["prescriptions"] = append(b.records["prescriptions"], tools.Record{ID: "RX-" + id, Kind: "prescription", UserID: id, Status: "ready for collection", Location: "Outpatient pharmacy", Description: "Contact your pharmacist for medication questions."})
-	}
 	for id := range b.users["telecom"] {
 		b.records["tickets"] = append(b.records["tickets"], tools.Record{ID: "T-" + id, Kind: "ticket", UserID: id, Status: "closed", Description: "Previous service check completed."})
 	}
@@ -182,9 +161,6 @@ func (b *Backend) Execute(req tools.Request) tools.Result {
 	a := req.Arguments
 	if req.Industry == "telecom" {
 		return b.telecom(u, req.Name, a)
-	}
-	if req.Industry == "hospital" {
-		return b.hospital(u, req.Name, a)
 	}
 	if req.Industry == "school" {
 		return b.school(u, req.Name, a)
@@ -350,166 +326,4 @@ func (b *Backend) create(collection, kind, user, summary string) tools.Result {
 	r := tools.Record{ID: fmt.Sprintf("%s-%d", strings.ToUpper(kind), b.serial), Kind: kind, UserID: user, Status: "open", Description: summary}
 	b.records[collection] = append(b.records[collection], r)
 	return result("Request created.", r)
-}
-func (b *Backend) hospital(u *User, name string, a map[string]string) tools.Result {
-	switch name {
-	case "patient.lookup", "patient.profile":
-		return result("Patient identified.", u.Record)
-	case "patient.authenticate":
-		return result("Trusted demo identity selected by operator; this is not production authentication.", tools.Record{ID: u.ID, Kind: "identity", Status: "demo_authenticated"})
-	case "doctor.search":
-		return result("Matching doctors.", filter(b.catalogs["doctors"], a["query"])...)
-	case "doctor.details":
-		r, ok := find(b.catalogs["doctors"], a["doctor_id"])
-		if !ok {
-			return tools.Failure("not_found", "Doctor not found")
-		}
-		return result("Doctor details.", r)
-	case "doctor.specialties":
-		return result("Available specialties: Dermatology, Cardiology, Orthopedics, Pediatrics, General Medicine.")
-	case "department.search":
-		return result("Matching departments.", filter(b.catalogs["departments"], a["query"])...)
-	case "department.details":
-		r, ok := find(b.catalogs["departments"], a["department_id"])
-		if !ok {
-			return tools.Failure("not_found", "Department not found")
-		}
-		return result("Department details.", r)
-	case "appointment.list":
-		return result("Your appointments.", owned(b.records["appointments"], u.ID)...)
-	case "appointment.availability":
-		for _, key := range []string{"from", "to"} {
-			if a[key] != "" {
-				if _, err := time.Parse("2006-01-02", a[key]); err != nil {
-					return tools.Failure("invalid_input", "Dates must use YYYY-MM-DD")
-				}
-			}
-		}
-		if a["from"] != "" && a["to"] != "" && a["from"] > a["to"] {
-			return tools.Failure("invalid_input", "Date range is reversed")
-		}
-		out := []tools.Record{}
-		for _, r := range b.records["slots"] {
-			if r.Status != "available" || r.Start < time.Now().UTC().Format(time.RFC3339) {
-				continue
-			}
-			if a["doctor_id"] != "" && r.RelatedID != a["doctor_id"] {
-				continue
-			}
-			if a["specialty"] != "" && !strings.EqualFold(a["specialty"], r.Specialty) {
-				continue
-			}
-			date := r.Start[:10]
-			if a["from"] != "" && date < a["from"] || a["to"] != "" && date > a["to"] {
-				continue
-			}
-			if a["time_preference"] == "morning" && r.Start[11:13] >= "12" || a["time_preference"] == "afternoon" && r.Start[11:13] < "12" {
-				continue
-			}
-			out = append(out, r)
-		}
-		sort.Slice(out, func(i, j int) bool { return out[i].Start < out[j].Start })
-		if len(out) > 8 {
-			out = out[:8]
-		}
-		if len(out) == 0 {
-			return result("No matching appointments are available for the requested doctor, specialty and dates. Try another doctor or a later date.")
-		}
-		return result("Available appointments (UTC). Choose a slot ID to book; availability is rechecked at booking.", out...)
-	case "appointment.book", "appointment.reschedule":
-		old := -1
-		if name == "appointment.reschedule" {
-			for i, r := range b.records["appointments"] {
-				if r.ID == a["appointment_id"] && r.UserID == u.ID && r.Status == "booked" {
-					old = i
-				}
-			}
-			if old < 0 {
-				return tools.Failure("not_found", "Owned active appointment not found")
-			}
-		}
-		si := -1
-		for i, r := range b.records["slots"] {
-			if r.ID == a["slot_id"] && r.Status == "available" && r.Start > time.Now().UTC().Format(time.RFC3339) {
-				si = i
-			}
-		}
-		if si < 0 {
-			return tools.Failure("slot_unavailable", "Appointment slot is no longer available")
-		}
-		slot := b.records["slots"][si]
-		for i, r := range b.records["appointments"] {
-			if i != old && r.UserID == u.ID && r.Status == "booked" && r.Start == slot.Start {
-				return tools.Failure("appointment_conflict", "You already have an appointment at that time")
-			}
-		}
-		b.records["slots"][si].Status = "booked"
-		b.records["slots"][si].UserID = u.ID
-		b.serial++
-		appointment := slot
-		appointment.ID = fmt.Sprintf("A-%04d", b.serial)
-		appointment.Kind = "appointment"
-		appointment.UserID = u.ID
-		appointment.Status = "booked"
-		appointment.Description = "Slot " + slot.ID
-		if old >= 0 {
-			previous := b.records["appointments"][old]
-			b.release(previous)
-			appointment.ID = previous.ID
-			b.records["appointments"][old] = appointment
-			return result("Appointment rescheduled.", appointment)
-		}
-		b.records["appointments"] = append(b.records["appointments"], appointment)
-		return result("Appointment booked.", appointment)
-	case "appointment.cancel":
-		for i, r := range b.records["appointments"] {
-			if r.ID == a["appointment_id"] && r.UserID == u.ID && r.Status == "booked" {
-				b.release(r)
-				b.records["appointments"][i].Status = "cancelled"
-				return result("Appointment cancelled.", b.records["appointments"][i])
-			}
-		}
-		return tools.Failure("not_found", "Owned active appointment not found")
-	case "insurance.providers":
-		return result("Supported insurance providers and plans.", b.catalogs["insurance"]...)
-	case "insurance.check":
-		for _, r := range b.catalogs["insurance"] {
-			if strings.EqualFold(r.Name, a["provider"]) {
-				supported := a["plan"] == ""
-				for _, plan := range strings.Split(strings.TrimPrefix(r.Description, "Supported plans: "), ", ") {
-					if strings.EqualFold(plan, a["plan"]) {
-						supported = true
-					}
-				}
-				if !supported {
-					return result("This plan is not listed as supported. Contact the insurance desk to verify.")
-				}
-				return result("Provider is supported for the listed plans. Eligibility is not a guarantee of claim payment.", r)
-			}
-		}
-		return result("Provider not listed as supported. Contact the insurance desk to verify.")
-	case "facility.search":
-		return result("Matching facilities.", filter(b.catalogs["facilities"], a["query"])...)
-	case "facility.directions", "facility.hours":
-		r, ok := find(b.catalogs["facilities"], a["facility_id"])
-		if !ok {
-			return tools.Failure("not_found", "Facility not found")
-		}
-		return result(r.Name+": "+r.Location+". "+r.Description, r)
-	case "referral.status":
-		return result("Your referral status.", owned(b.records["referrals"], u.ID)...)
-	case "prescription.status":
-		return result("Your prescription fulfillment status. Ask your pharmacist about medication use.", owned(b.records["prescriptions"], u.ID)...)
-	case "support.create_request":
-		return b.create("requests", "request", u.ID, a["summary"])
-	}
-	return tools.Failure("unknown_tool", "Tool not available in hospital backend")
-}
-func (b *Backend) release(a tools.Record) {
-	for i, s := range b.records["slots"] {
-		if s.UserID == a.UserID && s.Start == a.Start && s.RelatedID == a.RelatedID {
-			b.records["slots"][i].Status = "available"
-			b.records["slots"][i].UserID = ""
-		}
-	}
 }

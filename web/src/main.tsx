@@ -78,7 +78,6 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   return data as T;
 }
 const industryLabels: Record<string, string> = {
-  hospital: "Demo patient",
   school: "Demo family",
   aquila: "Family / contact",
 };

@@ -82,4 +82,4 @@ Natural delivery requires short specific replies, suitable prosody, consistent v
 - Measure partial/final transcription delay, names/numbers accuracy, first text, first audio bytes, audible start, underruns and queue depth.
 - Test accents, silence, background noise, self-echo, interruption, reconnection and speech-service failures.
 - Listen to appointment dates, prices and names in both personas. Check voice stability across multiple phrases.
-- Run representative telecom/hospital scenarios with NovaMem and explicit mutation confirmations intact.
+- Run representative telecom and school scenarios with NovaMem and explicit mutation confirmations intact.

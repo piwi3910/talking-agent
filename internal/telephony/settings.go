@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -77,7 +78,9 @@ func OpenSettings(path string, agents map[string]*config.Agent, numbers map[stri
 	}
 	for id, p := range d.Personas {
 		if agents[id] == nil {
-			return nil, fmt.Errorf("saved phone settings have unknown persona %s", id)
+			// A persona can vanish with its agent; never fail startup over it.
+			slog.Warn("dropping saved phone settings for unknown persona", "persona", id)
+			continue
 		}
 		s.state.Personas[id] = PersonaSettings{Numbers: p.Numbers, UserID: p.UserID, Cues: p.Cues}
 	}

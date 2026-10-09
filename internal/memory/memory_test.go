@@ -15,7 +15,7 @@ func TestIsolationEveryScopeDimension(t *testing.T) {
 	scopes := []Scope{base, base, base, base, base}
 	scopes[0].Tenant = "other"
 	scopes[1].Organization = "other"
-	scopes[2].Domain = "hospital"
+	scopes[2].Domain = "school"
 	scopes[3].Namespace = "other"
 	scopes[4].User = "other"
 	for _, scope := range scopes {
@@ -35,7 +35,7 @@ func TestIsolationEveryScopeDimension(t *testing.T) {
 }
 func TestPreferenceRetrievalAndDeduplication(t *testing.T) {
 	p := New()
-	s := Scope{"t", "o", "hospital", "n", "u"}
+	s := Scope{"t", "o", "school", "n", "u"}
 	ms := Extract(s, "Mornings normally work better for me.", []Rule{{Pattern: `(?i)morning`, Text: "User prefers morning appointments.", Tags: []string{"appointment", "ahmed"}}})
 	if len(ms) != 1 {
 		t.Fatal(ms)

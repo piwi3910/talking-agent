@@ -79,12 +79,12 @@ const zaraFact = "2026-10-09: Aisha's daughter Zara is 6."
 
 func TestAutoCaptureStoresFactsInScopeWithAutoTag(t *testing.T) {
 	r, agents, _ := setup(t)
-	a := captureAgent(agents, "hospital-services", true)
+	a := captureAgent(agents, "telecom-support", true)
 	client := &captureClient{extraction: func(context.Context) (string, error) {
 		return "```json\n[\"" + zaraFact + "\", 7, \"\", \"" + strings.Repeat("x", 301) + "\"]\n```", nil
 	}}
 	r.Clients[a.ID] = client
-	s := session.NewStore().Create(a, "P001")
+	s := session.NewStore().Create(a, "C001")
 	r.Run(context.Background(), s, "t1", Turn{Text: "My daughter Zara is 6 and loves swimming."})
 	capWaitFor(t, "capture event", func() bool { return capHasEvent(s, "memory.capture.completed") })
 	capWaitFor(t, "stored fact", func() bool {
@@ -95,7 +95,7 @@ func TestAutoCaptureStoresFactsInScopeWithAutoTag(t *testing.T) {
 	if ms[0].Text != zaraFact || !reflect.DeepEqual(ms[0].Tags, []string{"auto"}) || ms[0].Scope != Scope(s) {
 		t.Fatalf("unexpected memory %+v", ms[0])
 	}
-	other := session.NewStore().Create(a, "P002")
+	other := session.NewStore().Create(a, "C002")
 	if leaked, _ := r.Memory.Retrieve(context.Background(), memory.RetrieveRequest{Scope: Scope(other), Query: "Zara"}); len(leaked) != 0 {
 		t.Fatal("captured fact leaked to another user")
 	}
@@ -106,10 +106,10 @@ func TestAutoCaptureStoresFactsInScopeWithAutoTag(t *testing.T) {
 
 func TestAutoCaptureDisabledDoesNothing(t *testing.T) {
 	r, agents, _ := setup(t)
-	a := captureAgent(agents, "hospital-services", false)
+	a := captureAgent(agents, "telecom-support", false)
 	client := &captureClient{extraction: func(context.Context) (string, error) { return "[\"" + zaraFact + "\"]", nil }}
 	r.Clients[a.ID] = client
-	s := session.NewStore().Create(a, "P001")
+	s := session.NewStore().Create(a, "C001")
 	r.Run(context.Background(), s, "t1", Turn{Text: "My daughter Zara is 6."})
 	time.Sleep(50 * time.Millisecond)
 	if client.calls.Load() != 0 {
@@ -128,9 +128,9 @@ func TestAutoCaptureMalformedOutputStoresNothing(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			r, agents, _ := setup(t)
-			a := captureAgent(agents, "hospital-services", true)
+			a := captureAgent(agents, "telecom-support", true)
 			r.Clients[a.ID] = &captureClient{extraction: func(context.Context) (string, error) { return output, nil }}
-			s := session.NewStore().Create(a, "P001")
+			s := session.NewStore().Create(a, "C001")
 			r.Run(context.Background(), s, "t1", Turn{Text: "My daughter Zara is 6."})
 			capWaitFor(t, "failure event", func() bool { return capHasEvent(s, "memory.capture.failed") })
 			if capHasEvent(s, "memory.store.started") || capHasEvent(s, "memory.capture.completed") {
@@ -140,9 +140,9 @@ func TestAutoCaptureMalformedOutputStoresNothing(t *testing.T) {
 	}
 	t.Run("llm error", func(t *testing.T) {
 		r, agents, _ := setup(t)
-		a := captureAgent(agents, "hospital-services", true)
+		a := captureAgent(agents, "telecom-support", true)
 		r.Clients[a.ID] = &captureClient{extraction: func(context.Context) (string, error) { return "", errors.New("boom") }}
-		s := session.NewStore().Create(a, "P001")
+		s := session.NewStore().Create(a, "C001")
 		r.Run(context.Background(), s, "t1", Turn{Text: "My daughter Zara is 6."})
 		capWaitFor(t, "failure event", func() bool { return capHasEvent(s, "memory.capture.failed") })
 		if capHasEvent(s, "memory.store.started") {
@@ -179,7 +179,7 @@ func TestAutoCaptureSkipsOpeningAndConfirmationTurns(t *testing.T) {
 
 func TestAutoCaptureDoesNotDelayTurnCompletion(t *testing.T) {
 	r, agents, _ := setup(t)
-	a := captureAgent(agents, "hospital-services", true)
+	a := captureAgent(agents, "telecom-support", true)
 	release := make(chan struct{})
 	client := &captureClient{extraction: func(ctx context.Context) (string, error) {
 		select {
@@ -189,7 +189,7 @@ func TestAutoCaptureDoesNotDelayTurnCompletion(t *testing.T) {
 		return "[]", nil
 	}}
 	r.Clients[a.ID] = client
-	s := session.NewStore().Create(a, "P001")
+	s := session.NewStore().Create(a, "C001")
 	done := make(chan struct{})
 	go func() {
 		r.Run(context.Background(), s, "t1", Turn{Text: "My daughter Zara is 6."})

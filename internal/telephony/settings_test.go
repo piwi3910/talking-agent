@@ -2,6 +2,7 @@ package telephony
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -75,5 +76,24 @@ func TestSettingsRejectDuplicateNumbersAndFailedWrites(t *testing.T) {
 	}
 	if s.Snapshot().Revision != 0 {
 		t.Fatal("routes changed despite save failure")
+	}
+}
+
+func TestSettingsIgnoreSavedPersonaOfRemovedAgent(t *testing.T) {
+	agents := map[string]*config.Agent{"a": {ID: "a"}}
+	path := filepath.Join(t.TempDir(), "phone.json")
+	saved := `{"revision":3,"personas":{"gone":{"numbers":["501"],"user_id":"x","cues":true},"a":{"numbers":["500"],"user_id":"u","cues":true}}}`
+	if err := os.WriteFile(path, []byte(saved), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := OpenSettings(path, agents, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, _ := s.Route("500"); a != agents["a"] {
+		t.Fatal("route of remaining agent lost")
+	}
+	if _, ok := s.Snapshot().Personas["gone"]; ok {
+		t.Fatal("removed persona kept")
 	}
 }
