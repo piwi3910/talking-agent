@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"enterprise-ai-demo/internal/agent"
 	"enterprise-ai-demo/internal/config"
+	"enterprise-ai-demo/internal/mcp"
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/speech"
 	"enterprise-ai-demo/internal/telephony"
@@ -24,6 +25,7 @@ import (
 )
 
 type API struct {
+	MCP           *mcp.Manager
 	PhoneGateway  *telephony.Gateway
 	PhoneSettings *telephony.Settings
 	Voices        *voices.Store
@@ -93,6 +95,7 @@ func (a *API) Handler() http.Handler {
 	m := http.NewServeMux()
 	a.voiceRoutes(m)
 	a.settingsRoutes(m)
+	a.mcpRoutes(m)
 	a.voiceSettingsRoutes(m)
 	a.openingRoutes(m)
 	a.traceRoutes(m)
@@ -263,7 +266,7 @@ func (a *API) Handler() http.Handler {
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		if r.Method == "POST" {
+		if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "PATCH" {
 			if origin := r.Header.Get("Origin"); origin != "" && origin != "http://"+r.Host && origin != "https://"+r.Host {
 				fail(w, 403, "Cross-origin write rejected")
 				return

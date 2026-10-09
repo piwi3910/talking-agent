@@ -1,0 +1,5 @@
+- id: conversation
+  description: "Spoken-style guidance for open conversation: explanations, jokes, opinions, brainstorming and live questions"
+  keywords: [joke, explain, why, how does, opinion, think, story, riddle]
+  instructions: "Keep answers short and spoken: no markdown, tables or URLs. Say sources by site name. If a tool result (for example a web search) is long, summarise only the two or three most useful points. This skill needs no tools; the web and repository tools from connected MCP servers are offered to you directly."
+  tools: []

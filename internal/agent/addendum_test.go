@@ -49,6 +49,13 @@ func TestScopePolicyInSystemPromptForEveryShippedAgent(t *testing.T) {
 		t.Fatalf("expected the shipped agents, got %d", len(agents))
 	}
 	for id, a := range agents {
+		if !a.ScopeEnforced() {
+			// Only agents that explicitly opt out (scope_policy: false) are open.
+			if id != "assistant" {
+				t.Fatalf("%s opted out of the scope policy; only the assistant may", id)
+			}
+			continue
+		}
 		t.Run(id, func(t *testing.T) {
 			if len(a.Scope) == 0 {
 				t.Fatalf("%s has no scope in agent.yaml", id)
@@ -82,5 +89,40 @@ func TestScopePolicyInSystemPromptForEveryShippedAgent(t *testing.T) {
 				t.Fatalf("policy must name the organisation and precede the skills list")
 			}
 		})
+	}
+}
+
+func TestOpenAssistantHasNoScopePolicyButKeepsSafety(t *testing.T) {
+	r, agents, _ := setup(t)
+	a := agents["assistant"]
+	if a == nil || a.ScopeEnforced() || a.Memory.Provider != "novamem" || !a.Memory.AutoCapture || a.Voice.Default == "" {
+		t.Fatalf("assistant must be open, with persistent auto-capture memory and a voice: %+v", a)
+	}
+	s := session.NewStore().Create(a, "U001")
+	system := ""
+	var mu sync.Mutex
+	r.Clients["assistant"] = errorClient{respond: func(req llm.Request, delta func(string)) (llm.Response, error) {
+		mu.Lock()
+		if system == "" {
+			system = req.Messages[0].Content
+		}
+		mu.Unlock()
+		delta("Hello")
+		return llm.Response{Message: llm.Message{Role: "assistant", Content: "Hello"}}, nil
+	}}
+	r.Run(context.Background(), s, "turn", Turn{Text: "Tell me a joke"})
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Contains(system, "Role scope") || strings.Contains(system, "Do not partially comply") {
+		t.Fatal("open assistant must not receive the role-scope policy")
+	}
+	if !strings.Contains(system, "You are Nova") || !strings.Contains(system, "Available skills") {
+		t.Fatal("assistant prompt missing")
+	}
+	// The shared safety rules still apply.
+	s2 := session.NewStore().Create(a, "U001")
+	r.Run(context.Background(), s2, "turn2", Turn{Text: "I can't breathe"})
+	if !strings.Contains(conversation(s2), "emergency services") {
+		t.Fatalf("safety response missing: %s", conversation(s2))
 	}
 }

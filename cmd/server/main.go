@@ -8,6 +8,7 @@ import (
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/knowledge"
 	"enterprise-ai-demo/internal/llm"
+	"enterprise-ai-demo/internal/mcp"
 	"enterprise-ai-demo/internal/memory"
 	"enterprise-ai-demo/internal/mock"
 	"enterprise-ai-demo/internal/session"
@@ -102,6 +103,13 @@ func run() error {
 		}
 		runtime.MaxIterations = n
 	}
+	mcpDefaults, err := mcp.Defaults()
+	if err != nil {
+		slog.Warn("MCP defaults", "error", err)
+	}
+	mcpManager := &mcp.Manager{Registry: mcp.NewRegistry(env("MCP_SERVERS_FILE", "var/mcp-servers.json"), mcpDefaults)}
+	defer mcpManager.Close()
+	runtime.MCP = mcpManager
 	backendURLs := map[string]string{}
 	runtime.Executors = map[string]tools.Executor{}
 	mode := env("LLM_PROVIDER", "demo")
@@ -183,7 +191,7 @@ func run() error {
 		return fmt.Errorf("voice settings: %w", err)
 	}
 	voiceStore.Start(ctx)
-	app := &api.API{Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	app := &api.API{MCP: mcpManager, Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
 	if dir := env("TRACE_DIR", "var/traces"); dir != "" && dir != "off" {
 		app.Traces = api.NewTraceStore(dir)
 	}

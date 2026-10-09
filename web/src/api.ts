@@ -76,6 +76,7 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
 const industryLabels: Record<string, string> = {
   school: "Demo family",
   aquila: "Family / contact",
+  assistant: "Demo person",
 };
 export const industryLabel = (industry?: string) =>
   (industry && industryLabels[industry]) || "Demo customer";
@@ -101,6 +102,7 @@ const stageAccents: Record<string, string> = {
   telecom: "#6E9BFF",
   school: "#B3A1FF",
   aquila: "#7FB0F5",
+  assistant: "#F5A86B",
 };
 export function accentOf(agent?: Agent): { dark: string; light: string } {
   const brand = agent?.config.branding.color || "#2764d8";

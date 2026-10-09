@@ -21,15 +21,19 @@ type Agent struct {
 		URL    string `yaml:"url" json:"url,omitempty"`
 		URLEnv string `yaml:"url_env" json:"url_env,omitempty"`
 	} `yaml:"backend" json:"backend"`
-	ID           string            `yaml:"id" json:"id"`
-	Name         string            `yaml:"name" json:"name"`
-	Organization string            `yaml:"organization" json:"organization"`
-	Tenant       string            `yaml:"tenant" json:"tenant"`
-	Role         string            `yaml:"role" json:"role"`
-	Scope        []string          `yaml:"scope" json:"scope,omitempty"` // topics the role-scope policy allows
-	Industry     string            `yaml:"industry" json:"industry"`
-	Persona      map[string]string `yaml:"persona" json:"persona"`
-	Memory       struct {
+	ID           string   `yaml:"id" json:"id"`
+	Name         string   `yaml:"name" json:"name"`
+	Organization string   `yaml:"organization" json:"organization"`
+	Tenant       string   `yaml:"tenant" json:"tenant"`
+	Role         string   `yaml:"role" json:"role"`
+	Scope        []string `yaml:"scope" json:"scope,omitempty"` // topics the role-scope policy allows
+	// ScopePolicy opts an agent out of the shared role-scope policy with
+	// `scope_policy: false` (an open, general-purpose agent). Unset means on.
+	ScopePolicy *bool `yaml:"scope_policy,omitempty" json:"scope_policy,omitempty"`
+
+	Industry string            `yaml:"industry" json:"industry"`
+	Persona  map[string]string `yaml:"persona" json:"persona"`
+	Memory   struct {
 		Provider  string        `yaml:"provider" json:"provider"`
 		Rules     []memory.Rule `yaml:"rules" json:"rules"`
 		Namespace string        `yaml:"namespace" json:"namespace"`
@@ -54,6 +58,9 @@ type Agent struct {
 }
 
 var memoryDomain = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+// ScopeEnforced reports whether the shared role-scope policy applies.
+func (a *Agent) ScopeEnforced() bool { return a.ScopePolicy == nil || *a.ScopePolicy }
 
 // MemoryDomain is the domain used in memory scopes: the configured shared
 // domain, or the agent ID when none is set.

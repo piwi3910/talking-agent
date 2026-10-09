@@ -3,12 +3,14 @@ import React from "react";
 import type { Live } from "./main";
 import { PhoneSettings } from "./phone-settings";
 import { VoiceSettings } from "./voice-settings";
+import { McpSettings } from "./mcp-settings";
 import { Brand, NavLink, PersonaMark, ThemeToggle } from "./ui";
 
 const sections: { id: string; label: string }[] = [
   { id: "channels", label: "Channels" },
   { id: "voices", label: "Voices" },
   { id: "personas", label: "Personas" },
+  { id: "tools", label: "Tools (MCP)" },
   { id: "models", label: "Models" },
   { id: "memory", label: "Memory" },
   { id: "identities", label: "Demo identities" },
@@ -58,6 +60,7 @@ export function SettingsPage({
         {current.id === "channels" && <Channels live={live} />}
         {current.id === "voices" && <Voices live={live} />}
         {current.id === "personas" && <Personas live={live} />}
+        {current.id === "tools" && <McpSettings personas={live.agents} />}
         {current.id === "models" && <Models live={live} />}
         {current.id === "memory" && <Memory live={live} />}
         {current.id === "identities" && <Identities live={live} />}

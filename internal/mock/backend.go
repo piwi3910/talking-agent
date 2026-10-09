@@ -37,7 +37,7 @@ type Backend struct {
 
 func Load(root string, now time.Time) (*Backend, error) {
 	b := &Backend{users: map[string]map[string]*User{}, catalogs: map[string][]tools.Record{}, records: map[string][]tools.Record{}}
-	for industry, file := range map[string]string{"telecom": "customers", "school": "families", "aquila": "contacts"} {
+	for industry, file := range map[string]string{"telecom": "customers", "school": "families", "aquila": "contacts", "assistant": "people"} {
 		var users []User
 		if err := read(filepath.Join(root, industry, file+".json"), &users); err != nil {
 			return nil, err

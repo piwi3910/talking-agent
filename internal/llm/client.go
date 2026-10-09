@@ -40,6 +40,9 @@ type ToolFunction struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	Parameters  tools.Schema `json:"parameters"`
+	// RawSchema, when set, is sent instead of Parameters. MCP tools carry
+	// arbitrary JSON Schema that the closed string-only Schema cannot express.
+	RawSchema json.RawMessage `json:"-"`
 }
 type Request struct {
 	Messages []Message
@@ -153,9 +156,12 @@ func (c *OpenAI) chatOnce(ctx context.Context, in Request, delta func(string)) (
 		call.Messages = append(call.Messages, msg)
 	}
 	for _, tool := range in.Tools {
-		schema, err := json.Marshal(tool.Function.Parameters)
-		if err != nil {
-			return Response{}, err
+		schema := []byte(tool.Function.RawSchema)
+		if len(schema) == 0 {
+			var err error
+			if schema, err = json.Marshal(tool.Function.Parameters); err != nil {
+				return Response{}, err
+			}
 		}
 		call.Tools = append(call.Tools, provider.ToolDef{Name: tool.Function.Name, Description: tool.Function.Description, Schema: schema})
 	}

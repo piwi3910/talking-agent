@@ -76,6 +76,22 @@
                           "value": "/app/var/voice-cues",
                         },
                         { "name": "TRACE_DIR", "value": "/app/var/traces" },
+                        {
+                          "name": "MCP_SERVERS_FILE",
+                          "value": "/app/var/mcp-servers.json",
+                        },
+                        {
+                          "name": "ZAI_API_KEY",
+                          "valueFrom":
+                            {
+                              "secretKeyRef":
+                                {
+                                  "name": "zai-mcp",
+                                  "key": "ZAI_API_KEY",
+                                  "optional": true,
+                                },
+                            },
+                        },
                         { "name": "LLM_DISABLE_THINKING", "value": "true" },
                         {
                           "name": "STT_URL",
