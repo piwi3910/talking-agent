@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/knowledge"
 	"enterprise-ai-demo/internal/llm"
