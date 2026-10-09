@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:828bf7c8f091de0cf1b1751de6932b2b7da5790423d4f2b35d83a61ab3705623",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:6bb5bd4a0f8c9876fb4e91bcc33830f33158ae4a65dbe5e75ae29dd6e72a28bf",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -83,11 +83,11 @@
                         { "name": "LLM_DISABLE_THINKING", "value": "true" },
                         {
                           "name": "STT_URL",
-                          "value": "http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093",
+                          "value": "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
                         },
                         {
                           "name": "STT_FINAL_URL",
-                          "value": "http://speech-stt-final.enterprise-ai-demo.svc.cluster.local:8096",
+                          "value": "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
                         },
                         {
                           "name": "STT_FINAL_MODEL",
@@ -95,11 +95,11 @@
                         },
                         {
                           "name": "TTS_URL",
-                          "value": "http://speech-tts-stream.enterprise-ai-demo.svc.cluster.local:8095",
+                          "value": "http://speech-tts-novanas.enterprise-ai-demo.svc.cluster.local:8095",
                         },
                         {
                           "name": "TTS_RENDER_URL",
-                          "value": "http://speech-tts.enterprise-ai-demo.svc.cluster.local:8094",
+                          "value": "http://speech-audiocpp-novanas.enterprise-ai-demo.svc.cluster.local:8106",
                         },
                         { "name": "TTS_PROVIDER", "value": "omni" },
                         { "name": "LISTEN_ADDR", "value": "0.0.0.0:8080" },

@@ -258,9 +258,15 @@ func (a *API) Handler() http.Handler {
 			return
 		}
 		path := filepath.Join(a.WebDir, filepath.Clean("/"+r.URL.Path))
-		if info, err := os.Stat(path); err != nil || info.IsDir() {
+		if info, err := os.Stat(path); err != nil || info.IsDir() || filepath.Base(path) == "index.html" {
+			// The page must always revalidate so a deploy reaches open phones and tabs;
+			// its hashed assets never change and can be cached for good.
+			w.Header().Set("Cache-Control", "no-cache")
 			http.ServeFile(w, r, filepath.Join(a.WebDir, "index.html"))
 			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/assets/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
 		http.ServeFile(w, r, path)
 	})

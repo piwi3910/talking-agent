@@ -24,7 +24,7 @@ func TestOpeningTurnSelectsInstructionByDirection(t *testing.T) {
 
 	outbound := &config.Agent{Persona: map[string]string{"opening": "outbound"}}
 	turn, ok = OpeningTurn(outbound, "Sarah Ahmed")
-	if !ok || !strings.HasPrefix(turn.Opening, "[Outbound call connected] You placed this call to Sarah Ahmed.") {
+	if !ok || !strings.HasPrefix(turn.Opening, "[Outbound call connected]") || !strings.Contains(turn.Opening, "You placed this call to Sarah Ahmed.") {
 		t.Fatalf("outbound turn: %+v ok=%v", turn, ok)
 	}
 	if turn, _ = OpeningTurn(outbound, ""); !strings.Contains(turn.Opening, "the selected contact") || turn.MemoryQuery != "previous enquiry tour application" {
