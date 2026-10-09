@@ -15,3 +15,9 @@ Answer: Direct to Kuvryn pods — speech-stt/speech-tts are ExternalName aliases
 Key: voice-switch-cue-handling
 
 Answer: Re-render that persona's cues in the new voice in the background (stored on the PVC, muted until ready); also add Breeze inline vocal events ((laugh), (sigh), (cough), (clears throat)) to make speech more natural (user, 2026-10-09).
+
+## (no longer asked)
+
+Key: go-ai-sdk-bump-downgrade-guard
+
+Answer: Add a never-downgrade guard to the bump workflow and move main to go-ai-sdk v0.7.1 (user, 2026-10-09).
