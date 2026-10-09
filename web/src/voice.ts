@@ -23,6 +23,12 @@ type Phrase = {
 const PHRASE_RETRY_DELAYS = [150, 300, 600];
 const MAX_SPEECH_IN_FLIGHT = 2;
 const SPEECH_HEADERS_DEADLINE = 20000;
+// Streaming TTS sends audio in bursts that the network splits into many reads.
+// Joining reads that arrive within this window avoids a buffer seam (an audible
+// click) inside a burst.
+const BURST_GAP_MS = 25;
+// Lead before audio starts from silence; covers the gap until the second burst.
+const START_LEAD = 0.25;
 const MIN_PHRASE = 25;
 const FIRST_CLAUSE_MIN = 40;
 // Abbreviations whose full stop does not end a sentence. "No" only counts before a number.
@@ -553,10 +559,29 @@ export class Voice {
           const reader = res.body!.getReader();
           let first = true;
           let leftover = new Uint8Array(0);
+          let pending: Uint8Array[] = [];
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const flush = () => {
+            clearTimeout(timer);
+            timer = undefined;
+            if (!pending.length || !live()) return;
+            const size = pending.reduce((n, c) => n + c.length, 0);
+            const burst = new Uint8Array(size);
+            let at = 0;
+            for (const c of pending) {
+              burst.set(c, at);
+              at += c.length;
+            }
+            pending = [];
+            this.deliver(phrase, burst, gen);
+          };
           for (;;) {
             const { value, done } = await reader.read();
             if (done) break;
-            if (!live()) return;
+            if (!live()) {
+              clearTimeout(timer);
+              return;
+            }
             if (first) {
               first = false;
               const now = performance.now();
@@ -571,8 +596,13 @@ export class Voice {
             joined.set(value, leftover.length);
             const n = joined.length - (joined.length % 2);
             leftover = joined.slice(n);
-            if (n) this.deliver(phrase, joined.subarray(0, n), gen);
+            if (n) {
+              pending.push(joined.slice(0, n));
+              clearTimeout(timer);
+              timer = setTimeout(flush, BURST_GAP_MS);
+            }
           }
+          flush();
           if (first) throw new Error("Speech service returned no audio.");
         } catch (e) {
           if (live()) {
@@ -642,7 +672,11 @@ export class Voice {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gain!);
-    const at = Math.max(ctx.currentTime + 0.12, this.nextAudio);
+    // Start on a sample of the output clock so consecutive buffers join exactly.
+    const rate = ctx.sampleRate;
+    const at =
+      Math.ceil(Math.max(ctx.currentTime + START_LEAD, this.nextAudio) * rate) /
+      rate;
     this.nextAudio = at + buffer.duration;
     this.output.add(source);
     source.onended = () => {
