@@ -573,8 +573,7 @@ export class Voice {
       this.cuePhase =
         tool?.startsWith("network.") || tool?.startsWith("wifi.")
           ? "network"
-          : tool === "appointment.availability" ||
-              tool === "technician.availability"
+          : tool?.endsWith(".availability")
             ? "availability"
             : "lookup";
       this.cues?.schedule(this.cuePhase, 1000);
