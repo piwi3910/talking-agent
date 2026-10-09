@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
+	_ "time/tzdata" // zone data for minimal container images
 )
 
 type Agent struct {
@@ -21,12 +23,15 @@ type Agent struct {
 		URL    string `yaml:"url" json:"url,omitempty"`
 		URLEnv string `yaml:"url_env" json:"url_env,omitempty"`
 	} `yaml:"backend" json:"backend"`
-	ID           string   `yaml:"id" json:"id"`
-	Name         string   `yaml:"name" json:"name"`
-	Organization string   `yaml:"organization" json:"organization"`
-	Tenant       string   `yaml:"tenant" json:"tenant"`
-	Role         string   `yaml:"role" json:"role"`
-	Scope        []string `yaml:"scope" json:"scope,omitempty"` // topics the role-scope policy allows
+	ID           string `yaml:"id" json:"id"`
+	Name         string `yaml:"name" json:"name"`
+	Organization string `yaml:"organization" json:"organization"`
+	Tenant       string `yaml:"tenant" json:"tenant"`
+	// Timezone is the IANA zone of the organisation (for example "Asia/Dubai").
+	// Scheduling tools publish times in it and the agent speaks in it.
+	Timezone string   `yaml:"timezone,omitempty" json:"timezone,omitempty"`
+	Role     string   `yaml:"role" json:"role"`
+	Scope    []string `yaml:"scope" json:"scope,omitempty"` // topics the role-scope policy allows
 	// ScopePolicy opts an agent out of the shared role-scope policy with
 	// `scope_policy: false` (an open, general-purpose agent). Unset means on.
 	ScopePolicy *bool `yaml:"scope_policy,omitempty" json:"scope_policy,omitempty"`
@@ -62,6 +67,14 @@ var memoryDomain = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 // ScopeEnforced reports whether the shared role-scope policy applies.
 func (a *Agent) ScopeEnforced() bool { return a.ScopePolicy == nil || *a.ScopePolicy }
 
+// Location is the organisation's time zone, or UTC when none is configured.
+func (a *Agent) Location() *time.Location {
+	if l, err := time.LoadLocation(a.Timezone); err == nil && a.Timezone != "" {
+		return l
+	}
+	return time.UTC
+}
+
 // MemoryDomain is the domain used in memory scopes: the configured shared
 // domain, or the agent ID when none is set.
 func (a *Agent) MemoryDomain() string {
@@ -93,6 +106,11 @@ func Load(root string) (map[string]*Agent, error) {
 		}
 		if _, ok := out[a.ID]; ok {
 			return nil, fmt.Errorf("duplicate agent %s", a.ID)
+		}
+		if a.Timezone != "" {
+			if _, e := time.LoadLocation(a.Timezone); e != nil {
+				return nil, fmt.Errorf("%s: invalid timezone %q", p, a.Timezone)
+			}
 		}
 		if a.Memory.Domain != "" && !memoryDomain.MatchString(a.Memory.Domain) {
 			return nil, fmt.Errorf("%s: invalid memory domain %q", p, a.Memory.Domain)

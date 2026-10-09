@@ -68,7 +68,7 @@ func TestEmptyAnswerRecoversOnlyVerifiedCurrentResults(t *testing.T) {
 			}
 			if recover {
 				text := conversation(s)
-				if mode == "success" && (!strings.Contains(text, "UTC") || !strings.Contains(text, "ID: TECH-")) {
+				if mode == "success" && (strings.Contains(text, "UTC") || !strings.Contains(text, "9:00 am") || !strings.Contains(text, "ID: TECH-")) {
 					t.Fatal(text)
 				}
 				if mode == "no_slots" && !strings.Contains(text, "Available technician visits.") {
@@ -112,7 +112,7 @@ func TestConfirmedMutationAcknowledgedWithoutModel(t *testing.T) {
 			}
 			if !fail {
 				text := conversation(s)
-				if !strings.Contains(text, "Technician visit booked.") || !strings.Contains(text, "UTC") || !strings.Contains(text, slot.ID) {
+				if !strings.Contains(text, "Technician visit booked") || strings.Contains(text, "UTC") || !(strings.Contains(text, "9 am") || strings.Contains(text, "1 pm")) || !strings.Contains(text, slot.ID) {
 					t.Fatal(text)
 				}
 				remaining := b.Execute(request("telecom", "C001", "technician.availability"))

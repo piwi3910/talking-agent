@@ -28,6 +28,7 @@ func Spoken(text string) string {
 	}
 	p := &speaker{}
 	s := dropStageDirections(text)
+	s = zoneRE.ReplaceAllString(s, "$1")
 	s = spReplaceAll(s, emailRE, p.email)
 	s = spReplaceAll(s, phoneRE, p.phone)
 	s = spReplaceAll(s, isoDateRE, p.isoDate)
@@ -68,6 +69,10 @@ var (
 	numberRE      = regexp.MustCompile(amtPat)
 	formRE        = regexp.MustCompile(`FS([12])`)
 )
+
+// zoneRE drops a time zone label after a time ("2:30 PM UTC", "9:00 am (Dubai
+// time)"): people do not say it aloud, and TTS would spell out "UTC".
+var zoneRE = regexp.MustCompile(`(?i)(\d(?:[ \x{00a0}]?[ap]\.?m\.?)?)[ \x{00a0}]+\(?(?:UTC|GMT|GST|Dubai time|local time)\)?`)
 
 var stageDirectionRE = regexp.MustCompile(`(?i)\((?:laugh|cough|clears throat|sigh)\)`)
 var doubleSpaceRE = regexp.MustCompile(` {2,}`)

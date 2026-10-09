@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+// GuidanceMarker separates a result summary the person may read from guidance
+// meant only for the model. FormatResult drops everything after it.
+const GuidanceMarker = "\n\nGuidance: "
+
 // FormatResult renders service facts without inference or industry-specific logic.
 // It is used for acknowledged mutations and recovery from empty model answers.
 func FormatResult(result Result) string {
@@ -13,7 +17,8 @@ func FormatResult(result Result) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString(result.Summary)
+	summary, _, _ := strings.Cut(result.Summary, GuidanceMarker)
+	b.WriteString(summary)
 	limit := len(result.Records)
 	if limit > 50 {
 		limit = 50
@@ -21,13 +26,14 @@ func FormatResult(result Result) string {
 	for _, record := range result.Records[:limit] {
 		fields := []string{}
 		for _, value := range []string{record.Name, record.Description} {
-			if value != "" {
+			// A slot's description repeats its start time, which is rendered below.
+			if value != "" && !(value == record.Description && record.Start != "" && strings.HasSuffix(record.Kind, "_slot")) {
 				fields = append(fields, value)
 			}
 		}
 		if record.Start != "" {
 			if at, err := time.Parse(time.RFC3339, record.Start); err == nil {
-				fields = append(fields, at.UTC().Format("Mon 2006-01-02 15:04 UTC"))
+				fields = append(fields, at.Format("Monday 2 January, 3:04 pm"))
 			} else {
 				fields = append(fields, "Start: "+record.Start)
 			}

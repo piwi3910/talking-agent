@@ -55,7 +55,6 @@ func Load(root string, now time.Time) (*Backend, error) {
 		}
 		b.catalogs[x.name] = r
 	}
-	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	for id := range b.users["telecom"] {
 		b.records["tickets"] = append(b.records["tickets"], tools.Record{ID: "T-" + id, Kind: "ticket", UserID: id, Status: "closed", Description: "Previous service check completed."})
 	}
@@ -65,8 +64,20 @@ func Load(root string, now time.Time) (*Backend, error) {
 			b.records["tickets"][i].Description = "Upstairs Wi-Fi interference resolved temporarily by changing channel to 6."
 		}
 	}
-	for i := 1; i <= 8; i++ {
-		b.records["technician_slots"] = append(b.records["technician_slots"], tools.Record{ID: fmt.Sprintf("TECH-%02d", i), Kind: "technician_slot", Status: "available", Start: day.AddDate(0, 0, i).Add(9 * time.Hour).Format(time.RFC3339)})
+	// Technician visits run Monday to Saturday in a morning window (9 am) and
+	// an afternoon window (1 pm), customer local time. IDs stay TECH-nn.
+	day := localMidnight(now, telecomZone)
+	for n, offset := 1, 1; n <= 12; offset++ {
+		date := day.AddDate(0, 0, offset)
+		if date.Weekday() == time.Sunday {
+			continue
+		}
+		for _, hour := range []int{9, 13} {
+			at := time.Date(date.Year(), date.Month(), date.Day(), hour, 0, 0, 0, telecomZone)
+			slot := slotRecord(fmt.Sprintf("TECH-%02d", n), "technician_slot", "Technician visit", at, "")
+			b.records["technician_slots"] = append(b.records["technician_slots"], slot)
+			n++
+		}
 	}
 	b.seedSchool(now)
 	b.seedAquila(now)
@@ -300,18 +311,18 @@ func (b *Backend) telecom(u *User, name string, a map[string]string) tools.Resul
 	case "technician.availability":
 		out := []tools.Record{}
 		for _, r := range b.records["technician_slots"] {
-			if r.Status == "available" {
+			if r.Status == "available" && slotFuture(r, time.Now()) {
 				out = append(out, r)
 			}
 		}
-		return result("Available technician visits.", out...)
+		return result(availabilitySummary("Available technician visits.", out, nil), out...)
 	case "technician.book":
 		for i, r := range b.records["technician_slots"] {
-			if r.ID == a["slot_id"] && r.Status == "available" {
+			if r.ID == a["slot_id"] && r.Status == "available" && slotFuture(r, time.Now()) {
 				r.Status = "booked"
 				r.UserID = u.ID
 				b.records["technician_slots"][i] = r
-				return result("Technician visit booked.", r)
+				return result("Technician visit booked for "+whenWords(mustTime(r))+". The technician phones ahead on the day.", r)
 			}
 		}
 		return tools.Failure("slot_unavailable", "Technician slot unavailable")

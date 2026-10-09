@@ -9,15 +9,16 @@ import (
 )
 
 func (b *Backend) seedSchool(now time.Time) {
-	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	// Tours run Monday to Friday at 9:30 and 14:30, school local time.
+	day := localMidnight(now, schoolZone)
 	for offset := 1; offset <= 14; offset++ {
 		date := day.AddDate(0, 0, offset)
 		if date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
 			continue
 		}
 		for _, hour := range []int{9, 14} {
-			at := date.Add(time.Duration(hour)*time.Hour + 30*time.Minute)
-			b.records["school_tours"] = append(b.records["school_tours"], tools.Record{ID: fmt.Sprintf("TOUR-%s-%02d", at.Format("20060102"), hour), Kind: "tour_slot", Name: "Campus tour with admissions", Start: at.Format(time.RFC3339), Status: "available", Location: "Main reception"})
+			at := time.Date(date.Year(), date.Month(), date.Day(), hour, 30, 0, 0, schoolZone)
+			b.records["school_tours"] = append(b.records["school_tours"], slotRecord(fmt.Sprintf("TOUR-%s-%02d", at.Format("20060102"), hour), "tour_slot", "Campus tour with admissions", at, "Main reception"))
 		}
 	}
 	for id := range b.users["school"] {
@@ -75,10 +76,10 @@ func (b *Backend) school(u *User, name string, a map[string]string) tools.Result
 		}
 		rs := []tools.Record{}
 		for _, r := range b.records["school_tours"] {
-			if r.Status != "available" || r.Start <= time.Now().UTC().Format(time.RFC3339) {
+			if r.Status != "available" || !slotFuture(r, time.Now()) {
 				continue
 			}
-			date := r.Start[:10]
+			date := r.Start[:10] // local date: Start carries the school's offset
 			if a["from"] != "" && date < a["from"] || a["to"] != "" && date > a["to"] {
 				continue
 			}
@@ -88,15 +89,15 @@ func (b *Backend) school(u *User, name string, a map[string]string) tools.Result
 			rs = append(rs, r)
 		}
 		sort.Slice(rs, func(i, j int) bool { return rs[i].Start < rs[j].Start })
-		if len(rs) > 6 {
-			rs = rs[:6]
+		if len(rs) > 10 {
+			rs = rs[:10]
 		}
-		return result("Available school tours (UTC). Availability is checked again at booking; a tour does not reserve a school place.", rs...)
+		return result(availabilitySummary("Available school tours (Monday to Friday, morning and afternoon). Availability is checked again at booking; a tour does not reserve a school place.", rs, nil), rs...)
 	case "tour.list":
 		return result("Your family’s school visits.", owned(b.records["school_visits"], u.ID)...)
 	case "tour.book":
 		for i, r := range b.records["school_tours"] {
-			if r.ID != a["slot_id"] || r.Status != "available" || r.Start <= time.Now().UTC().Format(time.RFC3339) {
+			if r.ID != a["slot_id"] || r.Status != "available" || !slotFuture(r, time.Now()) {
 				continue
 			}
 			b.records["school_tours"][i].Status = "booked"
@@ -109,7 +110,7 @@ func (b *Backend) school(u *User, name string, a map[string]string) tools.Result
 			visit.UserID = u.ID
 			visit.Status = "booked"
 			b.records["school_visits"] = append(b.records["school_visits"], visit)
-			return result("Your campus tour is booked. Please check in at reception. This does not reserve a school place.", visit)
+			return result("Your campus tour is booked for "+whenWords(mustTime(r))+". Please check in at reception. This does not reserve a school place.", visit)
 		}
 		return tools.Failure("slot_unavailable", "This tour slot is no longer available")
 	case "tour.cancel":

@@ -127,7 +127,7 @@ func TestAquilaSlotsSimulateBookingAndWritesAreVisibleLater(t *testing.T) {
 	types := map[string]bool{}
 	for _, r := range tours.Records {
 		types[r.Specialty] = true
-		if !strings.Contains(r.Description, "Dubai time") || r.Status != "available" {
+		if strings.Contains(r.Description, "Dubai") || !strings.HasSuffix(r.Start, "+04:00") || r.Status != "available" {
 			t.Fatalf("slot %+v", r)
 		}
 	}
@@ -238,7 +238,7 @@ func TestAquilaReceptionOperations(t *testing.T) {
 	if r := aq(b, "F001", "reception.message_staff", map[string]string{"staff": "head of primary", "message": "Omar needs a catch-up plan."}); r.Error != nil || !strings.Contains(r.Summary, "Kylie Cleworth, Head of Primary") {
 		t.Fatalf("message: %+v", r)
 	}
-	if r := aq(b, "L004", "staff.meeting_book", map[string]string{"staff": "Head of Inclusion", "topic": "Karim's support plan"}); r.Error != nil || !strings.Contains(r.Summary, "Claire Hitchings, Head of Inclusion") || !strings.Contains(r.Summary, "Dubai time") {
+	if r := aq(b, "L004", "staff.meeting_book", map[string]string{"staff": "Head of Inclusion", "topic": "Karim's support plan"}); r.Error != nil || !strings.Contains(r.Summary, "Claire Hitchings, Head of Inclusion") || strings.Contains(r.Summary, "Dubai time") {
 		t.Fatalf("meeting: %+v", r)
 	}
 	for area, want := range map[string]string{"Dubai Silicon Oasis": "AED 6,877", "Arabian Ranches": "AED 8,927", "JVC": "AED 9,588", "Mudon": "Zone 2"} {
