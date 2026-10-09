@@ -13,12 +13,17 @@ The audio.cpp weights are the Q8 GGUFs from `audio-cpp/audio.cpp-gguf`. The orig
 | TTS (stream, vLLM-Omni Qwen3-TTS) | `http://speech-tts-stream.enterprise-ai-demo.svc.cluster.local:8095` | `kuvryn-9034ee12-b1c9-4b94-9cda-d1a9c6c0a366-a46ea12d` |
 | TTS (render, audio.cpp Qwen3-TTS) | `http://speech-tts.enterprise-ai-demo.svc.cluster.local:8094`        | `kuvryn-67579477-05ed-45a7-9903-c2dc7aabfac4-b4616c22` |
 | STT                               | `http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093`        | `kuvryn-0b03dce0-1eac-40dd-8541-59321391fac5-a46ea12d` |
+| STT (final, Qwen3-ASR 1.7B)       | `http://speech-stt-final.enterprise-ai-demo.svc.cluster.local:8096`  | `kuvryn-f0e846ba-cf14-4175-a97b-acdd8703b817-a46ea12d` |
 
 ExternalName is a DNS CNAME, so the app must use the worker's own port. Kuvryn generates the worker Service names per deployment and node. If Kuvryn redeploys or moves a worker, update `externalName` (and the port, if it changes) in the speech manifest, then push. To find the current names:
 
 ```sh
 kubectl --context kw -n kuvryn-ai-workloads get svc
 ```
+
+### Hybrid recognition
+
+Nemotron (`speech-stt`) streams the live partials. When `STT_FINAL_URL` and `STT_FINAL_MODEL` are set (`qwen3-asr-1.7b-utt`, an audio.cpp Qwen3-ASR 1.7B worker with a 30 s chunk, so one pass per utterance), the app also streams the same PCM to that worker through the same live endpoint and uses its text as the final transcript. This is more accurate on names and numbers. If it errors, returns nothing, or does not answer within 1.5 s of the end of speech, or the utterance exceeds 30 s, the Nemotron final is used. The reason is recorded in the conversation trace as `stt.final.fallback`; successes appear as `stt.final.request` and `stt.final.done` (with `latency_ms`). The SIP path uses the same client and is hybrid too. Unset the variables for Nemotron only.
 
 The FastLLM proxy also lists `nemotron-3.5-asr`. However, it has no route for `/v1/audio/transcriptions/live`, which the app needs for partial transcripts while the user is still speaking. So the app calls the workers directly.
 

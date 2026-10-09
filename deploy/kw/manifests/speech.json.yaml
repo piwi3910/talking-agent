@@ -48,3 +48,20 @@
       "ports": [{ "name": "http", "port": 8095, "targetPort": 8095 }],
     },
 }
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata":
+    {
+      "namespace": "enterprise-ai-demo",
+      "labels": { "app.kubernetes.io/part-of": "enterprise-speech" },
+      "name": "speech-stt-final",
+    },
+  "spec":
+    {
+      "type": "ExternalName",
+      "externalName": "kuvryn-f0e846ba-cf14-4175-a97b-acdd8703b817-a46ea12d.kuvryn-ai-workloads.svc.cluster.local",
+      "ports": [{ "name": "http", "port": 8096, "targetPort": 8096 }],
+    },
+}

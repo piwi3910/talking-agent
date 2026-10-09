@@ -82,6 +82,14 @@
                           "value": "http://speech-stt.enterprise-ai-demo.svc.cluster.local:8093",
                         },
                         {
+                          "name": "STT_FINAL_URL",
+                          "value": "http://speech-stt-final.enterprise-ai-demo.svc.cluster.local:8096",
+                        },
+                        {
+                          "name": "STT_FINAL_MODEL",
+                          "value": "qwen3-asr-1.7b-utt",
+                        },
+                        {
                           "name": "TTS_URL",
                           "value": "http://speech-tts-stream.enterprise-ai-demo.svc.cluster.local:8095",
                         },

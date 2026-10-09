@@ -39,7 +39,14 @@ const DefaultQwen3Speaker = "Ryan"
 
 type Client struct {
 	STTURL, TTSURL string
-	HTTP           *http.Client
+
+	// FinalURL and FinalModel optionally name a second audio.cpp ASR server
+	// (live protocol) that transcribes the whole utterance once it ends. Its
+	// text replaces the streaming recognizer's final; the streaming partials are
+	// unchanged. FinalTimeout bounds the wait after the audio ends (default 1.5 s).
+	FinalURL, FinalModel string
+	FinalTimeout         time.Duration
+	HTTP                 *http.Client
 
 	// Provider selects the TTS request format: "omni" or "qwen3" (the zero value).
 	Provider string
@@ -105,7 +112,15 @@ func (c *Client) do(ctx context.Context, endpoint string, body io.Reader) (*http
 
 // Transcribe reads partials while the caller is still writing PCM to audio.
 func (c *Client) Transcribe(ctx context.Context, audio io.Reader, emit func(string, bool) error) error {
-	resp, err := c.do(ctx, strings.TrimRight(c.STTURL, "/")+"/v1/audio/transcriptions/live?model=nemotron-3.5-asr&sample_rate=16000&channels=1&sample_format=s16le&language=en-US", audio)
+	if c.HybridSTT() {
+		return c.transcribeHybrid(ctx, audio, emit)
+	}
+	return c.transcribeLive(ctx, c.STTURL, "nemotron-3.5-asr", "en-US", audio, emit)
+}
+
+// transcribeLive runs one audio.cpp live transcription: PCM up, SSE events down.
+func (c *Client) transcribeLive(ctx context.Context, base, model, language string, audio io.Reader, emit func(string, bool) error) error {
+	resp, err := c.do(ctx, strings.TrimRight(base, "/")+"/v1/audio/transcriptions/live?model="+model+"&sample_rate=16000&channels=1&sample_format=s16le&language="+language, audio)
 	if err != nil {
 		return err
 	}

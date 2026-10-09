@@ -89,7 +89,7 @@ func (a *API) voiceRoutes(m *http.ServeMux) {
 		if a.Speech.Omni() {
 			tts = "Qwen3-TTS 1.7B (streaming)"
 		}
-		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": "Nemotron 3.5 ASR", "tts": tts, "input_sample_rate": 16000, "output_sample_rate": 24000})
+		write(w, 200, map[string]any{"enabled": a.Speech.Enabled(), "stt": a.Speech.STTLabel(), "tts": tts, "input_sample_rate": 16000, "output_sample_rate": 24000})
 	})
 	m.HandleFunc("GET /api/sessions/{id}/transcribe", a.transcribe)
 	m.HandleFunc("POST /api/sessions/{id}/speech", a.synthesize)
@@ -185,7 +185,11 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	first := true
-	err = a.Speech.Transcribe(ctx, pr, func(text string, final bool) error {
+	tctx := speech.WithTrace(ctx, func(ev string, data map[string]any) {
+		data["utterance"] = id
+		a.trace(s.ID, s.Agent.ID, ev, data)
+	})
+	err = a.Speech.Transcribe(tctx, pr, func(text string, final bool) error {
 		typ := "stt.partial"
 		data := map[string]any{"text": text, "duration_ms": time.Since(started).Milliseconds()}
 		if first {
