@@ -28,7 +28,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: crm.history
       description: "Read this family's earlier conversations, notes, bookings and applications, oldest first"
       input:
@@ -39,7 +39,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: crm.note
       description: "Save a short note on the family record so every colleague remembers it next time. Use for names, ages, year groups, preferences, concerns, objections, decisions and next steps"
       input:
@@ -53,7 +53,7 @@
             }
         required: [summary]
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Noted"
         text: "{summary}"
@@ -97,7 +97,7 @@
             }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: transport.quote
       description: "School bus zone and annual fee for a community or area, for example JVC or Arabian Ranches"
       input:
@@ -111,7 +111,7 @@
             }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
 
 - id: admissions
   description: "Places, fee quotes with sibling, early-bird and Family Circle discounts, scholarships and application progress"
@@ -151,7 +151,7 @@
             { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: admissions.fee_quote
       description: "Exact 2026-27 tuition for one or more children with sibling, early-bird full-year payment and Family Circle referral discounts applied"
       input:
@@ -180,7 +180,7 @@
             }
         required: [year_group]
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: scholarship.check
       description: "Scholarship options and requirements for a year group (ISP Middle East scholarships, Tomorrow's Leaders, performing arts)"
       input:
@@ -191,7 +191,7 @@
             { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: application.status
       description: "Read this family's application progress and the next step"
       input:
@@ -202,7 +202,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
 
 - id: visits
   description: "Tours (in person, virtual, Saturday open morning) and assessments (CAT4 or meet and greet): availability, booking and cancelling"
@@ -239,7 +239,7 @@
           to: { type: string, description: "Optional last date YYYY-MM-DD" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: tour.book
       description: "Book the exact tour slot the family chose"
       input:
@@ -258,7 +258,7 @@
             }
         required: [slot_id, when]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Tour booked"
         text: "Tour booked for {when}."
@@ -276,7 +276,7 @@
             }
         required: [booking_id]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "cancelled"
         text: "A tour booking was cancelled at the family's request."
@@ -293,7 +293,7 @@
           to: { type: string, description: "Optional last date YYYY-MM-DD" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: assessment.book
       description: "Book the exact CAT4 or meet-and-greet slot the family chose for a child"
       input:
@@ -313,7 +313,7 @@
             }
         required: [slot_id, child_name, when]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Assessment booked"
         text: "Assessment booked for {child_name}: {when}."
@@ -367,7 +367,7 @@
             }
         required: [outcome, notes]
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Outcome logged"
         text: "Outreach call outcome ({outcome}): {notes}"
@@ -386,7 +386,7 @@
           topic: { type: string, description: "What the call is about" }
         required: [when, topic]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Callback scheduled"
         text: "Callback scheduled for {when} about {topic}."
@@ -406,7 +406,7 @@
             { type: string, description: "What the family wants to discuss" }
         required: [staff, topic]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Meeting booked"
         text: "Meeting booked with {staff} about {topic}."
@@ -421,4 +421,4 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000

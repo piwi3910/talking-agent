@@ -110,7 +110,7 @@ func (b *Backend) school(u *User, name string, a map[string]string) tools.Result
 			visit.UserID = u.ID
 			visit.Status = "booked"
 			b.records["school_visits"] = append(b.records["school_visits"], visit)
-			return result("Your campus tour is booked for "+whenWords(mustTime(r))+". Please check in at reception. This does not reserve a school place.", visit)
+			return result("Your campus tour is booked for "+whenWords(mustTime(r))+". Your confirmation number is "+confirmationNo(visit.ID)+". A confirmation email and text are on their way. Please check in at reception about ten minutes early; the tour takes around 45 minutes. This does not reserve a school place.", visit)
 		}
 		return tools.Failure("slot_unavailable", "This tour slot is no longer available")
 	case "tour.cancel":

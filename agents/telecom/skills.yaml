@@ -14,7 +14,7 @@
         type: object
       mutation: false
       name: customer.lookup
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Report trusted demo authentication
       input:
         additionalProperties: false
@@ -23,7 +23,7 @@
         type: object
       mutation: false
       name: customer.authenticate
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Get contact and account profile
       input:
         additionalProperties: false
@@ -32,7 +32,7 @@
         type: object
       mutation: false
       name: customer.profile
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Subscription services
   id: subscription
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -47,7 +47,7 @@
         type: object
       mutation: false
       name: subscription.list
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Inspect a subscription
       input:
         additionalProperties: false
@@ -59,7 +59,7 @@
         type: object
       mutation: false
       name: subscription.details
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Billing services
   id: billing
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -77,7 +77,7 @@
         type: object
       mutation: false
       name: billing.balance
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Get itemized current invoice
       input:
         additionalProperties: false
@@ -86,7 +86,7 @@
         type: object
       mutation: false
       name: billing.invoice
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Explain changes from the previous invoice
       input:
         additionalProperties: false
@@ -95,7 +95,7 @@
         type: object
       mutation: false
       name: billing.explain
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Usage services
   id: usage
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -112,7 +112,7 @@
         type: object
       mutation: false
       name: usage.current
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Inspect historical monthly usage
       input:
         additionalProperties: false
@@ -121,7 +121,7 @@
         type: object
       mutation: false
       name: usage.history
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Network services
   id: network
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -143,7 +143,7 @@
         type: object
       mutation: false
       name: network.status
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Check regional outages before equipment troubleshooting
       input:
         additionalProperties: false
@@ -152,7 +152,7 @@
         type: object
       mutation: false
       name: network.outages
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Diagnose access line and router
       input:
         additionalProperties: false
@@ -161,7 +161,7 @@
         type: object
       mutation: false
       name: network.diagnostics
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Measure current download speed
       input:
         additionalProperties: false
@@ -170,7 +170,7 @@
         type: object
       mutation: false
       name: network.speedtest
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Wifi services
   id: wifi
   instructions: Use current backend records. Never invent IDs or availability. Confirm mutations. Check network.outages and network.status before changing equipment.
@@ -189,7 +189,7 @@
         type: object
       mutation: false
       name: wifi.status
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: List connected devices
       input:
         additionalProperties: false
@@ -198,7 +198,7 @@
         type: object
       mutation: false
       name: wifi.devices
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Check upstairs coverage and channel interference
       input:
         additionalProperties: false
@@ -207,7 +207,7 @@
         type: object
       mutation: false
       name: wifi.diagnostics
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Restart the router; rejects outage, restriction or physical line issue
       input:
         additionalProperties: false
@@ -216,7 +216,7 @@
         type: object
       mutation: true
       name: wifi.restart
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Change Wi-Fi channel; rejects outage or physical line issue
       input:
         additionalProperties: false
@@ -241,7 +241,7 @@
         text: Previous upstairs Wi-Fi interference was resolved by changing channel to {channel}.
       mutation: true
       name: wifi.optimize
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Ticket services
   id: ticket
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -256,7 +256,7 @@
         type: object
       mutation: false
       name: ticket.list
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Read one owned support ticket
       input:
         additionalProperties: false
@@ -269,7 +269,7 @@
         type: object
       mutation: false
       name: ticket.details
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Create support ticket
       input:
         additionalProperties: false
@@ -282,7 +282,7 @@
         type: object
       mutation: true
       name: ticket.create
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Update support ticket
       input:
         additionalProperties: false
@@ -302,7 +302,7 @@
         type: object
       mutation: true
       name: ticket.update
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Plan services
   id: plan
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -318,7 +318,7 @@
         type: object
       mutation: false
       name: plan.list
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Compare plans with current subscription and usage
       input:
         additionalProperties: false
@@ -327,7 +327,7 @@
         type: object
       mutation: false
       name: plan.compare
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Change subscription to an available plan
       input:
         additionalProperties: false
@@ -340,7 +340,7 @@
         type: object
       mutation: true
       name: plan.change
-      timeout_ms: 5000
+      timeout_ms: 9000
 - description: Technician services
   id: technician
   instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
@@ -356,7 +356,7 @@
         type: object
       mutation: false
       name: technician.availability
-      timeout_ms: 5000
+      timeout_ms: 9000
     - description: Book a technician visit
       input:
         additionalProperties: false
@@ -369,4 +369,4 @@
         type: object
       mutation: true
       name: technician.book
-      timeout_ms: 5000
+      timeout_ms: 9000

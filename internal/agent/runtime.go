@@ -232,7 +232,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 	if s.Agent.ScopeEnforced() {
 		base += "\n" + ScopePolicy(s.Agent)
 	}
-	base += "\n" + SchedulingPolicy
+	base += "\n" + SchedulingPolicy + "\n" + ActionPolicy
 	var mcpTools map[string]mcp.Tool // keyed by wire name
 	if r.MCP != nil {
 		tctx, tcancel := context.WithTimeout(ctx, 15*time.Second)

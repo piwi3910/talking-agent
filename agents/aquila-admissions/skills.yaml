@@ -26,7 +26,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: crm.history
       description: "Read this family's earlier conversations, notes, bookings and applications, oldest first"
       input:
@@ -37,7 +37,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: crm.note
       description: "Save a short note on the family record so every colleague remembers it next time. Use for names, ages, year groups, preferences, concerns, decisions and next steps"
       input:
@@ -51,7 +51,7 @@
             }
         required: [summary]
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Noted"
         text: "{summary}"
@@ -104,7 +104,7 @@
             }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: clubs.list
       description: "List clubs, sports and wrap-around care with their costs; optional interest filter"
       input:
@@ -118,7 +118,7 @@
             }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: uniform.info
       description: "Uniform requirements, supplier and the approximate cost of a full set"
       input:
@@ -129,7 +129,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: transport.quote
       description: "School bus zone and annual fee for a community or area, for example JVC or Arabian Ranches"
       input:
@@ -143,7 +143,7 @@
             }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: transport.request
       description: "Request a school bus seat for a child from their area; the transport team confirms the stop and times"
       input:
@@ -158,7 +158,7 @@
           child_name: { type: string, description: "The child's first name" }
         required: [area, child_name]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Bus seat requested"
         text: "Bus seat requested for {child_name} from {area}."
@@ -204,7 +204,7 @@
             { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: admissions.fee_quote
       description: "Exact 2026-27 tuition for one or more children with sibling, early-bird full-year payment and Family Circle referral discounts applied"
       input:
@@ -233,7 +233,7 @@
             }
         required: [year_group]
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: scholarship.check
       description: "Scholarship options and requirements for a year group (ISP Middle East scholarships, Tomorrow's Leaders, performing arts)"
       input:
@@ -244,7 +244,7 @@
             { type: string, description: "FS1, FS2 or Year 1 to Year 13" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: admissions.enquire
       description: "Log an admissions enquiry so the admissions team follows up personally; it does not reserve a place"
       input:
@@ -257,7 +257,7 @@
             { type: string, description: "What the family is looking for" }
         required: [year_group, summary]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Enquiry logged"
         text: "Admissions enquiry logged ({year_group}): {summary}"
@@ -278,7 +278,7 @@
             }
         required: [child_name, year_group]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Application started"
         text: "Application started for {child_name} ({year_group})."
@@ -293,7 +293,7 @@
           required: [],
         }
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
 
 - id: visits
   description: "Tours (in person, virtual, Saturday open morning) and assessments (CAT4 or meet and greet): availability, booking and cancelling"
@@ -330,7 +330,7 @@
           to: { type: string, description: "Optional last date YYYY-MM-DD" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: tour.book
       description: "Book the exact tour slot the family chose"
       input:
@@ -349,7 +349,7 @@
             }
         required: [slot_id, when]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Tour booked"
         text: "Tour booked for {when}."
@@ -367,7 +367,7 @@
             }
         required: [booking_id]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "cancelled"
         text: "A tour booking was cancelled at the family's request."
@@ -384,7 +384,7 @@
           to: { type: string, description: "Optional last date YYYY-MM-DD" }
         required: []
       mutation: false
-      timeout_ms: 5000
+      timeout_ms: 9000
     - name: assessment.book
       description: "Book the exact CAT4 or meet-and-greet slot the family chose for a child"
       input:
@@ -404,7 +404,7 @@
             }
         required: [slot_id, child_name, when]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Assessment booked"
         text: "Assessment booked for {child_name}: {when}."
@@ -443,7 +443,7 @@
             { type: string, description: "What the family wants to discuss" }
         required: [staff, topic]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Meeting booked"
         text: "Meeting booked with {staff} about {topic}."
@@ -462,7 +462,7 @@
           topic: { type: string, description: "What the call is about" }
         required: [when, topic]
       mutation: true
-      timeout_ms: 5000
+      timeout_ms: 9000
       memory_effect:
         contains: "Callback scheduled"
         text: "Callback scheduled for {when} about {topic}."

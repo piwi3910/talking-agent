@@ -28,44 +28,44 @@
     {
       "id": "lookup-1",
       "category": "lookup",
-      "text": "Let me just pull that up.",
-      "duration_ms": 1625
+      "text": "Let me search for that.",
+      "duration_ms": 1495
     },
     {
       "id": "lookup-2",
       "category": "lookup",
-      "text": "One moment while I check our records.",
-      "duration_ms": 2405
+      "text": "One moment, I'm searching now.",
+      "duration_ms": 1950
     },
     {
       "id": "lookup-3",
       "category": "lookup",
-      "text": "I'm checking the details for you.",
-      "duration_ms": 2145
+      "text": "Let me look that up for you.",
+      "duration_ms": 1820
     },
     {
       "id": "lookup-4",
       "category": "lookup",
-      "text": "Bear with me a second.",
-      "duration_ms": 1430
+      "text": "Bear with me, I'm checking a few sources.",
+      "duration_ms": 2665
     },
     {
       "id": "availability-1",
       "category": "availability",
-      "text": "Let me see what we have free.",
-      "duration_ms": 1885
+      "text": "Let me check that for you.",
+      "duration_ms": 1690
     },
     {
       "id": "availability-2",
       "category": "availability",
-      "text": "One moment, I'm looking at the calendar.",
-      "duration_ms": 2600
+      "text": "One moment, looking into it.",
+      "duration_ms": 1820
     },
     {
       "id": "availability-3",
       "category": "availability",
-      "text": "Bear with me while I check the times.",
-      "duration_ms": 2405
+      "text": "Bear with me a second.",
+      "duration_ms": 1430
     },
     {
       "id": "listening-1",

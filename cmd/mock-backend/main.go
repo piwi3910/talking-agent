@@ -21,6 +21,7 @@ func main() {
 		slog.Error("load mock data", "error", e)
 		os.Exit(1)
 	}
+	b.LatencyScale = mock.LatencyScaleFromEnv()
 	addr := os.Getenv("MOCK_LISTEN_ADDR")
 	if addr == "" {
 		addr = "127.0.0.1:8081"

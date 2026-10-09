@@ -33,6 +33,9 @@ type Backend struct {
 	catalogs map[string][]tools.Record
 	records  map[string][]tools.Record
 	serial   int
+	// LatencyScale multiplies the simulated per-tool duration served by Handler;
+	// 0 (the zero value) answers immediately.
+	LatencyScale float64
 }
 
 func Load(root string, now time.Time) (*Backend, error) {
@@ -115,7 +118,7 @@ func (b *Backend) Handler() http.Handler {
 			write(w, tools.Failure("invalid_input", "Invalid tool request"))
 			return
 		}
-		if err := r.Context().Err(); err != nil {
+		if err := b.wait(r.Context(), req.Name); err != nil {
 			return
 		}
 		out := b.Execute(req)
@@ -215,58 +218,27 @@ func (b *Backend) telecom(u *User, name string, a map[string]string) tools.Resul
 	case "usage.history":
 		return result("Previous three monthly mobile usage totals: 11 GB, 14 GB, 18 GB.", tools.Record{ID: "month-1", Kind: "usage", Value: 11, Unit: "GB"}, tools.Record{ID: "month-2", Kind: "usage", Value: 14, Unit: "GB"}, tools.Record{ID: "month-3", Kind: "usage", Value: 18, Unit: "GB"})
 	case "network.outages":
-		if u.Network == "outage" {
-			return result("A regional outage is affecting the North district. Engineers are investigating; no restoration estimate is confirmed. Router restart will not help.", tools.Record{ID: "OUT-001", Kind: "outage", Status: "active", Location: u.Location})
-		}
-		return result("No active outage in your area.")
-	case "network.status", "network.diagnostics":
-		summary := "Access line is online."
-		if u.Network == "outage" {
-			summary = "Regional outage detected. Wait for the network restoration update; do not restart equipment."
-		}
-		if u.Network == "restricted" {
-			summary = "Service is restricted because of an overdue invoice. Check billing."
-		}
-		if u.Network == "line_fault" {
-			summary = "Physical line fault detected. A technician visit is required."
-		}
-		if u.Router == "unhealthy" {
-			summary += " Router is unhealthy; a restart is recommended."
-		}
-		return result(summary, tools.Record{ID: "line", Kind: "network", Status: u.Network, Description: "Router: " + u.Router})
+		return b.telecomOutage(u)
+	case "network.status":
+		return b.telecomNetwork(u, false)
+	case "network.diagnostics":
+		return b.telecomNetwork(u, true)
 	case "network.speedtest":
-		speed := 92.0
-		if u.Network != "online" {
-			speed = 0
-		}
-		if u.Router == "unhealthy" {
-			speed = 3
-		}
-		if u.PlanID == "fiber-500" && u.Network == "online" && u.Router == "healthy" {
-			speed = 470
-		}
-		return result(fmt.Sprintf("Measured download speed: %.0f Mbps.", speed), tools.Record{ID: "speed", Kind: "speedtest", Value: speed, Unit: "Mbps"})
+		return b.telecomSpeedtest(u)
 	case "wifi.status", "wifi.diagnostics":
-		summary := "Router healthy; Wi-Fi channel " + u.Channel + " has low interference."
-		status := "healthy"
-		if u.Interference {
-			summary = "High interference on channel " + u.Channel + " is causing poor upstairs coverage. Changing to channel 11 is recommended."
-			status = "interference"
-		}
-		if u.Router == "unhealthy" {
-			summary = "Router health check failed; restart is recommended."
-			status = "unhealthy"
-		}
-		return result(summary, tools.Record{ID: "RTR-" + u.ID, Kind: "router", Status: status, Description: "Channel " + u.Channel})
+		return b.telecomWifi(u)
 	case "wifi.devices":
-		return result("Three devices are connected.", tools.Record{ID: "DEV-1", Kind: "device", Name: "Living room TV", Status: "strong signal"}, tools.Record{ID: "DEV-2", Kind: "device", Name: "Upstairs laptop", Status: map[bool]string{true: "weak signal", false: "strong signal"}[u.Interference]}, tools.Record{ID: "DEV-3", Kind: "device", Name: "Mobile phone", Status: "strong signal"})
+		laptop := map[bool]string{true: "weak signal", false: "strong signal"}[u.Interference]
+		return result("Three devices are connected."+tools.GuidanceMarker+"A weak-signal device on a busy channel points to interference; check wifi.diagnostics.", tools.Record{ID: "DEV-1", Kind: "device", Name: "Living room TV", Status: "strong signal", Description: "5 GHz, 8 metres from the router"}, tools.Record{ID: "DEV-2", Kind: "device", Name: "Upstairs laptop", Status: laptop, Description: "Channel " + u.Channel}, tools.Record{ID: "DEV-3", Kind: "device", Name: "Mobile phone", Status: "strong signal", Description: "5 GHz"})
 	case "wifi.restart", "wifi.optimize":
 		if u.Network != "online" {
 			return tools.Failure("action_blocked", "Equipment changes cannot resolve "+u.Network+". Resolve the access issue first.")
 		}
 		if name == "wifi.restart" {
 			u.Router = "healthy"
-			return result("Router restarted successfully. Router health is now normal.")
+			l := b.lineFor(u)
+			secs := 38 + int(pick(u.ID, "boot", 0)*30)
+			return result(fmt.Sprintf("Router restarted successfully. It was back online after about %d seconds, the line re-synced at %.0f megabits and packet loss is down to %.1f percent. Router health is now normal.", secs, l.sync, l.loss))
 		}
 		ch := a["channel"]
 		if ch != "1" && ch != "6" && ch != "11" {
@@ -274,7 +246,11 @@ func (b *Backend) telecom(u *User, name string, a map[string]string) tools.Resul
 		}
 		u.Channel = ch
 		u.Interference = ch == "6"
-		return result("Wi-Fi channel changed to " + ch + ". " + map[bool]string{true: "Interference remains on this channel.", false: "Interference cleared; upstairs signal improved."}[u.Interference])
+		if u.Interference {
+			return result("Wi-Fi channel changed to " + ch + ". Interference remains on this channel; channel 11 is usually the quietest here.")
+		}
+		before, after := -between(pick(u.ID, "rssi", 1), 74, 80), -between(pick(u.ID, "rssi", 2), 54, 62)
+		return result(fmt.Sprintf("Wi-Fi channel changed to %s. Interference cleared; upstairs signal improved from %.0f to %.0f dBm and the channel is now only %d percent busy.", ch, before, after, int(between(pick(u.ID, "util", 2), 10, 25))))
 	case "ticket.list":
 		return result("Your support tickets.", owned(b.records["tickets"], u.ID)...)
 	case "ticket.details":
@@ -284,7 +260,11 @@ func (b *Backend) telecom(u *User, name string, a map[string]string) tools.Resul
 		}
 		return result("Ticket details.", r)
 	case "ticket.create":
-		return b.create("tickets", "ticket", u.ID, a["summary"])
+		res := b.create("tickets", "ticket", u.ID, a["summary"])
+		if res.Error == nil && len(res.Records) > 0 {
+			res.Summary = "Request created. Support ticket " + res.Records[0].ID + " is open; a specialist replies within four business hours by text message and email."
+		}
+		return res
 	case "ticket.update":
 		if a["status"] != "open" && a["status"] != "closed" {
 			return tools.Failure("invalid_input", "Status must be open or closed")
@@ -322,7 +302,7 @@ func (b *Backend) telecom(u *User, name string, a map[string]string) tools.Resul
 				r.Status = "booked"
 				r.UserID = u.ID
 				b.records["technician_slots"][i] = r
-				return result("Technician visit booked for "+whenWords(mustTime(r))+". The technician phones ahead on the day.", r)
+				return result("Technician visit booked for "+whenWords(mustTime(r))+". Your confirmation number is "+strings.Replace(r.ID, "TECH-", "TV-", 1)+"-"+fmt.Sprint(4100+int(pick(u.ID, r.ID, 0)*800))+". A text message confirms it now, and the technician phones about 30 minutes before arriving. Please make sure someone over 18 is home and the router is reachable.", r)
 			}
 		}
 		return tools.Failure("slot_unavailable", "Technician slot unavailable")

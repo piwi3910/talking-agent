@@ -407,7 +407,7 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 		}
 		b.records["aq_apps"] = append(b.records["aq_apps"], app)
 		b.aquilaLog(u.ID, "application", "APPLOG", "Application started for "+child, key, "started", app.ID)
-		return result(fmt.Sprintf("Application started for %s (%s). There is no application fee and no place is promised until the offer.", child, key), app)
+		return result(fmt.Sprintf("Application started for %s (%s). There is no application fee and no place is promised until the offer. Your confirmation number is %s. An email with the secure parent portal link arrives within a few minutes; the next step is to upload the documents and book the %s.", child, key, confirmationNo(app.ID), next), app)
 	case "application.status":
 		rs := owned(b.records["aq_apps"], u.ID)
 		if len(rs) == 0 {
@@ -447,7 +447,7 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 					b.records["aq_apps"][j].Description += " Assessment booked: " + s.Description + "."
 				}
 			}
-			return result(fmt.Sprintf("Assessment booked for %s: %s, %s. Please arrive 10 minutes early and bring the child's latest school report.", child, s.Name, s.Description), booking)
+			return result(fmt.Sprintf("Assessment booked for %s: %s, %s. Your confirmation number is %s. A confirmation email and text are on their way. Please arrive 10 minutes early at the admissions suite and bring the child's latest school report and passport copy; the assessment takes about an hour and the team shares feedback within two working days.", child, s.Name, s.Description, confirmationNo(booking.ID)), booking)
 		}
 		return tools.Failure("slot_unavailable", "That assessment slot is no longer available; please offer another from the availability list")
 	case "tour.availability":
@@ -477,7 +477,11 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 			booking := b.aquilaLog(u.ID, "tour_booking", "TOUR", s.Name, s.Description, "booked", s.ID)
 			booking.Location = s.Location
 			b.records["aq_events"][len(b.records["aq_events"])-1].Location = s.Location
-			return result(fmt.Sprintf("Tour booked: %s, %s. A confirmation email is on its way; please check in at main reception.", s.Name, s.Description), booking)
+			next := "please check in at main reception, where the admissions team will meet you; the tour takes about 45 minutes and parking is at the main gate"
+			if s.Specialty == "virtual" {
+				next = "the video link arrives by email within a few minutes; the tour takes about 30 minutes and you can ask questions live"
+			}
+			return result(fmt.Sprintf("Tour booked: %s, %s. Your confirmation number is %s. A confirmation email and text are on their way; %s.", s.Name, s.Description, confirmationNo(booking.ID), next), booking)
 		}
 		return tools.Failure("slot_unavailable", "That tour slot is no longer available; please offer another from the availability list")
 	case "tour.cancel":
@@ -510,7 +514,7 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 		hour := 9 + b.serial%3
 		when := whenWords(time.Date(date.Year(), date.Month(), date.Day(), hour, 0, 0, 0, dubai))
 		r := b.aquilaLog(u.ID, "meeting", "MTG", "Meeting with "+who, when+". Topic: "+topic+". On campus or by video, whichever suits the family.", "confirmed", "")
-		return result(fmt.Sprintf("Meeting booked with %s on %s about %s. A calendar invitation follows by email.", who, when, topic), r)
+		return result(fmt.Sprintf("Meeting booked with %s on %s about %s. Your confirmation number is %s. A calendar invitation follows by email, and it can be on campus or by video.", who, when, topic, confirmationNo(r.ID)), r)
 	case "reception.report_absence":
 		child, date, reason := strings.TrimSpace(a["child"]), strings.TrimSpace(a["date"]), strings.TrimSpace(a["reason"])
 		if child == "" || date == "" || reason == "" {
@@ -634,7 +638,7 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 			return tools.Failure("invalid_input", "Both when and topic are required")
 		}
 		r := b.aquilaLog(u.ID, "callback", "CB", "Callback", when+". Topic: "+topic, "scheduled", "")
-		return result("Callback scheduled for "+when+" about "+topic+". The family will be called on the number we hold.", r)
+		return result("Callback scheduled for "+when+" about "+topic+". Your confirmation number is "+confirmationNo(r.ID)+". The family will be called on the number we hold, and if we miss you we try once more within the hour and leave a message.", r)
 	}
 	return tools.Failure("unknown_tool", "Tool not available in aquila backend")
 }
@@ -684,7 +688,7 @@ func (b *Backend) aquilaAvailability(year string) tools.Result {
 		}
 		rs = append(rs, tools.Record{ID: "avail-" + strings.ReplaceAll(strings.ToLower(g), " ", ""), Kind: "availability", Name: g, Status: status, Specialty: aquilaStage(g), Description: fmt.Sprintf("%s, %s. Classes of about 20 to 24 pupils. %s", g, aquilaAges(g), note), Amount: float64(aquilaTuition(g)), Currency: "AED"})
 	}
-	return result("2026-27 and 2027-28 availability with annual tuition in AED. Most year groups have places; FS2 and Year 1 have small waiting lists.", rs...)
+	return result("2026-27 and 2027-28 availability with annual tuition in AED. Most year groups have places; FS2 and Year 1 have small waiting lists."+tools.GuidanceMarker+"If a year group has a waiting list, say so honestly, explain that completing the meet and greet puts the family on the priority list, and offer to check tour or assessment times. If it has places, offer to start the application or a tour.", rs...)
 }
 
 func (b *Backend) aquilaScholarship(year string) tools.Result {
@@ -808,4 +812,14 @@ func (b *Backend) aquilaFeeQuote(a map[string]string) tools.Result {
 	sb.WriteString(" Discounts are added together. A deposit of AED 5,000 is credited against Term 1 fees and there is no application fee. Transport, uniform and optional clubs are extra.")
 	rs = append(rs, tools.Record{ID: "fee-total", Kind: "fee_total", Name: "Total annual tuition", Description: fmt.Sprintf("Standard AED %s; saving AED %s", aquilaAED(standard), aquilaAED(standard-total)), Amount: float64(total), Currency: "AED"})
 	return result(sb.String(), rs...)
+}
+
+// confirmationNo is a short numeric confirmation number derived from a booking
+// reference, safe to read out: "TOUR-1003" becomes "48213".
+func confirmationNo(ref string) string {
+	n := 0
+	for _, c := range ref {
+		n = (n*31 + int(c)) % 90000
+	}
+	return strconv.Itoa(10000 + n)
 }

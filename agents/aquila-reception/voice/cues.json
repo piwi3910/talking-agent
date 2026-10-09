@@ -5,49 +5,67 @@
       "id": "waiting-1",
       "category": "waiting",
       "text": "One moment.",
-      "duration_ms": 720
+      "duration_ms": 715
     },
     {
       "id": "waiting-2",
       "category": "waiting",
       "text": "Just a moment.",
-      "duration_ms": 1280
+      "duration_ms": 910
     },
     {
       "id": "waiting-3",
       "category": "waiting",
-      "text": "Let me check that.",
-      "duration_ms": 1200
+      "text": "Bear with me a second.",
+      "duration_ms": 1430
     },
     {
       "id": "waiting-4",
       "category": "waiting",
-      "text": "Let me take a look.",
-      "duration_ms": 880
+      "text": "Let me check that.",
+      "duration_ms": 1170
     },
     {
       "id": "lookup-1",
       "category": "lookup",
-      "text": "I'm checking the details.",
-      "duration_ms": 1760
+      "text": "Let me just pull that up.",
+      "duration_ms": 1625
     },
     {
       "id": "lookup-2",
       "category": "lookup",
-      "text": "I'm looking that up.",
-      "duration_ms": 1040
+      "text": "One moment while I check that for you.",
+      "duration_ms": 2470
     },
     {
       "id": "lookup-3",
       "category": "lookup",
-      "text": "Let me check the information.",
-      "duration_ms": 1280
+      "text": "I'm looking that up now.",
+      "duration_ms": 1560
     },
     {
       "id": "lookup-4",
       "category": "lookup",
-      "text": "I'll take a look at that.",
-      "duration_ms": 1280
+      "text": "Bear with me, checking the details.",
+      "duration_ms": 2275
+    },
+    {
+      "id": "availability-1",
+      "category": "availability",
+      "text": "Let me see what's available.",
+      "duration_ms": 1820
+    },
+    {
+      "id": "availability-2",
+      "category": "availability",
+      "text": "One moment, checking the diary.",
+      "duration_ms": 2015
+    },
+    {
+      "id": "availability-3",
+      "category": "availability",
+      "text": "Bear with me while I look at the times.",
+      "duration_ms": 2535
     },
     {
       "id": "listening-1",

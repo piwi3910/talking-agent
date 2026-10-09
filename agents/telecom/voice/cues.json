@@ -5,67 +5,91 @@
       "id": "waiting-1",
       "category": "waiting",
       "text": "One moment.",
-      "duration_ms": 720
+      "duration_ms": 715
     },
     {
       "id": "waiting-2",
       "category": "waiting",
       "text": "Just a moment.",
-      "duration_ms": 1280
+      "duration_ms": 910
     },
     {
       "id": "waiting-3",
       "category": "waiting",
-      "text": "Let me check that.",
-      "duration_ms": 1200
+      "text": "Bear with me a second.",
+      "duration_ms": 1430
     },
     {
       "id": "waiting-4",
       "category": "waiting",
-      "text": "Let me take a look.",
-      "duration_ms": 880
+      "text": "Let me check that.",
+      "duration_ms": 1170
     },
     {
       "id": "lookup-1",
       "category": "lookup",
-      "text": "I'm checking the details.",
-      "duration_ms": 1760
+      "text": "Let me just pull that up.",
+      "duration_ms": 1625
     },
     {
       "id": "lookup-2",
       "category": "lookup",
-      "text": "I'm looking that up.",
-      "duration_ms": 1040
+      "text": "I'm checking the details.",
+      "duration_ms": 1625
     },
     {
       "id": "lookup-3",
       "category": "lookup",
-      "text": "Let me check the information.",
-      "duration_ms": 1280
+      "text": "Bear with me while I look at your account.",
+      "duration_ms": 2730
     },
     {
       "id": "lookup-4",
       "category": "lookup",
-      "text": "I'll take a look at that.",
-      "duration_ms": 1280
+      "text": "One moment, pulling that up now.",
+      "duration_ms": 2080
     },
     {
       "id": "network-1",
       "category": "network",
-      "text": "I'm checking your connection.",
-      "duration_ms": 1920
+      "text": "One moment, I'm running that check now.",
+      "duration_ms": 2535
     },
     {
       "id": "network-2",
       "category": "network",
-      "text": "Let me check the network.",
-      "duration_ms": 1360
+      "text": "I'm checking your connection.",
+      "duration_ms": 1885
     },
     {
       "id": "network-3",
       "category": "network",
-      "text": "I'm checking the connection details.",
-      "duration_ms": 1680
+      "text": "Bear with me, the test takes a few seconds.",
+      "duration_ms": 2795
+    },
+    {
+      "id": "network-4",
+      "category": "network",
+      "text": "Let me check the network.",
+      "duration_ms": 1625
+    },
+    {
+      "id": "availability-1",
+      "category": "availability",
+      "text": "Let me see which visits are free.",
+      "duration_ms": 2145
+    },
+    {
+      "id": "availability-2",
+      "category": "availability",
+      "text": "I'm checking the technician diary.",
+      "duration_ms": 2210
+    },
+    {
+      "id": "availability-3",
+      "category": "availability",
+      "text": "One moment, looking at the available times.",
+      "duration_ms": 2795
     },
     {
       "id": "listening-1",

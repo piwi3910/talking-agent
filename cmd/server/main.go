@@ -57,6 +57,7 @@ func run() error {
 		if e != nil {
 			return e
 		}
+		b.LatencyScale = mock.LatencyScaleFromEnv()
 		listener, e := net.Listen("tcp", "127.0.0.1:0")
 		if e != nil {
 			return e
