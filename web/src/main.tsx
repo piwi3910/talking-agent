@@ -2,128 +2,151 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import { Voice } from "./voice";
-import { PhoneSettings } from "./phone-settings";
-import { VoiceSettings } from "./voice-settings";
-import { hideVocalEvents } from "./vocal-events";
+import { api, accentOf, Agent, Chat, Event, Pending, SpeechInfo } from "./api";
+import { Launcher } from "./launcher";
+import { Stage } from "./stage";
+import { Cockpit } from "./cockpit";
+import { SettingsPage } from "./settings-page";
+import { Summary, SummaryData } from "./summary";
 
-type RecordItem = { id: string; name: string; description?: string };
-type Tool = { name: string; description: string; mutation: boolean };
-type Agent = {
-  config: {
-    id: string;
-    name: string;
-    organization: string;
-    role: string;
-    industry: string;
-    persona: Record<string, string>;
-    memory: { namespace: string; domain?: string };
-    skills: string[];
-    knowledge: string[];
-    branding: Record<string, string>;
-  };
-  users: RecordItem[];
-  skills: Record<
-    string,
-    { description: string; instructions: string; tools: Tool[] }
-  >;
-  llm: string;
-  memory: string;
-};
-type Event = {
-  id: number;
-  type: string;
-  turn_id?: string;
-  time: string;
-  data: {
-    text?: string;
-    message?: string;
-    tool?: string;
-    duration_ms?: number;
-    ttft_ms?: number;
-    count?: number;
-    usage?: { total_tokens: number };
-    memories?: { text: string }[];
-    [key: string]: unknown;
-  };
-};
-type Chat = { id: string; role: "user" | "assistant"; text: string };
-type Pending = {
-  id: string;
-  tool: string;
-  arguments: Record<string, string>;
-  expires: string;
-};
-async function api<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(
-    "/api" + path,
-    body === undefined
-      ? undefined
-      : {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-  );
-  // Some endpoints (e.g. session open) answer 202 with an empty body.
-  const raw = await response.text();
-  let data: { error?: string } = {};
+export type Channel = "chat" | "voice" | "phone";
+export type Theme = "dark" | "light";
+export type Route =
+  | { screen: "launcher" }
+  | { screen: "stage" }
+  | { screen: "cockpit" }
+  | { screen: "summary" }
+  | { screen: "settings"; section: string };
+
+function parseRoute(path: string): Route {
+  const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
+  if (parts[0] === "stage") return { screen: "stage" };
+  if (parts[0] === "cockpit") return { screen: "cockpit" };
+  if (parts[0] === "summary") return { screen: "summary" };
+  if (parts[0] === "settings")
+    return { screen: "settings", section: parts[1] || "channels" };
+  return { screen: "launcher" };
+}
+function pathOf(route: Route) {
+  if (route.screen === "settings")
+    return route.section === "channels"
+      ? "/settings"
+      : `/settings/${route.section}`;
+  return route.screen === "launcher" ? "/" : `/${route.screen}`;
+}
+function storedTheme(): Theme {
   try {
-    data = raw ? JSON.parse(raw) : {};
+    const value = localStorage.getItem("stage-theme");
+    if (value === "light" || value === "dark") return value;
   } catch {
-    if (response.ok) data = {};
-    else throw new Error(`Request failed (${response.status})`);
+    // Storage can be unavailable (private mode); fall back to the stage default.
   }
-  if (!response.ok)
-    throw new Error(data.error || `Request failed (${response.status})`);
-  return data as T;
+  return "dark";
 }
-const industryLabels: Record<string, string> = {
-  hospital: "Demo patient",
-  school: "Demo family",
-  aquila: "Family / contact",
+
+// Everything the screens need from the live session engine.
+export type Live = {
+  agents: Agent[];
+  agent?: Agent;
+  agentID: string;
+  userID: string;
+  channel: Channel;
+  session: string;
+  startedAt: number;
+  now: number;
+  chat: Chat[];
+  events: Event[];
+  pending: Pending[];
+  message: string;
+  busy: boolean;
+  starting: boolean;
+  connected: boolean;
+  openState: "none" | "calling" | "connected" | "failed";
+  error: string;
+  opens: boolean;
+  outbound: boolean;
+  voiceEnabled: boolean;
+  speechInfo: SpeechInfo;
+  voiceOn: boolean;
+  voiceStatus: string;
+  transcript: string;
+  micMuted: boolean;
+  spoken: boolean;
+  cuesOn: boolean;
+  xray: boolean;
+  captions: boolean;
+  latencyRibbon: boolean;
+  browserMetrics: Record<string, number>;
+  traceCopied: boolean;
+  theme: Theme;
+  setTheme: (t: Theme) => void;
+  navigate: (r: Route) => void;
+  changeAgent: (id: string) => void;
+  changeUser: (id: string) => void;
+  setChannel: (c: Channel) => void;
+  setMessage: (m: string) => void;
+  setError: (m: string) => void;
+  start: () => Promise<void>;
+  goLive: () => Promise<void>;
+  endSession: () => void;
+  send: (
+    text: string,
+    confirmation?: string,
+    reject?: boolean,
+  ) => Promise<void>;
+  cancel: () => Promise<void>;
+  toggleVoice: () => Promise<void>;
+  toggleMute: () => void;
+  finishInput: () => void;
+  stopAudio: () => void;
+  setSpoken: (v: boolean) => void;
+  setCues: (v: boolean) => void;
+  setXray: (v: boolean) => void;
+  setCaptions: (v: boolean) => void;
+  setLatencyRibbon: (v: boolean) => void;
+  copyTrace: () => void;
 };
-const industryLabel = (industry?: string) =>
-  (industry && industryLabels[industry]) || "Demo customer";
-function actionLabel(tool: string) {
-  const labels: Record<string, string> = {
-    "wifi.optimize": "Update your Wi-Fi settings?",
-    "wifi.restart": "Restart your router?",
-    "plan.change": "Change your plan?",
-    "appointment.book": "Book this appointment?",
-    "appointment.reschedule": "Reschedule your appointment?",
-    "appointment.cancel": "Cancel your appointment?",
-    "technician.book": "Book a technician visit?",
-    "ticket.create": "Create a support ticket?",
-    "ticket.update": "Update your support ticket?",
-    "support.create_request": "Send your service request?",
-  };
-  return labels[tool] || "Confirm this change?";
-}
+
 function App() {
-  const [tab, setTab] = useState(
-    location.pathname === "/settings" ? "settings" : "personas",
+  const [route, setRoute] = useState<Route>(() =>
+    parseRoute(location.pathname),
   );
-  function selectTab(value: string) {
-    setTab(value);
-    history.replaceState(null, "", value === "settings" ? "/settings" : "/");
+  function navigate(next: Route) {
+    setRoute(next);
+    const path = pathOf(next);
+    if (location.pathname !== path) history.pushState(null, "", path);
+    window.scrollTo(0, 0);
   }
+  useEffect(() => {
+    const back = () => setRoute(parseRoute(location.pathname));
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, []);
+  const [theme, setThemeState] = useState<Theme>(storedTheme);
+  function setTheme(t: Theme) {
+    setThemeState(t);
+    try {
+      localStorage.setItem("stage-theme", t);
+    } catch {
+      // Not persisted; the choice still applies for this visit.
+    }
+  }
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  // Model names reported by the server, so the panel never hardcodes them.
-  const [speechInfo, setSpeechInfo] = useState<{ stt?: string; tts?: string }>(
-    {},
-  );
-  // The selected persona's current voice, reloaded whenever the Voice tab opens.
-  const [agentVoice, setAgentVoice] = useState<{
-    voice_id: string;
-    name: string;
-    sample: boolean;
-  } | null>(null);
+  // Model names reported by the server, so the UI never hardcodes them.
+  const [speechInfo, setSpeechInfo] = useState<SpeechInfo>({});
   const [voiceOn, setVoiceOn] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("Voice off");
   const [transcript, setTranscript] = useState("");
   const [micMuted, setMicMuted] = useState(false);
-  const [spoken, setSpoken] = useState(true);
+  const [spoken, setSpokenState] = useState(true);
   const [cuesOn, setCuesOn] = useState(true);
+  const [xray, setXray] = useState(true);
+  const [captions, setCaptions] = useState(true);
+  const [latencyRibbon, setLatencyRibbon] = useState(true);
   const [browserMetrics, setBrowserMetrics] = useState<Record<string, number>>(
     {},
   );
@@ -144,11 +167,12 @@ function App() {
       voice.current?.stop();
     };
   }, []);
-  const [playground, setPlayground] = useState(true);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentID, setAgentID] = useState("");
   const [userID, setUserID] = useState("");
+  const [channel, setChannel] = useState<Channel>("chat");
   const [session, setSession] = useState("");
+  const [startedAt, setStartedAt] = useState(0);
   const [traceCopied, setTraceCopied] = useState(false);
   const [chat, setChat] = useState<Chat[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -161,22 +185,9 @@ function App() {
     "none" | "calling" | "connected" | "failed"
   >("none");
   const [error, setError] = useState("");
+  const [summary, setSummary] = useState<SummaryData | null>(null);
   const source = useRef<EventSource | null>(null);
   const lastID = useRef(0);
-  const bottom = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (tab !== "voice" || !agentID) return;
-    let current = true;
-    setAgentVoice(null);
-    api<{ voice_id: string; name: string; sample: boolean }>(
-      `/agents/${agentID}/voice`,
-    )
-      .then((x) => current && setAgentVoice(x))
-      .catch(() => {});
-    return () => {
-      current = false;
-    };
-  }, [tab, agentID]);
   const agent = agents.find((a) => a.config.id === agentID);
   const openingMode = agent?.config.persona?.opening;
   const opens = openingMode === "inbound" || openingMode === "outbound";
@@ -203,11 +214,8 @@ function App() {
     };
   }, []);
   useEffect(() => {
-    if (agent) document.title = `${agent.config.organization} · Chat`;
+    if (agent) document.title = `${agent.config.organization} · Stage`;
   }, [agent]);
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "auto", block: "end" });
-  }, [chat, pending, busy]);
   function reset() {
     voice.current?.stop();
     voice.current = null;
@@ -219,6 +227,7 @@ function App() {
     source.current?.close();
     source.current = null;
     setSession("");
+    setStartedAt(0);
     setConnected(false);
     setChat([]);
     setEvents([]);
@@ -234,12 +243,17 @@ function App() {
     setAgentID(id);
     setUserID(agents.find((a) => a.config.id === id)?.users[0]?.id || "");
   }
+  function changeUser(id: string) {
+    reset();
+    setUserID(id);
+  }
   async function start() {
     reset();
     setStarting(true);
-    // Outbound calls start voice only after several awaits, long after the click.
+    // Voice may start only after several awaits, long after the click.
     // Create the AudioContext now, inside the gesture, so the browser lets it run.
-    const primed = outbound && voiceEnabled ? Voice.prime() : undefined;
+    const wantVoice = voiceEnabled && (outbound || channel === "voice");
+    const primed = wantVoice ? Voice.prime() : undefined;
     let handedOver = false;
     try {
       const data = await api<{ id: string }>("/sessions", {
@@ -247,6 +261,7 @@ function App() {
         user_id: userID,
       });
       setSession(data.id);
+      setStartedAt(Date.now());
       const stream = new EventSource(`/api/sessions/${data.id}/events`);
       source.current = stream;
       stream.onopen = () => setConnected(true);
@@ -307,9 +322,9 @@ function App() {
           );
         });
         if (source.current !== stream) return;
-        // Placing a call starts voice as well so the opening is spoken and the
-        // contact can answer by voice. Without voice it silently stays text.
-        if (outbound && voiceEnabled) {
+        // Placing a call (or a voice channel) starts voice as well so the opening is
+        // spoken and the contact can answer by voice. Without voice it silently stays text.
+        if (wantVoice) {
           handedOver = true;
           await startVoice(data.id, true, primed);
           if (source.current !== stream) return;
@@ -320,6 +335,9 @@ function App() {
           // 400/409: nothing to open. The session stays usable with the normal welcome.
           if (source.current === stream) setOpenState("failed");
         }
+      } else if (wantVoice) {
+        handedOver = true;
+        await startVoice(data.id, false, primed);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -327,6 +345,25 @@ function App() {
       if (primed && !handedOver) void primed.close().catch(() => undefined);
       setStarting(false);
     }
+  }
+  async function goLive() {
+    setSummary(null);
+    navigate({ screen: "stage" });
+    await start();
+  }
+  function endSession() {
+    if (session && agent)
+      setSummary({
+        agent,
+        user: agent.users.find((u) => u.id === userID),
+        channel,
+        session,
+        durationMs: startedAt ? Date.now() - startedAt : 0,
+        chat,
+        events,
+      });
+    reset();
+    navigate(session ? { screen: "summary" } : { screen: "launcher" });
   }
   async function send(text: string, confirmation?: string, reject = false) {
     if (!session || busyRef.current) return;
@@ -440,761 +477,98 @@ function App() {
       }
     }
   }
-  const latest = (type: string) =>
-    [...events].reverse().find((e) => e.type === type);
-  const turnStart = latest("turn.started");
-  const liveMetrics: [string, unknown][] = [
-    [
-      "Turn elapsed",
-      busy && turnStart
-        ? Math.max(0, now - new Date(turnStart.time).getTime())
-        : latest("turn.completed")?.data.duration_ms,
-    ],
-    ["LLM text TTFT", latest("llm.first_token")?.data.ttft_ms],
-    ["LLM generation", latest("llm.completed")?.data.duration_ms],
-    [
-      "Memory retrieval",
-      latest("memory.retrieval.completed")?.data.duration_ms,
-    ],
-    ["STT first partial", latest("stt.first_partial")?.data.duration_ms],
-    ["STT finalization", latest("stt.final")?.data.finalization_ms],
-    ["TTS first audio", latest("tts.first_audio")?.data.ttfa_ms],
-    ["TTS generation", latest("tts.completed")?.data.duration_ms],
-  ];
-  const memories = [...events]
-    .reverse()
-    .find((e) => e.type === "memory.retrieval.completed");
-  const firstToken = [...events]
-    .reverse()
-    .find((e) => e.type === "llm.first_token");
-  const tokens = events.reduce(
-    (n, e) => n + (e.data.usage?.total_tokens || 0),
-    0,
-  );
-  const calls = events.filter(
-    (e) => e.type === "tool.completed" || e.type === "tool.failed",
-  );
-  const displayEvents = events
-    .filter((e) => e.type !== "agent.response.delta")
-    .slice(-60)
-    .reverse();
-  const brand = agent?.config.branding || {};
-  const user = agent?.users.find((u) => u.id === userID);
-  const tabs = ["personas", "activity", "capabilities", "voice", "settings"];
+  const live: Live = {
+    agents,
+    agent,
+    agentID,
+    userID,
+    channel,
+    session,
+    startedAt,
+    now,
+    chat,
+    events,
+    pending,
+    message,
+    busy,
+    starting,
+    connected,
+    openState,
+    error,
+    opens,
+    outbound,
+    voiceEnabled,
+    speechInfo,
+    voiceOn,
+    voiceStatus,
+    transcript,
+    micMuted,
+    spoken,
+    cuesOn,
+    xray,
+    captions,
+    latencyRibbon,
+    browserMetrics,
+    traceCopied,
+    theme,
+    setTheme,
+    navigate,
+    changeAgent,
+    changeUser,
+    setChannel,
+    setMessage,
+    setError,
+    start,
+    goLive,
+    endSession,
+    send,
+    cancel,
+    toggleVoice,
+    toggleMute: () => {
+      voice.current?.mute(!micMuted);
+      setMicMuted(!micMuted);
+    },
+    finishInput: () => voice.current?.finishInput(),
+    stopAudio: () => voice.current?.stopOutput("stop-button"),
+    setSpoken: (value) => {
+      setSpokenState(value);
+      voice.current?.enableOutput(value);
+    },
+    setCues: (value) => {
+      setCuesOn(value);
+      voice.current?.enableCues(value);
+    },
+    setXray,
+    setCaptions,
+    setLatencyRibbon,
+    copyTrace: () => {
+      void navigator.clipboard
+        ?.writeText(session)
+        .then(() => setTraceCopied(true))
+        .catch(() => setTraceCopied(false));
+      setTimeout(() => setTraceCopied(false), 2000);
+    },
+  };
+  const accent = accentOf(agent);
   return (
     <div
-      className={`app ${playground ? "" : "customer-only"} ${tab === "settings" ? "settings-page" : ""}`}
-      style={{ "--accent": brand.color || "#2764d8" } as React.CSSProperties}
+      className={`app screen-${route.screen}`}
+      style={
+        {
+          "--accent-dark": accent.dark,
+          "--accent-light": accent.light,
+        } as React.CSSProperties
+      }
     >
-      <main className="workspace">
-        <section
-          className="customer-experience"
-          aria-label="Customer experience"
-        >
-          <header className="brand-header">
-            <div className="brand-lockup">
-              <div className="brand-icon" aria-hidden="true">
-                {brand.mark || "N"}
-              </div>
-              <div>
-                <strong>{agent?.config.organization || "Welcome"}</strong>
-                <span>{brand.tagline || "Here to help"}</span>
-              </div>
-            </div>
-            <button
-              className="settings-link"
-              onClick={() => {
-                setPlayground(true);
-                selectTab("settings");
-              }}
-            >
-              Settings
-            </button>
-            <button
-              className="playground-toggle"
-              onClick={() => setPlayground(!playground)}
-              aria-expanded={playground}
-              aria-controls="playground"
-            >
-              {playground ? "Hide playground" : "Open playground"}{" "}
-              <span aria-hidden="true">☷</span>
-            </button>
-          </header>
-          <div className="customer-stage">
-            <div className="service-heading">
-              <span className="eyebrow">
-                {brand.service_label || "CUSTOMER SUPPORT"}
-              </span>
-              <h1>{brand.headline || "How can we help you today?"}</h1>
-              <p>
-                {brand.description || "A little help, whenever you need it."}
-              </p>
-            </div>
-            <section className="conversation" aria-label="Support chat">
-              <div className="chat-header">
-                <div className="avatar">
-                  {agent?.config.name.slice(0, 1) || "A"}
-                  <i />
-                </div>
-                <div className="agent-heading">
-                  <h2>{agent?.config.name || "Your assistant"}</h2>
-                  <span>{agent?.config.role}</span>
-                </div>
-                <span className={connected ? "status connected" : "status"}>
-                  {session
-                    ? outbound && openState === "calling"
-                      ? "Calling…"
-                      : connected
-                        ? "Connected"
-                        : "Reconnecting…"
-                    : "Ready to help"}
-                </span>
-              </div>
-              <div
-                className="messages"
-                role="log"
-                aria-label="Conversation messages"
-                aria-live="polite"
-              >
-                {!chat.length && session && opens && openState !== "failed" && (
-                  <div className="welcome call-state" role="status">
-                    <div className="welcome-symbol" aria-hidden="true">
-                      {brand.mark || "N"}
-                    </div>
-                    <h3>
-                      {outbound
-                        ? openState === "connected"
-                          ? `Connected to ${user?.name || "contact"}`
-                          : `Calling ${user?.name || "contact"}…`
-                        : `${agent?.config.name} is picking up…`}
-                    </h3>
-                  </div>
-                )}
-                {!chat.length &&
-                  !(session && opens && openState !== "failed") && (
-                    <div className="welcome">
-                      <div className="welcome-symbol" aria-hidden="true">
-                        {brand.mark || "N"}
-                      </div>
-                      <h3>
-                        {session
-                          ? `Hi ${user?.name.split(" ")[0] || "there"}, I’m ${agent?.config.name}.`
-                          : `Hello, I’m ${agent?.config.name || "your assistant"}.`}
-                      </h3>
-                      <p>
-                        {brand.welcome || "Tell me what you need a hand with."}
-                      </p>
-                      {!session && (
-                        <button
-                          className="primary start-chat"
-                          disabled={!agent || !userID || starting}
-                          onClick={start}
-                        >
-                          {starting
-                            ? outbound
-                              ? "Calling…"
-                              : "Connecting…"
-                            : outbound
-                              ? `Place call to ${user?.name || "contact"}`
-                              : "Start chat"}{" "}
-                          <span aria-hidden="true">↗</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                {chat.map((m) => (
-                  <article
-                    key={m.id}
-                    className={`bubble ${m.role} ${busy && m.role === "assistant" && m === chat[chat.length - 1] ? "streaming" : ""}`}
-                  >
-                    <div className="speaker">
-                      {m.role === "user" ? "You" : agent?.config.name}
-                    </div>
-                    <div>
-                      {m.role === "assistant"
-                        ? hideVocalEvents(m.text)
-                        : m.text}
-                    </div>
-                  </article>
-                ))}
-                {pending.map((p) => (
-                  <div className="confirmation" key={p.id}>
-                    <span className="eyebrow">YOUR APPROVAL</span>
-                    <h3>{actionLabel(p.tool)}</h3>
-                    <p>Please check the details before confirming.</p>
-                    <dl>
-                      {Object.entries(p.arguments).map(([key, value]) => (
-                        <React.Fragment key={key}>
-                          <dt>{key.replaceAll("_", " ")}</dt>
-                          <dd>{value}</dd>
-                        </React.Fragment>
-                      ))}
-                    </dl>
-                    <small>
-                      Available until {new Date(p.expires).toLocaleTimeString()}
-                    </small>
-                    <div>
-                      <button
-                        className="primary"
-                        disabled={busy}
-                        onClick={() => send("", p.id)}
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() => send("", p.id, true)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {busy && (
-                  <div className="working" role="status">
-                    <span className="typing">● ● ●</span> {agent?.config.name}{" "}
-                    is helping you…
-                  </div>
-                )}
-                <div ref={bottom} />
-              </div>
-              {error && (
-                <div className="error" role="alert">
-                  {error}
-                  <button
-                    onClick={() => setError("")}
-                    aria-label="Dismiss error"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (message.trim()) void send(message.trim());
-                }}
-              >
-                <label className="sr-only" htmlFor="message">
-                  Message
-                </label>
-                <textarea
-                  id="message"
-                  placeholder={
-                    session
-                      ? `Message ${agent?.config.name}…`
-                      : "Start a chat to get in touch"
-                  }
-                  disabled={!session || busy}
-                  value={message}
-                  maxLength={8000}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.nativeEvent.isComposing
-                    ) {
-                      e.preventDefault();
-                      if (message.trim() && !busy) void send(message.trim());
-                    }
-                  }}
-                />
-                {busy ? (
-                  <button type="button" onClick={cancel}>
-                    Stop
-                  </button>
-                ) : (
-                  <button
-                    className="primary send"
-                    aria-label="Send ↗"
-                    disabled={!session || !message.trim()}
-                    type="submit"
-                  >
-                    Send <span aria-hidden="true">↗</span>
-                  </button>
-                )}
-              </form>
-              <div className="voice-controls">
-                <button
-                  type="button"
-                  disabled={!session || !voiceEnabled}
-                  onClick={toggleVoice}
-                >
-                  {voiceOn ? "End voice" : "Start voice"}
-                </button>
-                {voiceOn && (
-                  <>
-                    <span role="status">{voiceStatus}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        voice.current?.mute(!micMuted);
-                        setMicMuted(!micMuted);
-                      }}
-                    >
-                      {micMuted ? "Unmute mic" : "Mute mic"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => voice.current?.finishInput()}
-                    >
-                      Finish speaking
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => voice.current?.stopOutput("stop-button")}
-                    >
-                      Stop audio
-                    </button>
-                  </>
-                )}
-              </div>
-              {voiceOn && transcript && (
-                <p className="live-transcript" aria-live="polite">
-                  {transcript}
-                </p>
-              )}
-              <div className="chat-footnote">
-                {agent?.config.name} is an AI assistant.{" "}
-                {brand.disclaimer || "Please check important details."}
-              </div>
-            </section>
-            <p className="customer-footer">
-              {agent?.config.organization} <span>·</span>{" "}
-              {brand.footer || "Here for you, every step of the way."}
-            </p>
-          </div>
-        </section>
-        <aside
-          id="playground"
-          className="playground"
-          hidden={!playground}
-          aria-label="Agent playground"
-        >
-          <div className="playground-header">
-            <div>
-              <span className="eyebrow">OPERATOR WORKSPACE</span>
-              <h2>{tab === "settings" ? "Settings" : "Agent playground"}</h2>
-            </div>
-            {tab === "settings" ? (
-              <button onClick={() => selectTab("personas")}>
-                Back to conversation
-              </button>
-            ) : (
-              <span className="lab-badge">LAB</span>
-            )}
-          </div>
-          <div className="tabs" role="tablist" aria-label="Playground tabs">
-            {tabs.map((t) => (
-              <button
-                id={`tab-${t}`}
-                key={t}
-                role="tab"
-                aria-selected={tab === t}
-                aria-controls={`panel-${t}`}
-                tabIndex={tab === t ? 0 : -1}
-                onClick={() => selectTab(t)}
-                onKeyDown={(e) => {
-                  const offset =
-                    e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-                  if (offset) {
-                    e.preventDefault();
-                    const next =
-                      tabs[
-                        (tabs.indexOf(t) + offset + tabs.length) % tabs.length
-                      ];
-                    selectTab(next);
-                    document.getElementById(`tab-${next}`)?.focus();
-                  }
-                }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <section className="live-metrics" aria-label="Live latency metrics">
-            <div className="section-heading">
-              <h3>Live latency</h3>
-              <span className="pill">{busy ? "RUNNING" : "LATEST"}</span>
-            </div>
-            <div className="timing-grid">
-              {liveMetrics.map(([name, value]) => (
-                <div key={name}>
-                  <span>{name}</span>
-                  <b>
-                    {typeof value === "number"
-                      ? `${Math.round(value)} ms`
-                      : "—"}
-                  </b>
-                </div>
-              ))}
-            </div>
-            <details>
-              <summary>Browser audio timings</summary>
-              {Object.entries(browserMetrics).map(([name, ms]) => (
-                <div className="tool-row" key={name}>
-                  <span>{name}</span>
-                  <b>{ms} ms</b>
-                </div>
-              ))}
-              <p className="quiet">
-                Playback timing is a software estimate, not an acoustic
-                measurement. Server values show the latest stage; tool timings
-                are in Activity.
-              </p>
-            </details>
-          </section>
-          <div className="playground-content">
-            <div
-              id="panel-personas"
-              role="tabpanel"
-              aria-labelledby="tab-personas"
-              hidden={tab !== "personas"}
-            >
-              <section>
-                <h3>Choose your experience</h3>
-                <p className="muted">
-                  Switch the brand, persona and service capabilities. Agents
-                  keep their own customer memory unless their organisation
-                  shares it.
-                </p>
-                <div className="persona-cards">
-                  {agents.map((a) => (
-                    <button
-                      className={`persona-card ${a.config.id === agentID ? "selected" : ""}`}
-                      key={a.config.id}
-                      aria-pressed={a.config.id === agentID}
-                      disabled={busy || starting}
-                      onClick={() => changeAgent(a.config.id)}
-                    >
-                      <span
-                        className="persona-mark"
-                        style={{ background: a.config.branding.color }}
-                      >
-                        {a.config.branding.mark || a.config.name[0]}
-                      </span>
-                      <span>
-                        <strong>{a.config.organization}</strong>
-                        <small>
-                          {a.config.name} · {a.config.role}
-                        </small>
-                      </span>
-                      <span className="selection-dot" />
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <section className="controls" aria-label="Session setup">
-                <h3>{industryLabel(agent?.config.industry)}</h3>
-                <label>
-                  Demo identity
-                  <select
-                    aria-label="Demo identity"
-                    value={userID}
-                    disabled={busy || starting}
-                    onChange={(e) => {
-                      reset();
-                      setUserID(e.target.value);
-                    }}
-                  >
-                    {agent?.users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.id} · {u.name} — {u.description}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="scenario-note">{user?.description}</p>
-                <button
-                  className="primary full-width"
-                  disabled={!agent || !userID || busy || starting}
-                  onClick={start}
-                >
-                  {starting
-                    ? "Starting…"
-                    : session
-                      ? "New session"
-                      : "Start session"}
-                </button>
-                <p className="quiet">
-                  All records are fictional. A new session clears the chat;
-                  long-term memory is preserved.
-                </p>
-              </section>
-              <section>
-                <h3>Persona</h3>
-                <dl className="properties">
-                  <dt>Name</dt>
-                  <dd>{agent?.config.name}</dd>
-                  <dt>Role</dt>
-                  <dd>{agent?.config.role}</dd>
-                  {Object.entries(agent?.config.persona || {}).map(
-                    ([key, value]) => (
-                      <React.Fragment key={key}>
-                        <dt>{key}</dt>
-                        <dd>{value}</dd>
-                      </React.Fragment>
-                    ),
-                  )}
-                </dl>
-              </section>
-            </div>
-            <div
-              id="panel-activity"
-              className="activity-content"
-              role="tabpanel"
-              aria-labelledby="tab-activity"
-              hidden={tab !== "activity"}
-            >
-              <section>
-                <div className="section-heading">
-                  <h3>Memory</h3>
-                  <span className="pill">{agent?.memory}</span>
-                </div>
-                <p className="metric">
-                  {memories?.data.count ?? 0}
-                  <small> relevant memories retrieved</small>
-                </p>
-                {memories?.data.memories?.map((m, i) => (
-                  <p className="memory" key={i}>
-                    {m.text}
-                  </p>
-                ))}
-                <p className="quiet">
-                  Namespace: {agent?.config.memory.namespace || "—"}
-                </p>
-              </section>
-              <section>
-                <h3>
-                  Tools <span className="count">{calls.length}</span>
-                </h3>
-                {calls.length ? (
-                  calls.slice(-8).map((e) => (
-                    <div className="tool-row" key={e.id}>
-                      <code>{e.data.tool}</code>
-                      <span
-                        className={e.type === "tool.failed" ? "failed" : ""}
-                      >
-                        {e.type === "tool.failed" ? "failed · " : ""}
-                        {e.data.duration_ms} ms
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="muted">Tool calls will appear here.</p>
-                )}
-                {pending.map((p) => (
-                  <details key={p.id}>
-                    <summary>Pending: {p.tool}</summary>
-                    <pre>{JSON.stringify(p.arguments, null, 2)}</pre>
-                  </details>
-                ))}
-              </section>
-              <section>
-                <h3>LLM</h3>
-                <p className="provider-name">{agent?.llm}</p>
-                <p className="quiet">
-                  Thinking is disabled in the KW conversational deployment.
-                </p>
-                <div className="metrics">
-                  <div>
-                    <b>
-                      {firstToken?.data.ttft_ms ?? "—"}
-                      <small> ms</small>
-                    </b>
-                    <span>Latest text TTFT</span>
-                  </div>
-                  <div>
-                    <b>{tokens || "—"}</b>
-                    <span>Reported tokens</span>
-                  </div>
-                </div>
-              </section>
-              <section>
-                <h3>Diagnostics</h3>
-                <p className="quiet">
-                  Call trace ID. Share it to have the call timeline inspected.
-                </p>
-                <p className="trace-id">
-                  <code>{session || "—"}</code>
-                </p>
-                <button
-                  type="button"
-                  className="full-width"
-                  disabled={!session}
-                  onClick={() => {
-                    void navigator.clipboard
-                      ?.writeText(session)
-                      .then(() => setTraceCopied(true))
-                      .catch(() => setTraceCopied(false));
-                    setTimeout(() => setTraceCopied(false), 2000);
-                  }}
-                >
-                  {traceCopied ? "Copied" : "Copy trace id"}
-                </button>
-              </section>
-              <section>
-                <h3>Event stream</h3>
-                <div className="trace">
-                  {displayEvents.length === 0 && (
-                    <p className="muted">
-                      Start a conversation to inspect the runtime.
-                    </p>
-                  )}
-                  {displayEvents.map((e) => (
-                    <details key={e.id}>
-                      <summary>
-                        <span>{e.type}</span>
-                        <time>{new Date(e.time).toLocaleTimeString()}</time>
-                      </summary>
-                      <pre>{JSON.stringify(e.data, null, 2)}</pre>
-                    </details>
-                  ))}
-                </div>
-              </section>
-            </div>
-            <div
-              id="panel-capabilities"
-              role="tabpanel"
-              aria-labelledby="tab-capabilities"
-              hidden={tab !== "capabilities"}
-            >
-              <section>
-                <h3>Skills & tools</h3>
-                <p className="muted">
-                  Capabilities loaded from this agent’s configuration.
-                </p>
-                {Object.entries(agent?.skills || {}).map(([id, s]) => (
-                  <details className="skill" key={id}>
-                    <summary>
-                      <strong>{id}</strong>
-                      <span>{s.tools.length} tools</span>
-                    </summary>
-                    <p>{s.description}</p>
-                    {s.tools.map((t) => (
-                      <div className="capability" key={t.name}>
-                        <code>{t.name}</code>
-                        {t.mutation && (
-                          <span className="pill">Confirmation</span>
-                        )}
-                        <p>{t.description}</p>
-                      </div>
-                    ))}
-                  </details>
-                ))}
-              </section>
-              <section>
-                <h3>Knowledge</h3>
-                {agent?.config.knowledge.map((k) => (
-                  <p className="knowledge-file" key={k}>
-                    {k}
-                  </p>
-                ))}
-              </section>
-              <section>
-                <h3>Memory isolation</h3>
-                <p className="muted">
-                  {agent?.config.memory.domain
-                    ? `Shared across ${agent.config.organization}’s agents for this contact`
-                    : "Organization → agent → namespace → selected user"}
-                </p>
-                <code>{agent?.config.memory.namespace}</code>
-              </section>
-            </div>
-            <div
-              id="panel-settings"
-              role="tabpanel"
-              aria-labelledby="tab-settings"
-              hidden={tab !== "settings"}
-            >
-              {tab === "settings" && (
-                <>
-                  <PhoneSettings personas={agents} />
-                  <VoiceSettings personas={agents} />
-                </>
-              )}
-            </div>
-            <div
-              id="panel-voice"
-              role="tabpanel"
-              aria-labelledby="tab-voice"
-              hidden={tab !== "voice"}
-            >
-              <section>
-                <span className="pill">PHASE 2</span>
-                <h3 className="voice-heading">Voice workspace</h3>
-                <p className="muted">
-                  Turn on voice in the chat and allow microphone access. Speak
-                  naturally; a short pause sends your message. You can interrupt
-                  a spoken reply.
-                </p>
-                <dl className="properties">
-                  <dt>Recognition</dt>
-                  <dd>{speechInfo.stt ?? "Speech recognition"} · live PCM</dd>
-                  <dt>Speech</dt>
-                  <dd>{speechInfo.tts ?? "Speech synthesis"} · streamed PCM</dd>
-                  <dt>Status</dt>
-                  <dd>
-                    {voiceEnabled ? voiceStatus : "Speech not configured"}
-                  </dd>
-                  <dt>Language</dt>
-                  <dd>English</dd>
-                  <dt>Noise handling</dt>
-                  <dd>Browser noise suppression + speech detection</dd>
-                  <dt>End of turn</dt>
-                  <dd>700 ms non-speech · Silero v6</dd>
-                </dl>
-                <p className="quiet">
-                  {agent?.config.name}’s voice
-                  {agentVoice?.name ? `: ${agentVoice.name}` : ""}
-                </p>
-                {voiceEnabled && agentID && agentVoice?.sample && (
-                  <audio
-                    key={`${agentID}:${agentVoice.voice_id}`}
-                    controls
-                    preload="none"
-                    src={`/api/agents/${agentID}/voice-sample?voice=${encodeURIComponent(agentVoice.voice_id)}`}
-                    style={{ width: "100%", marginTop: 8 }}
-                  />
-                )}
-                <label className="speech-toggle">
-                  <input
-                    type="checkbox"
-                    checked={spoken}
-                    onChange={(e) => {
-                      setSpoken(e.target.checked);
-                      voice.current?.enableOutput(e.target.checked);
-                    }}
-                  />{" "}
-                  Speak agent replies
-                </label>
-                <label className="speech-toggle">
-                  <input
-                    type="checkbox"
-                    checked={cuesOn}
-                    onChange={(e) => {
-                      setCuesOn(e.target.checked);
-                      voice.current?.enableCues(e.target.checked);
-                    }}
-                  />{" "}
-                  Brief prerecorded acknowledgements
-                </label>
-                <p className="quiet">
-                  Headphones help avoid speaker echo triggering an interruption.
-                  Account changes still require the confirmation button. Each
-                  persona speaks with one voice across all sentences; change it
-                  under Settings.
-                </p>
-              </section>
-            </div>
-          </div>
-          <div className="playground-footer">
-            <span className="runtime-dot" /> One platform. Every experience.
-          </div>
-        </aside>
-      </main>
+      {route.screen === "launcher" && <Launcher live={live} />}
+      {route.screen === "stage" && <Stage live={live} />}
+      {route.screen === "cockpit" && <Cockpit live={live} />}
+      {route.screen === "summary" && (
+        <Summary data={summary} live={live} onRestart={() => void goLive()} />
+      )}
+      {route.screen === "settings" && (
+        <SettingsPage live={live} section={route.section} />
+      )}
     </div>
   );
 }

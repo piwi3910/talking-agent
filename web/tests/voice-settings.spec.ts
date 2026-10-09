@@ -152,7 +152,9 @@ async function setup(
     if (path.startsWith("/api/"))
       return json(route, { error: "not mocked" }, 404);
     const file =
-      path === "/" || path === "/settings" ? "index.html" : path.slice(1);
+      path === "/" || path.startsWith("/settings")
+        ? "index.html"
+        : path.slice(1);
     if (!existsSync(dist + file))
       return route.fulfill({ status: 404, body: "" });
     return route.fulfill({
@@ -174,7 +176,7 @@ async function open(
   state: ReturnType<typeof fresh> & Record<string, any>,
 ) {
   await setup(page, state);
-  await page.goto(ORIGIN + "/settings");
+  await page.goto(ORIGIN + "/settings/voices");
   const panel = page.getByRole("region", {
     name: "Voice settings",
     exact: true,

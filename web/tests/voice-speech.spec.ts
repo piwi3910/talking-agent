@@ -62,7 +62,7 @@ async function setup(
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Start chat", exact: true }).click();
+  await page.getByRole("button", { name: /^Go live with/ }).click();
   await page.getByRole("button", { name: "Start voice", exact: true }).click();
   await expect(page.locator(".voice-controls")).toContainText("Listening", {
     timeout: 30000,

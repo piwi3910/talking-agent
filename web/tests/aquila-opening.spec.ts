@@ -237,7 +237,7 @@ test.describe("agent speaks first (mocked API)", () => {
     state.voiceEnabled = true;
     await setup(page, "aquila-admissions", state);
     await page.goto(ORIGIN + "/");
-    await page.getByRole("button", { name: /Start chat/ }).click();
+    await page.getByRole("button", { name: /^Go live with/ }).click();
     await expect(page.getByText(state.openText)).toBeVisible();
     expect(await voiceStarts(page)).toBe(0);
   });
@@ -249,7 +249,7 @@ test.describe("agent speaks first (mocked API)", () => {
     state.openText = "Welcome back Sarah, lovely to hear from you.";
     await setup(page, "aquila-admissions", state);
     await page.goto(ORIGIN + "/");
-    await page.getByRole("button", { name: /Start chat/ }).click();
+    await page.getByRole("button", { name: /^Go live with/ }).click();
     await expect(
       page.getByText("Welcome back Sarah, lovely to hear from you."),
     ).toBeVisible();
@@ -263,7 +263,7 @@ test.describe("agent speaks first (mocked API)", () => {
     state.openStatus = 409;
     await setup(page, "aquila-admissions", state);
     await page.goto(ORIGIN + "/");
-    await page.getByRole("button", { name: /Start chat/ }).click();
+    await page.getByRole("button", { name: /^Go live with/ }).click();
     await expect(page.getByText("STATIC WELCOME TEXT")).toBeVisible();
     expect(state.calls).toEqual(["create", "open"]);
     await expect(page.getByRole("alert")).toHaveCount(0);
@@ -274,7 +274,7 @@ test.describe("agent speaks first (mocked API)", () => {
     await setup(page, "plain", state);
     await page.goto(ORIGIN + "/");
     await expect(page.getByText("STATIC WELCOME TEXT")).toBeVisible();
-    await page.getByRole("button", { name: /Start chat/ }).click();
+    await page.getByRole("button", { name: /^Go live with/ }).click();
     await expect(page.locator(".status")).toHaveText("Connected");
     await page.waitForTimeout(500);
     expect(state.calls).toEqual(["create"]);

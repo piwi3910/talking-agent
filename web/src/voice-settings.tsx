@@ -352,257 +352,266 @@ export function VoiceSettings({ personas }: { personas: Persona[] }) {
         </p>
       )}
       {snapshot && (
-        <>
-          <form className="voice-add" aria-label="Add voice" onSubmit={add}>
+        <div className="studio">
+          <aside className="studio-new" aria-label="New voice">
+            <h4 className="studio-title">New voice</h4>
+            <form className="voice-add" aria-label="Add voice" onSubmit={add}>
+              <fieldset disabled={saving}>
+                <h4>Add voice</h4>
+                <label>
+                  New voice name
+                  <input
+                    type="text"
+                    value={newName}
+                    maxLength={60}
+                    placeholder="British gent"
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                </label>
+                <label>
+                  New voice description
+                  <textarea
+                    rows={3}
+                    value={newDescription}
+                    maxLength={500}
+                    placeholder="A deep, slow, older British man with a warm tone"
+                    onChange={(e) => setNewDescription(e.target.value)}
+                  />
+                </label>
+                <div className="voice-actions">
+                  <button
+                    type="button"
+                    disabled={!!busy || !newDescription.trim()}
+                    onClick={() =>
+                      void preview("new", {
+                        description: newDescription.trim(),
+                      })
+                    }
+                  >
+                    {busy === "new" ? "Loading…" : "Preview"}
+                    <span className="sr-only"> new voice</span>
+                  </button>
+                  <button
+                    className="primary"
+                    type="submit"
+                    disabled={!newName.trim() || !newDescription.trim()}
+                  >
+                    Add voice
+                  </button>
+                </div>
+              </fieldset>
+            </form>
+            <div className="voice-clone-launch">
+              <button
+                type="button"
+                disabled={saving || cloning || !!dirty}
+                onClick={() => {
+                  setNotice("");
+                  setCloning(true);
+                }}
+              >
+                Clone a voice
+              </button>
+              {dirty && !cloning && (
+                <p className="quiet">
+                  Save or reload your voice changes before cloning a voice.
+                </p>
+              )}
+            </div>
+            {cloning && (
+              <VoiceCloneFlow
+                revision={snapshot.revision}
+                takenIds={allVoices.map((v) => v.id)}
+                makeId={slugify}
+                onSaved={cloned}
+                onClose={() => setCloning(false)}
+              />
+            )}
+          </aside>
+          <form className="voice-settings-form" onSubmit={save}>
             <fieldset disabled={saving}>
-              <h4>Add voice</h4>
-              <label>
-                New voice name
-                <input
-                  type="text"
-                  value={newName}
-                  maxLength={60}
-                  placeholder="British gent"
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </label>
-              <label>
-                New voice description
-                <textarea
-                  rows={3}
-                  value={newDescription}
-                  maxLength={500}
-                  placeholder="A deep, slow, older British man with a warm tone"
-                  onChange={(e) => setNewDescription(e.target.value)}
-                />
-              </label>
-              <div className="voice-actions">
-                <button
-                  type="button"
-                  disabled={!!busy || !newDescription.trim()}
-                  onClick={() =>
-                    void preview("new", { description: newDescription.trim() })
-                  }
-                >
-                  {busy === "new" ? "Loading…" : "Preview"}
-                  <span className="sr-only"> new voice</span>
-                </button>
-                <button
-                  className="primary"
-                  type="submit"
-                  disabled={!newName.trim() || !newDescription.trim()}
-                >
-                  Add voice
+              <div className="studio-library">
+                <h4>Voice list</h4>
+                <ul className="voice-list" aria-label="Voice list">
+                  {builtins.map((v) => (
+                    <li className="voice-item" key={v.id}>
+                      <div>
+                        <strong>{v.name}</strong>{" "}
+                        <span className="pill">Built-in</span>
+                      </div>
+                      <div className="voice-actions">
+                        <button
+                          type="button"
+                          disabled={!!busy}
+                          aria-label={`Preview ${v.name}`}
+                          onClick={() => previewSaved(v)}
+                        >
+                          {busy === "voice:" + v.id ? "Loading…" : "Preview"}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                  {customs.map((v) => (
+                    <li className="voice-item" key={v.id}>
+                      <div>
+                        <span className="pill">
+                          {v.kind === "clone" ? "Cloned" : "Designed"}
+                        </span>
+                      </div>
+                      <label>
+                        Name of voice {v.id}
+                        <input
+                          type="text"
+                          value={v.name}
+                          maxLength={60}
+                          onChange={(e) =>
+                            editVoice(v.id, { name: e.target.value })
+                          }
+                        />
+                      </label>
+                      {v.kind !== "clone" && (
+                        <label>
+                          Description of voice {v.id}
+                          <textarea
+                            rows={3}
+                            value={v.description}
+                            maxLength={500}
+                            onChange={(e) =>
+                              editVoice(v.id, { description: e.target.value })
+                            }
+                          />
+                        </label>
+                      )}
+                      <div className="voice-actions">
+                        <button
+                          type="button"
+                          disabled={
+                            !!busy ||
+                            (v.kind !== "clone" && !v.description.trim())
+                          }
+                          aria-label={`Preview ${v.name}`}
+                          onClick={() => previewSaved(v)}
+                        >
+                          {busy === "voice:" + v.id ? "Loading…" : "Preview"}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${v.name}`}
+                          onClick={() => removeVoice(v.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="studio-personas">
+                <h4>Persona voices</h4>
+                {personas.map((a) => {
+                  const id = a.config.id,
+                    p = assign[id];
+                  if (!p) return null;
+                  const cue = cues[id];
+                  const name = a.config.name;
+                  return (
+                    <div
+                      className="phone-persona voice-persona"
+                      key={id}
+                      role="group"
+                      aria-label={`${name} voice settings`}
+                    >
+                      <h4>
+                        {name} <small>{a.config.organization}</small>
+                      </h4>
+                      <label>
+                        Voice for {name}
+                        <select
+                          value={p.voice_id}
+                          onChange={(e) =>
+                            change(id, { voice_id: e.target.value })
+                          }
+                        >
+                          {allVoices.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Delivery direction for {name}
+                        <textarea
+                          rows={2}
+                          value={p.direction}
+                          maxLength={500}
+                          placeholder="Warm, calm, unhurried"
+                          onChange={(e) =>
+                            change(id, { direction: e.target.value })
+                          }
+                        />
+                      </label>
+                      {snapshot.provider === "omni" && (
+                        <p className="quiet">
+                          Direction shapes a preset only while it renders
+                          offline. A voice cloned from its sample keeps the
+                          delivery of that sample.
+                        </p>
+                      )}
+                      <div className="voice-actions">
+                        <button
+                          type="button"
+                          disabled={!!busy}
+                          aria-label={`Preview voice for ${name}`}
+                          onClick={() =>
+                            void preview("persona:" + id, {
+                              voice_id: p.voice_id,
+                              ...(p.direction.trim()
+                                ? { direction: p.direction.trim() }
+                                : {}),
+                            })
+                          }
+                        >
+                          {busy === "persona:" + id ? "Loading…" : "Preview"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            !cue ||
+                            cue.state === "queued" ||
+                            cue.state === "rendering"
+                          }
+                          aria-label={`Generate cues for ${name}`}
+                          onClick={() => void generate(id)}
+                        >
+                          Generate cues
+                        </button>
+                      </div>
+                      <p
+                        className={`voice-cue-status ${cue?.state || ""}`}
+                        role="status"
+                        aria-label={`Cue status for ${name}`}
+                      >
+                        {cueLabel(cue)}
+                      </p>
+                      {snapshot.personas[id] &&
+                        (snapshot.personas[id].voice_id !== p.voice_id ||
+                          snapshot.personas[id].direction !== p.direction) && (
+                          <p className="quiet">
+                            Save to apply this voice. Cue status shows the saved
+                            voice.
+                          </p>
+                        )}
+                    </div>
+                  );
+                })}
+                <button className="primary" type="submit" disabled={!dirty}>
+                  {saving ? "Saving…" : "Save voice settings"}
                 </button>
               </div>
             </fieldset>
           </form>
-          <div className="voice-clone-launch">
-            <button
-              type="button"
-              disabled={saving || cloning || !!dirty}
-              onClick={() => {
-                setNotice("");
-                setCloning(true);
-              }}
-            >
-              Clone a voice
-            </button>
-            {dirty && !cloning && (
-              <p className="quiet">
-                Save or reload your voice changes before cloning a voice.
-              </p>
-            )}
-          </div>
-          {cloning && (
-            <VoiceCloneFlow
-              revision={snapshot.revision}
-              takenIds={allVoices.map((v) => v.id)}
-              makeId={slugify}
-              onSaved={cloned}
-              onClose={() => setCloning(false)}
-            />
-          )}
-          <form className="voice-settings-form" onSubmit={save}>
-            <fieldset disabled={saving}>
-              <h4>Voice list</h4>
-              <ul className="voice-list" aria-label="Voice list">
-                {builtins.map((v) => (
-                  <li className="voice-item" key={v.id}>
-                    <div>
-                      <strong>{v.name}</strong>{" "}
-                      <span className="pill">Built-in</span>
-                    </div>
-                    <div className="voice-actions">
-                      <button
-                        type="button"
-                        disabled={!!busy}
-                        aria-label={`Preview ${v.name}`}
-                        onClick={() => previewSaved(v)}
-                      >
-                        {busy === "voice:" + v.id ? "Loading…" : "Preview"}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-                {customs.map((v) => (
-                  <li className="voice-item" key={v.id}>
-                    <div>
-                      <span className="pill">
-                        {v.kind === "clone" ? "Cloned" : "Designed"}
-                      </span>
-                    </div>
-                    <label>
-                      Name of voice {v.id}
-                      <input
-                        type="text"
-                        value={v.name}
-                        maxLength={60}
-                        onChange={(e) =>
-                          editVoice(v.id, { name: e.target.value })
-                        }
-                      />
-                    </label>
-                    {v.kind !== "clone" && (
-                      <label>
-                        Description of voice {v.id}
-                        <textarea
-                          rows={3}
-                          value={v.description}
-                          maxLength={500}
-                          onChange={(e) =>
-                            editVoice(v.id, { description: e.target.value })
-                          }
-                        />
-                      </label>
-                    )}
-                    <div className="voice-actions">
-                      <button
-                        type="button"
-                        disabled={
-                          !!busy ||
-                          (v.kind !== "clone" && !v.description.trim())
-                        }
-                        aria-label={`Preview ${v.name}`}
-                        onClick={() => previewSaved(v)}
-                      >
-                        {busy === "voice:" + v.id ? "Loading…" : "Preview"}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${v.name}`}
-                        onClick={() => removeVoice(v.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <h4>Persona voices</h4>
-              {personas.map((a) => {
-                const id = a.config.id,
-                  p = assign[id];
-                if (!p) return null;
-                const cue = cues[id];
-                const name = a.config.name;
-                return (
-                  <div
-                    className="phone-persona voice-persona"
-                    key={id}
-                    role="group"
-                    aria-label={`${name} voice settings`}
-                  >
-                    <h4>
-                      {name} <small>{a.config.organization}</small>
-                    </h4>
-                    <label>
-                      Voice for {name}
-                      <select
-                        value={p.voice_id}
-                        onChange={(e) =>
-                          change(id, { voice_id: e.target.value })
-                        }
-                      >
-                        {allVoices.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Delivery direction for {name}
-                      <textarea
-                        rows={2}
-                        value={p.direction}
-                        maxLength={500}
-                        placeholder="Warm, calm, unhurried"
-                        onChange={(e) =>
-                          change(id, { direction: e.target.value })
-                        }
-                      />
-                    </label>
-                    {snapshot.provider === "omni" && (
-                      <p className="quiet">
-                        Direction shapes a preset only while it renders offline.
-                        A voice cloned from its sample keeps the delivery of
-                        that sample.
-                      </p>
-                    )}
-                    <div className="voice-actions">
-                      <button
-                        type="button"
-                        disabled={!!busy}
-                        aria-label={`Preview voice for ${name}`}
-                        onClick={() =>
-                          void preview("persona:" + id, {
-                            voice_id: p.voice_id,
-                            ...(p.direction.trim()
-                              ? { direction: p.direction.trim() }
-                              : {}),
-                          })
-                        }
-                      >
-                        {busy === "persona:" + id ? "Loading…" : "Preview"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={
-                          !cue ||
-                          cue.state === "queued" ||
-                          cue.state === "rendering"
-                        }
-                        aria-label={`Generate cues for ${name}`}
-                        onClick={() => void generate(id)}
-                      >
-                        Generate cues
-                      </button>
-                    </div>
-                    <p
-                      className={`voice-cue-status ${cue?.state || ""}`}
-                      role="status"
-                      aria-label={`Cue status for ${name}`}
-                    >
-                      {cueLabel(cue)}
-                    </p>
-                    {snapshot.personas[id] &&
-                      (snapshot.personas[id].voice_id !== p.voice_id ||
-                        snapshot.personas[id].direction !== p.direction) && (
-                        <p className="quiet">
-                          Save to apply this voice. Cue status shows the saved
-                          voice.
-                        </p>
-                      )}
-                  </div>
-                );
-              })}
-              <button className="primary" type="submit" disabled={!dirty}>
-                {saving ? "Saving…" : "Save voice settings"}
-              </button>
-            </fieldset>
-          </form>
-        </>
+        </div>
       )}
       <button
         type="button"
