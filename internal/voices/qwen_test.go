@@ -370,8 +370,15 @@ func TestMissingDesignSampleFallsBackThenIsRegeneratedAtStart(t *testing.T) {
 	if v = restarted.Resolve("a"); v.Reference == nil || v.Reference.Text != designSampleText {
 		t.Fatalf("not regenerated: %+v", v)
 	}
-	if tts.count(speech.ModelQwen3Design) != 2 {
-		t.Fatalf("design renders: %d", tts.count(speech.ModelQwen3Design))
+	// Saved once, regenerated once; the builtin samples are rendered alongside.
+	gent := 0
+	for _, c := range tts.snapshot() {
+		if c.Model == speech.ModelQwen3Design && c.Options["instruct"] == "Deep and slow." {
+			gent++
+		}
+	}
+	if gent != 2 {
+		t.Fatalf("design renders of the saved voice: %d", gent)
 	}
 	// The cue set that waited for the sample renders now.
 	waitState(t, restarted, "a", "ready")
@@ -465,7 +472,7 @@ func TestCueRendererYieldsToLiveSpeech(t *testing.T) {
 		defer mu.Unlock()
 		n := 0
 		for _, in := range inputs {
-			if in != "live phrase" {
+			if in != "live phrase" && in != designSampleText {
 				n++
 			}
 		}

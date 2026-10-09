@@ -326,7 +326,20 @@ func newFakeTTS(t *testing.T) *fakeTTS {
 	t.Cleanup(f.Close)
 	return f
 }
-func (f *fakeTTS) count() int { f.mu.Lock(); defer f.mu.Unlock(); return len(f.inputs) }
+
+// count is the number of cue phrases requested. The fixed sentence that builtin
+// and designed voices are sampled with is not a cue and is left out.
+func (f *fakeTTS) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, in := range f.inputs {
+		if in != designSampleText {
+			n++
+		}
+	}
+	return n
+}
 
 func waitState(t *testing.T, s *Store, agent, state string) CueStatus {
 	t.Helper()

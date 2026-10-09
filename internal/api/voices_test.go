@@ -615,7 +615,7 @@ func TestCloneCreateRejectsInvalidRequests(t *testing.T) {
 	}
 }
 
-func TestPreviewWithInlineCloneUsesItsReferenceAndDirection(t *testing.T) {
+func TestPreviewWithInlineCloneUsesItsReferenceAndIgnoresDirection(t *testing.T) {
 	e := newVoiceEnv(t)
 	audio := b64(tone(24000, 0.5, 6, 0.5, 8000))
 	inline := func(fields string) string {
@@ -634,15 +634,16 @@ func TestPreviewWithInlineCloneUsesItsReferenceAndDirection(t *testing.T) {
 	if a, err := speech.ParseWAV(ref); err != nil || a.Rate != 24000 || e.refs[last][1] != "Hello there." {
 		t.Fatalf("reference sent to TTS: %v %q", err, e.refs[last][1])
 	}
-	if e.inputs[last] != "Hi (sigh) there" || e.options[last]["guidance_scale"] != "4" || e.options[last]["instruction"] != "Calm." {
+	// A Base clone takes no instruction, and the stage direction is dropped.
+	if e.inputs[last] != "Hi there" || e.options[last]["instruct"] != "" {
 		t.Fatalf("%q %v", e.inputs[last], e.options[last])
 	}
-	// Without a direction it is plain Clone mode.
+	// Without a direction the request is the same.
 	if resp = e.post(t, "/api/settings/voices/preview", inline(``), ""); resp.StatusCode != 200 {
 		t.Fatalf("%d", resp.StatusCode)
 	}
 	last = len(e.inputs) - 1
-	if _, has := e.options[last]["instruction"]; has || e.options[last]["guidance_scale"] != "1" || e.inputs[last] != defaultPreview {
+	if _, has := e.options[last]["instruct"]; has || e.inputs[last] != defaultPreview {
 		t.Fatalf("%q %v", e.inputs[last], e.options[last])
 	}
 
