@@ -1,0 +1,23 @@
+[
+  {
+    "id": "U001",
+    "kind": "person",
+    "name": "Guest",
+    "status": "active",
+    "scenario": "Open conversation, no particular background"
+  },
+  {
+    "id": "U002",
+    "kind": "person",
+    "name": "Alex",
+    "status": "active",
+    "scenario": "Curious and chatty: likes science, history and a good joke"
+  },
+  {
+    "id": "U003",
+    "kind": "person",
+    "name": "Sam",
+    "status": "active",
+    "scenario": "Busy professional who wants quick, clear answers"
+  }
+]

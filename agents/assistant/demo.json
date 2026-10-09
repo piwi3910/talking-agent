@@ -1,0 +1,22 @@
+[
+  {
+    "keywords": ["[call answered]"],
+    "steps": [],
+    "reply": "Hi, I'm Nova. What's on your mind?"
+  },
+  {
+    "keywords": ["joke"],
+    "steps": [],
+    "reply": "Why don't scientists trust atoms? Because they make up everything."
+  },
+  {
+    "keywords": ["explain", "why is", "how does"],
+    "steps": [],
+    "reply": "Happy to. In offline mode I only know a few canned lines, but connect me to a language model and I can explain almost anything in plain words."
+  },
+  {
+    "keywords": ["hello", "hi", "hey"],
+    "steps": [],
+    "reply": "Hi, I'm Nova. Ask me anything, or try asking for a joke."
+  }
+]

@@ -1,0 +1,43 @@
+.mcp-settings .mcp-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.mcp-settings .mcp-url {
+  overflow-wrap: anywhere;
+}
+.mcp-settings .mcp-tools {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.mcp-settings .mcp-tools code {
+  overflow-wrap: anywhere;
+}
+.mcp-settings .mcp-error {
+  color: #b3261e;
+}
+.mcp-settings .mcp-headers,
+.mcp-settings .mcp-agents {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.mcp-settings .mcp-label {
+  font-weight: 600;
+}
+.mcp-settings .mcp-header-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  .mcp-settings .mcp-header-row {
+    grid-template-columns: 1fr;
+  }
+}

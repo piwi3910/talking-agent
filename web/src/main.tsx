@@ -4,6 +4,7 @@ import "./style.css";
 import { Voice } from "./voice";
 import { PhoneSettings } from "./phone-settings";
 import { VoiceSettings } from "./voice-settings";
+import { McpSettings } from "./mcp-settings";
 import { hideVocalEvents } from "./vocal-events";
 
 type RecordItem = { id: string; name: string; description?: string };
@@ -1113,6 +1114,7 @@ function App() {
                 <>
                   <PhoneSettings personas={agents} />
                   <VoiceSettings personas={agents} />
+                  <McpSettings personas={agents} />
                 </>
               )}
             </div>

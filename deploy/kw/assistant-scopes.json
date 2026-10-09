@@ -1,0 +1,23 @@
+[
+  {
+    "tenant": "assistant-demo",
+    "organization": "Kuvryn AI",
+    "domain": "assistant",
+    "namespace": "assistant-demo",
+    "user": "U001"
+  },
+  {
+    "tenant": "assistant-demo",
+    "organization": "Kuvryn AI",
+    "domain": "assistant",
+    "namespace": "assistant-demo",
+    "user": "U002"
+  },
+  {
+    "tenant": "assistant-demo",
+    "organization": "Kuvryn AI",
+    "domain": "assistant",
+    "namespace": "assistant-demo",
+    "user": "U003"
+  }
+]
