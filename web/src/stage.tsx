@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { Live } from "./main";
 import { actionLabel, clock, detailOf, Event, kindOf } from "./api";
 import { hideVocalEvents } from "./vocal-events";
+import { Voice } from "./voice";
 import { BackButton, NavLink, PersonaMark, ThemeToggle } from "./ui";
 import {
   Calendar,
@@ -176,15 +177,9 @@ export function Stage({ live }: { live: Live }) {
 
       <main className="stage-main">
         <section className="stage-center" aria-label="Customer experience">
-          <div
+          <Orb
             className={`orb-wrap ${state.key} ${panelOpen ? "compact" : ""}`}
-            aria-hidden="true"
-          >
-            <span className="ripple" />
-            <span className="ripple second" />
-            <span className="orbit" />
-            <span className="orb" />
-          </div>
+          />
           <div className="stage-state">
             <Bars state={state.key} />
             <span className="state-label" role="status">
@@ -656,5 +651,38 @@ function XRay({ live }: { live: Live }) {
         </button>
       </section>
     </aside>
+  );
+}
+
+// The avatar: its size and glow follow the agent's voice as it is played, and
+// it leans gently toward the caller's voice while they speak.
+function Orb({ className }: { className: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let frame = 0;
+    let out = 0;
+    let mic = 0;
+    const tick = () => {
+      const level = Voice.active?.levels() ?? { out: 0, mic: 0 };
+      // Fast attack, slower release, so syllables pulse without jitter.
+      out += (level.out - out) * (level.out > out ? 0.55 : 0.12);
+      mic += (level.mic - mic) * (level.mic > mic ? 0.4 : 0.1);
+      const el = ref.current;
+      if (el) {
+        el.style.setProperty("--voice", out.toFixed(3));
+        el.style.setProperty("--mic", mic.toFixed(3));
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return (
+    <div ref={ref} className={className} aria-hidden="true">
+      <span className="ripple" />
+      <span className="ripple second" />
+      <span className="orbit" />
+      <span className="orb" />
+    </div>
   );
 }

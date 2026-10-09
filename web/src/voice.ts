@@ -58,6 +58,11 @@ const FIRST_CLAUSE_MIN = 40;
 // Abbreviations whose full stop does not end a sentence. "No" only counts before a number.
 const ABBREVIATION = /(?:\b(?:Dr|Mr|Ms|Mrs|St)|\be\.g|\bi\.e)$/;
 export class Voice {
+  // The voice session currently driving the stage, for level-reactive visuals.
+  static active: Voice | null = null;
+  private analyser?: AnalyserNode;
+  private levelBuffer?: Float32Array<ArrayBuffer>;
+  private micLevel = 0;
   private context?: AudioContext;
   private gain?: GainNode;
   private cues?: VoiceCues;
@@ -183,6 +188,12 @@ export class Voice {
       this.tr("audio.resumed", this.audioInfo());
       this.gain = this.context.createGain();
       this.gain.connect(this.context.destination);
+      // A side branch that only measures what is being played (speech and cues).
+      this.analyser = this.context.createAnalyser();
+      this.analyser.fftSize = 512;
+      this.analyser.smoothingTimeConstant = 0;
+      this.gain.connect(this.analyser);
+      Voice.active = this;
       this.cues = new VoiceCues(
         this.context,
         this.gain,
@@ -254,8 +265,29 @@ export class Voice {
       throw e;
     }
   }
+  // Loudness of the agent's voice and of the microphone, each 0..1.
+  levels(): { out: number; mic: number } {
+    let out = 0;
+    if (this.analyser && this.context?.state === "running") {
+      const buf = (this.levelBuffer ??= new Float32Array(
+        this.analyser.fftSize,
+      ));
+      this.analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      out = Math.min(1, Math.sqrt(sum / buf.length) * 4);
+    }
+    return { out, mic: this.closed || this.muted ? 0 : this.micLevel };
+  }
   private frame(pcm: ArrayBuffer, probability: number, ms: number) {
     if (this.closed || this.muted) return;
+    {
+      const v = new Int16Array(pcm);
+      let sum = 0;
+      for (let i = 0; i < v.length; i++) sum += v[i] * v[i];
+      const rms = v.length ? Math.sqrt(sum / v.length) / 32768 : 0;
+      this.micLevel = probability > 0.5 ? Math.min(1, rms * 6) : 0;
+    }
     this.preRoll.push(pcm);
     if (this.preRoll.length > 13) this.preRoll.shift();
     const playing = !!this.output.size || !!this.cues?.playing;
@@ -1097,6 +1129,7 @@ export class Voice {
     this.firstPlayback = false;
   }
   stop() {
+    if (Voice.active === this) Voice.active = null;
     this.tr("voice.stop", this.audioInfo());
     this.closed = true;
     this.cues?.close();

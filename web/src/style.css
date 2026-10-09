@@ -951,6 +951,30 @@ pre {
 .orb-wrap.muted .orb {
   filter: saturate(0.6);
 }
+/* Voice-reactive avatar: --voice (agent) and --mic (caller) are 0..1, set per frame. */
+.orb-wrap .orb {
+  scale: calc(1 + var(--voice, 0) * 0.22 + var(--mic, 0) * 0.08);
+  box-shadow:
+    0 0 calc(80px + var(--voice, 0) * 90px)
+      color-mix(
+        in srgb,
+        var(--accent) calc(55% + var(--voice, 0) * 40%),
+        transparent
+      ),
+    inset 0 -20px 60px rgba(0, 0, 0, 0.35);
+}
+.orb-wrap.speaking .orb {
+  filter: brightness(calc(1 + var(--voice, 0) * 0.35));
+}
+.orb-wrap .orbit {
+  scale: calc(1 + var(--voice, 0) * 0.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-wrap .orb,
+  .orb-wrap .orbit {
+    scale: 1;
+  }
+}
 .stage-state {
   display: flex;
   flex-direction: column;
