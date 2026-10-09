@@ -1,6 +1,7 @@
 {
   "id": "aquila-admissions",
   "name": "Amelia",
+  "timezone": "Asia/Dubai",
   "organization": "The Aquila School",
   "role": "Admissions Advisor",
   "scope":

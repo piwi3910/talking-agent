@@ -89,7 +89,7 @@
       lunch,
       wrap-around,
     ]
-  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Times are Dubai time."
+  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Tool times are already local; never mention a time zone."
   tools:
     - name: school.information
       description: "Look up published information about The Aquila School on any topic (timings, calendar, term dates, events, curriculum, leadership, contact details and more)"
@@ -170,7 +170,7 @@
       pick up,
       collect,
     ]
-  instructions: "Report absences with reception.report_absence (child, the date as YYYY-MM-DD or today, and the reason); be kind and brief. Use reception.message_staff for messages to teachers or leaders, staff.meeting_book for meetings with Kylie Cleworth (Head of Primary), Yasmine Dannawy (Head of Secondary), Claire Hitchings (Head of Inclusion), Dr Mahmoud Khalil (Arabic and Islamic) or Wayne Howsen (Principal), and transport.request for bus seats. Safeguarding concerns go to Pauline Lamond, the Safeguarding Lead, via reception.message_staff; never promise confidentiality. Times are Dubai time."
+  instructions: "Report absences with reception.report_absence (child, the date as YYYY-MM-DD or today, and the reason); be kind and brief. Use reception.message_staff for messages to teachers or leaders, staff.meeting_book for meetings with Kylie Cleworth (Head of Primary), Yasmine Dannawy (Head of Secondary), Claire Hitchings (Head of Inclusion), Dr Mahmoud Khalil (Arabic and Islamic) or Wayne Howsen (Principal), and transport.request for bus seats. Safeguarding concerns go to Pauline Lamond, the Safeguarding Lead, via reception.message_staff; never promise confidentiality. Tool times are already local; never mention a time zone."
   tools:
     - name: reception.report_absence
       description: "Report that a pupil will be absent; the class teacher and attendance team are told"
@@ -270,10 +270,10 @@
       neighbour,
       cancel,
     ]
-  instructions: "For friends and family who want to see the school, call tour.availability straight away and offer two or three real options. Book the exact slot chosen with tour.book, passing the slot ID and the day and time in words. Times are Dubai time. Use tour.cancel with the booking reference from crm.history."
+  instructions: "For friends and family who want to see the school, ask which day suits, then call tour.availability and offer two or three times on that day. Book the exact slot chosen with tour.book, passing the slot ID and the day and time in words. Tool times are already local; never mention a time zone. Use tour.cancel with the booking reference from crm.history."
   tools:
     - name: tour.availability
-      description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. All times Dubai time"
+      description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. Times are local to the school"
       input:
         type: object
         additionalProperties: false
@@ -309,7 +309,7 @@
       timeout_ms: 5000
       memory_effect:
         contains: "Tour booked"
-        text: "Tour booked for {when} (Dubai time)."
+        text: "Tour booked for {when}."
         tags: [tour, booking]
     - name: tour.cancel
       description: "Cancel a tour booking owned by this family"

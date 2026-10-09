@@ -198,6 +198,15 @@ func TestSpokenLeavesUncertainTextAlone(t *testing.T) {
 	}
 }
 
+func TestSpokenTimesDropZoneLabels(t *testing.T) {
+	checkSpoken(t, []spokenCase{
+		{"Monday at 2:30 PM UTC works", "Monday at 2:30 p.m. works"},
+		{"at 9:00 am (Dubai time) please", "at 9 a.m. please"},
+		{"half past: 14:30 GMT", "half past: 2:30 p.m."},
+		{"Tuesday at 2:30 PM", "Tuesday at 2:30 p.m."},
+	})
+}
+
 func TestSpokenIsIdempotent(t *testing.T) {
 	for _, in := range []string{
 		"19 October 2026",

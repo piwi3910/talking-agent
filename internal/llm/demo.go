@@ -152,6 +152,10 @@ func (d *Demo) Chat(ctx context.Context, in Request, delta func(string)) (Respon
 				parts = append(parts, "Unable to complete action: "+r.Error.Message)
 				continue
 			}
+			if spoken, ok := demoSlotReply(r); ok {
+				parts = append(parts, spoken)
+				continue
+			}
 			p := r.Summary
 			for i, rec := range r.Records {
 				if i >= 8 {
@@ -174,6 +178,72 @@ func (d *Demo) Chat(ctx context.Context, in Request, delta func(string)) (Respon
 	}
 	return demoText(ctx, reply, delta)
 }
+
+// demoSlotReply answers an availability result the way a person would: which
+// day suits first, then a couple of times once the day is known. No ids, no
+// zones, no list. Slot ids stay in the records for the booking step.
+func demoSlotReply(r tools.Result) (string, bool) {
+	if len(r.Records) == 0 {
+		return "", false
+	}
+	var days []string
+	times := map[string][]string{}
+	for _, rec := range r.Records {
+		if !strings.HasSuffix(rec.Kind, "_slot") {
+			return "", false
+		}
+		at, err := time.Parse(time.RFC3339, rec.Start)
+		if err != nil {
+			return "", false
+		}
+		day := fmt.Sprintf("%s the %s", at.Weekday(), ordinal(at.Day()))
+		if _, seen := times[day]; !seen {
+			days = append(days, day)
+		}
+		clock := at.Format("3 pm")
+		if at.Minute() != 0 {
+			clock = at.Format("3:04 pm")
+		}
+		times[day] = append(times[day], clock)
+	}
+	if len(days) == 1 {
+		options := times[days[0]]
+		if len(options) > 3 {
+			options = options[:3]
+		}
+		return fmt.Sprintf("On %s I could do %s. Which would suit you best?", days[0], joinWords(options)), true
+	}
+	if len(days) > 3 {
+		days = days[:3]
+	}
+	return fmt.Sprintf("I have openings on %s. Which day suits you best, and would you rather come in the morning or the afternoon?", joinWords(days)), true
+}
+
+func ordinal(n int) string {
+	suffix := "th"
+	if n%100 < 11 || n%100 > 13 {
+		switch n % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return fmt.Sprintf("%d%s", n, suffix)
+}
+
+func joinWords(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " or " + items[len(items)-1]
+}
+
 func demoCall(name string, args map[string]string) Response {
 	b, _ := json.Marshal(args)
 	return Response{Message: Message{Role: "assistant", ToolCalls: []Call{{ID: fmt.Sprintf("call-%d", time.Now().UnixNano()), Type: "function", Function: Function{WireName(name), string(b)}}}}}

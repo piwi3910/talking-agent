@@ -14,7 +14,7 @@ func TestSchoolRuntimeAndMemoryIsolation(t *testing.T) {
 	store := session.NewStore()
 	s := store.Create(agents["school-services"], "F001")
 	r.Run(context.Background(), s, "school-1", Turn{Text: "Show school tour availability"})
-	if !strings.Contains(conversation(s), "Available school tours") {
+	if !strings.Contains(conversation(s), "Which day suits you best") || strings.Contains(conversation(s), "TOUR-") || strings.Contains(conversation(s), "UTC") {
 		t.Fatal(conversation(s))
 	}
 	r.Run(context.Background(), s, "school-2", Turn{Text: "Mornings normally work better for me."})

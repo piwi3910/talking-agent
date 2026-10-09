@@ -43,7 +43,7 @@ test("school persona, live tour lookup, confirmed booking and cancellation", asy
   const slots = await records(page, "tour.availability");
   expect(slots.length).toBeGreaterThan(0);
   for (const slot of slots)
-    expect(new Date(slot.start).getUTCHours()).toBeLessThan(12);
+    expect(Number(slot.start.slice(11, 13))).toBeLessThan(12); // local hour
   await send(page, `Book school tour slot ${slots[0].id}.`);
   let proposal = page.locator(".confirmation");
   await expect(proposal).toHaveCount(1);

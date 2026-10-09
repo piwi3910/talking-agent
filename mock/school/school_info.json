@@ -4,14 +4,14 @@
     "kind": "information",
     "name": "Reception hours and directions",
     "location": "Willowbrook School, 14 Orchard Lane (fictional address)",
-    "description": "Term-time Monday\u2013Friday 07:30\u201316:30 UTC. Lessons 08:15\u201315:15 UTC. Main gate entry; visitor parking and accessible entrance beside reception. Contact reception@willowbrook.example.invalid (demo address, not monitored)."
+    "description": "Term-time Monday\u2013Friday 07:30\u201316:30. Lessons 08:15\u201315:15. Main gate entry; visitor parking and accessible entrance beside reception. Contact reception@willowbrook.example.invalid (demo address, not monitored)."
   },
   {
     "id": "admissions",
     "kind": "information",
     "name": "Admissions office",
     "location": "Main building, ground floor",
-    "description": "Monday\u2013Friday 08:00\u201316:00 UTC during term time. Contact admissions@willowbrook.example.invalid (demo address, not monitored). Staff review eligibility, documents and places."
+    "description": "Monday\u2013Friday 08:00\u201316:00 during term time. Contact admissions@willowbrook.example.invalid (demo address, not monitored). Staff review eligibility, documents and places."
   },
   {
     "id": "transport",

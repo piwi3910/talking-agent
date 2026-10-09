@@ -1,6 +1,7 @@
 {
   "id": "school-services",
   "name": "Emma",
+  "timezone": "America/New_York",
   "organization": "Willowbrook School",
   "role": "Admissions and Reception Coordinator",
   "scope":

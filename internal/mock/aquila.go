@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-// dubai is UTC+4 without daylight saving. Slot times are published in Dubai time.
+// dubai is UTC+4 without daylight saving (Asia/Dubai). Slot times are published
+// in the school's local time and never labelled with a zone.
 var dubai = time.FixedZone("GST", 4*3600)
 
 // closures are 2026-27 school closures (inclusive ISO dates) when no tours or assessments are offered.
@@ -30,17 +31,6 @@ func aquilaClosed(iso string) bool {
 		}
 	}
 	return false
-}
-
-func aquilaClock(hour int) string {
-	suffix, h := "am", hour
-	if hour >= 12 {
-		suffix = "pm"
-		if hour > 12 {
-			h = hour - 12
-		}
-	}
-	return fmt.Sprintf("%d:00 %s", h, suffix)
 }
 
 func aquilaAED(n int) string {
@@ -264,8 +254,27 @@ func (b *Backend) seedAquilaSlots(now time.Time, respectClosures bool) {
 }
 
 func (b *Backend) aquilaSlot(kind, prefix, code string, date time.Time, hour int, name, typ, location string) {
-	when := fmt.Sprintf("%s %d %s, %s (Dubai time)", date.Weekday(), date.Day(), date.Month(), aquilaClock(hour))
-	b.records["aq_slots"] = append(b.records["aq_slots"], tools.Record{ID: fmt.Sprintf("%s-%s-%02d00-%s", prefix, date.Format("20060102"), hour, code), Kind: kind, Name: name, Description: when, Specialty: typ, Location: location, Status: "available"})
+	at := time.Date(date.Year(), date.Month(), date.Day(), hour, 0, 0, 0, dubai)
+	slot := slotRecord(fmt.Sprintf("%s-%s-%02d00-%s", prefix, date.Format("20060102"), hour, code), kind, name, at, location)
+	slot.Specialty = typ
+	b.records["aq_slots"] = append(b.records["aq_slots"], slot)
+}
+
+// aquilaSlotLabel names a slot's kind for the by-day summary.
+func aquilaSlotLabel(r tools.Record) string {
+	switch r.Specialty {
+	case "in-person":
+		return "in person"
+	case "virtual":
+		return "virtual tour"
+	case "open-morning":
+		return "Saturday open morning"
+	case "cat4":
+		return "CAT4"
+	case "meet-and-greet":
+		return "meet and greet"
+	}
+	return ""
 }
 
 func aquilaSlotDate(id string) string {
@@ -415,11 +424,11 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 			typ = "meet-and-greet"
 		}
 		query := map[string]string{"type": typ, "from": a["from"], "to": a["to"]}
-		res, ok := b.aquilaSlotsFor("assessment_slot", query, map[string]int{"cat4": 4, "meet-and-greet": 4})
+		res, ok := b.aquilaSlotsFor("assessment_slot", query, map[string]int{"cat4": 6, "meet-and-greet": 6})
 		if !ok {
 			return res
 		}
-		return result("Available assessment slots (all times Dubai time). CAT4 is for Secondary entry (Years 7 to 11); the meet and greet is for FS1 to Year 6 and for Post-16 conversations. Choose a slot ID to book.", res.Records...)
+		return result(availabilitySummary("Available assessment slots. CAT4 is for Secondary entry (Years 7 to 11); the meet and greet is for FS1 to Year 6 and for Post-16 conversations.", res.Records, aquilaSlotLabel), res.Records...)
 	case "assessment.book":
 		child := strings.TrimSpace(a["child_name"])
 		if child == "" {
@@ -453,11 +462,11 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 			typ = "in-person"
 		}
 		query := map[string]string{"type": typ, "from": a["from"], "to": a["to"]}
-		res, ok := b.aquilaSlotsFor("tour_slot", query, map[string]int{"in-person": 4, "virtual": 2, "open-morning": 2})
+		res, ok := b.aquilaSlotsFor("tour_slot", query, map[string]int{"in-person": 9, "virtual": 6, "open-morning": 2})
 		if !ok {
 			return res
 		}
-		return result("Available tours (all times Dubai time): weekday morning tours, virtual tours and the Saturday open morning. Choose a slot ID to book.", res.Records...)
+		return result(availabilitySummary("Available tours: weekday morning tours (Monday to Thursday), virtual tours in the afternoon and the Saturday open morning.", res.Records, aquilaSlotLabel), res.Records...)
 	case "tour.book":
 		for i, s := range b.records["aq_slots"] {
 			if s.ID != a["slot_id"] || s.Kind != "tour_slot" || s.Status != "available" || aquilaSlotDate(s.ID) <= aquilaToday() {
@@ -499,7 +508,7 @@ func (b *Backend) aquila(u *User, name string, a map[string]string) tools.Result
 			date = date.AddDate(0, 0, 1)
 		}
 		hour := 9 + b.serial%3
-		when := fmt.Sprintf("%s %d %s, %s (Dubai time)", date.Weekday(), date.Day(), date.Month(), aquilaClock(hour))
+		when := whenWords(time.Date(date.Year(), date.Month(), date.Day(), hour, 0, 0, 0, dubai))
 		r := b.aquilaLog(u.ID, "meeting", "MTG", "Meeting with "+who, when+". Topic: "+topic+". On campus or by video, whichever suits the family.", "confirmed", "")
 		return result(fmt.Sprintf("Meeting booked with %s on %s about %s. A calendar invitation follows by email.", who, when, topic), r)
 	case "reception.report_absence":

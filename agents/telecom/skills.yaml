@@ -1,6 +1,6 @@
 - description: Customer services
   id: customer
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - account
     - profile
@@ -35,7 +35,7 @@
       timeout_ms: 5000
 - description: Subscription services
   id: subscription
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - subscription
   tools:
@@ -62,7 +62,7 @@
       timeout_ms: 5000
 - description: Billing services
   id: billing
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - bill
     - invoice
@@ -98,7 +98,7 @@
       timeout_ms: 5000
 - description: Usage services
   id: usage
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - data
     - allowance
@@ -124,7 +124,7 @@
       timeout_ms: 5000
 - description: Network services
   id: network
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - internet
     - offline
@@ -222,7 +222,7 @@
         additionalProperties: false
         properties:
           channel:
-            description: 'required channel: 1, 6 or 11'
+            description: "required channel: 1, 6 or 11"
             enum:
               - "1"
               - "6"
@@ -244,7 +244,7 @@
       timeout_ms: 5000
 - description: Ticket services
   id: ticket
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - ticket
   tools:
@@ -305,7 +305,7 @@
       timeout_ms: 5000
 - description: Plan services
   id: plan
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - plan
     - upgrade
@@ -343,12 +343,12 @@
       timeout_ms: 5000
 - description: Technician services
   id: technician
-  instructions: 'Use current backend records. Never invent IDs or availability. Confirm mutations. '
+  instructions: "Use current backend records. Never invent IDs or availability. Confirm mutations. "
   keywords:
     - technician
     - line
   tools:
-    - description: Find available technician slots
+    - description: Find available technician visits, grouped by day, in the customer's local time
       input:
         additionalProperties: false
         properties: {}

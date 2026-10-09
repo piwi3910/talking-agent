@@ -39,6 +39,7 @@ memory:
       text: Customer reports recurring weak Wi-Fi coverage upstairs.
 name: Sara
 organization: Nova Telecom
+timezone: America/New_York
 persona:
   voice_style: "Relaxed, friendly and upbeat. Clear, natural American English."
   style: conversational

@@ -82,7 +82,7 @@
       uniform,
       class size,
     ]
-  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use transport.quote for bus zones and annual fees. Times are Dubai time."
+  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use transport.quote for bus zones and annual fees. Tool times are already local; never mention a time zone."
   tools:
     - name: school.information
       description: "Look up published information about The Aquila School on any topic (curriculum, results, Arabic support, inclusion, campus, timings, ratings, leadership and more)"
@@ -222,10 +222,10 @@
       slot,
       available,
     ]
-  instructions: "Call tour.availability or assessment.availability straight away and offer two or three real options. Book the exact slot chosen with tour.book or assessment.book, passing the slot ID and the day and time in words. CAT4 is for Secondary entry; the meet and greet is for FS1 to Year 6. Times are Dubai time. Use tour.cancel with the booking reference from crm.history."
+  instructions: "Ask which day or part of the week suits, then call tour.availability or assessment.availability and offer two or three times on that day. Book the exact slot chosen with tour.book or assessment.book, passing the slot ID and the day and time in words. CAT4 is for Secondary entry; the meet and greet is for FS1 to Year 6. Tool times are already local; never mention a time zone. Use tour.cancel with the booking reference from crm.history."
   tools:
     - name: tour.availability
-      description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. All times Dubai time"
+      description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. Times are local to the school"
       input:
         type: object
         additionalProperties: false
@@ -261,7 +261,7 @@
       timeout_ms: 5000
       memory_effect:
         contains: "Tour booked"
-        text: "Tour booked for {when} (Dubai time)."
+        text: "Tour booked for {when}."
         tags: [tour, booking]
     - name: tour.cancel
       description: "Cancel a tour booking owned by this family"
@@ -282,7 +282,7 @@
         text: "A tour booking was cancelled at the family's request."
         tags: [tour, booking]
     - name: assessment.availability
-      description: "Find CAT4 or meet-and-greet slots. All times Dubai time"
+      description: "Find CAT4 or meet-and-greet slots. Times are local to the school"
       input:
         type: object
         additionalProperties: false
@@ -316,7 +316,7 @@
       timeout_ms: 5000
       memory_effect:
         contains: "Assessment booked"
-        text: "Assessment booked for {child_name}: {when} (Dubai time)."
+        text: "Assessment booked for {child_name}: {when}."
         tags: [assessment, booking]
 
 - id: followup
