@@ -226,12 +226,18 @@ async function chooseCleanTourIdentity(id) {
     "aquila-admissions": [
       "ADV-AQUILA-ADMISSIONS-001",
       "ADV-AQUILA-ADMISSIONS-002",
+      "ADV-AQUILA-ADMISSIONS-003",
     ],
     "aquila-reception": [
       "ADV-AQUILA-RECEPTION-001",
       "ADV-AQUILA-RECEPTION-002",
+      "ADV-AQUILA-RECEPTION-003",
     ],
-    "school-services": ["ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002"],
+    "school-services": [
+      "ADV-SCHOOL-SERVICES-001",
+      "ADV-SCHOOL-SERVICES-002",
+      "ADV-SCHOOL-SERVICES-003",
+    ],
   };
   const options = reserved[id] || [];
   if (!options.length) return { warning: "demo identity selector unavailable" };

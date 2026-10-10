@@ -95,8 +95,8 @@ func TestReservedAdversarialContactsAreHiddenButUsable(t *testing.T) {
 		}
 	}
 	for industry, ids := range map[string][]string{
-		"aquila": {"ADV-AQUILA-ADMISSIONS-001", "ADV-AQUILA-ADMISSIONS-002", "ADV-AQUILA-RECEPTION-001", "ADV-AQUILA-RECEPTION-002"},
-		"school": {"ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002"},
+		"aquila": {"ADV-AQUILA-ADMISSIONS-001", "ADV-AQUILA-ADMISSIONS-002", "ADV-AQUILA-ADMISSIONS-003", "ADV-AQUILA-RECEPTION-001", "ADV-AQUILA-RECEPTION-002", "ADV-AQUILA-RECEPTION-003"},
+		"school": {"ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002", "ADV-SCHOOL-SERVICES-003"},
 	} {
 		for _, id := range ids {
 			tool := "contact.profile"

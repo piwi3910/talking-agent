@@ -56,14 +56,17 @@ func Load(root string, now time.Time) (*Backend, error) {
 	for _, u := range []User{
 		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-001", Kind: "contact", Name: "Nadia Rahman"}, Scenario: "Prospective family; child considering Year 5; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-002", Kind: "contact", Name: "Omar Haddad"}, Scenario: "Prospective family; child considering Year 3; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-003", Kind: "contact", Name: "Sara Nasser"}, Scenario: "Prospective family; child considering Year 6; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-001", Kind: "contact", Name: "Layla Mansour"}, Scenario: "Prospective family; child considering FS2; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-002", Kind: "contact", Name: "Yusuf Karim"}, Scenario: "Prospective family; child considering Year 1; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-003", Kind: "contact", Name: "Hana Saeed"}, Scenario: "Prospective family; child considering FS1; first enquiry."},
 	} {
 		b.users["aquila"][u.ID] = &u
 	}
 	for _, u := range []User{
 		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-001", Kind: "family", Name: "Maya Patel"}, Scenario: "Prospective family; interested in the primary program; first enquiry."},
 		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-002", Kind: "family", Name: "Ethan Brooks"}, Scenario: "Prospective family; interested in the early years program; first enquiry."},
+		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-003", Kind: "family", Name: "Grace Nguyen"}, Scenario: "Prospective family; interested in the middle school program; first enquiry."},
 	} {
 		b.users["school"][u.ID] = &u
 	}

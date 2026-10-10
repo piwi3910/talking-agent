@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:c0ade4309c8e0fe00336dbe83a69a38e40dfa2167d9172e5bb3b4ff16db82650",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:df970d120d1a323dd741856a6f29aa2392e557e1aeab1923339f8b8d3b9f8742",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
