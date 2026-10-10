@@ -199,6 +199,12 @@ func TestStreamableHTTPInitializeListCallAndAuth(t *testing.T) {
 			defer srv.Close()
 			m := newManager(t, server("fake", srv.URL, TransportHTTP))
 			tools := m.ToolsFor(context.Background(), "assistant")
+			m.mu.Lock()
+			_, indexed := m.toolsIndex["mcp.fake.echo"]
+			m.mu.Unlock()
+			if !indexed {
+				t.Fatal("connected tool missing from O(1) index")
+			}
 			names := []string{}
 			for _, tl := range tools {
 				names = append(names, tl.Name)
@@ -258,6 +264,35 @@ func TestShapeFiltersAndFramesUntrustedContent(t *testing.T) {
 	long := shape(&sdk.ToolResult{Content: []sdk.ToolContent{{Type: "text", Text: strings.Repeat("x", 2000)}}})
 	if !strings.Contains(long.Text, "[truncated]") || utf8.RuneCountInString(long.Text) > MaxResultRunes+100 {
 		t.Fatalf("oversized result: %d", utf8.RuneCountInString(long.Text))
+	}
+}
+
+func TestToolIndexRefreshAndDisabledServerInvalidation(t *testing.T) {
+	t.Setenv("MCP_TEST_KEY", "k")
+	f := &fakeServer{}
+	srv := httptest.NewServer(f.streamable(false))
+	defer srv.Close()
+	s := server("indexed", srv.URL, TransportHTTP)
+	m := newManager(t, s)
+	ctx := context.Background()
+	if got := m.ToolsFor(ctx, "assistant"); len(got) == 0 {
+		t.Fatal("tools were not loaded")
+	}
+	if _, status := m.Test(ctx, s); status.State != "ok" {
+		t.Fatalf("refresh failed: %+v", status)
+	}
+	if _, ok := m.toolsIndex["mcp.indexed.echo"]; !ok {
+		t.Fatal("tool missing from index after refresh")
+	}
+	s.Enabled = false
+	if err := m.Registry.Update(s.ID, s); err != nil {
+		t.Fatal(err)
+	}
+	if res := m.Call(ctx, "assistant", "mcp.indexed.echo", nil); !res.IsError {
+		t.Fatal("disabled server tool remained callable")
+	}
+	if _, ok := m.toolsIndex["mcp.indexed.echo"]; ok {
+		t.Fatal("disabled server left stale index entry")
 	}
 }
 

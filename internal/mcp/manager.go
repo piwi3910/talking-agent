@@ -53,6 +53,12 @@ type conn struct {
 	err       string
 }
 
+type indexedTool struct {
+	server Server
+	tool   Tool
+	conn   *conn
+}
+
 // Manager keeps one connection per enabled server and caches its tool list.
 type Manager struct {
 	Registry    *Registry
@@ -62,9 +68,10 @@ type Manager struct {
 	CallTimeout time.Duration // per tools/call; default 30 seconds
 	ConnTimeout time.Duration // connect + initialize + list; default 10 seconds
 
-	mu    sync.Mutex
-	conns map[string]*conn
-	locks map[string]*sync.Mutex
+	mu         sync.Mutex
+	conns      map[string]*conn
+	locks      map[string]*sync.Mutex
+	toolsIndex map[string]indexedTool
 }
 
 func (m *Manager) ttl() time.Duration  { return durOr(m.ToolTTL, 5*time.Minute) }
@@ -254,10 +261,25 @@ func (m *Manager) drop(id string) {
 	m.mu.Lock()
 	c := m.conns[id]
 	delete(m.conns, id)
+	for key, item := range m.toolsIndex {
+		if item.server.ID == id {
+			delete(m.toolsIndex, key)
+		}
+	}
 	m.mu.Unlock()
 	if c != nil && c.client != nil {
 		go func() { _ = c.client.Close() }()
 	}
+}
+
+func (m *Manager) unindexServer(id string) {
+	m.mu.Lock()
+	for key, item := range m.toolsIndex {
+		if item.server.ID == id {
+			delete(m.toolsIndex, key)
+		}
+	}
+	m.mu.Unlock()
 }
 
 // ensure returns a usable connection, refreshing an expired tool list.
@@ -299,6 +321,12 @@ func (m *Manager) ensure(ctx context.Context, s Server, force bool) (*conn, erro
 		return nil, errors.New(msg)
 	}
 	m.conns[s.ID] = nc
+	if m.toolsIndex == nil {
+		m.toolsIndex = map[string]indexedTool{}
+	}
+	for _, tool := range nc.tools {
+		m.toolsIndex[tool.Name] = indexedTool{server: s, tool: tool, conn: nc}
+	}
 	m.mu.Unlock()
 	return nc, nil
 }
@@ -359,6 +387,18 @@ func (m *Manager) ToolsFor(ctx context.Context, agentID string) []Tool {
 	if err != nil {
 		return nil
 	}
+	servers := make(map[string]Server, len(list))
+	for _, s := range list {
+		servers[s.ID] = s
+	}
+	m.mu.Lock()
+	for key, item := range m.toolsIndex {
+		s, ok := servers[item.server.ID]
+		if !ok || !s.Enabled || s.Unsupported != "" {
+			delete(m.toolsIndex, key)
+		}
+	}
+	m.mu.Unlock()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var out []Tool
@@ -392,26 +432,40 @@ type Result struct {
 // the model was offered. Protocol and transport failures are returned as an
 // error result, never a panic.
 func (m *Manager) Call(ctx context.Context, agentID, fullName string, args json.RawMessage) Result {
-	list, err := m.Registry.List()
-	if err != nil {
-		return Result{Text: "MCP registry unavailable", IsError: true}
-	}
-	for _, s := range list {
-		if !s.Enabled || s.Unsupported != "" || !s.AllowsAgent(agentID) {
-			continue
-		}
-		if !strings.HasPrefix(fullName, "mcp."+s.ID+".") {
-			continue
-		}
-		tools, err := m.Tools(ctx, s)
+	m.mu.Lock()
+	item, ok := m.toolsIndex[fullName]
+	m.mu.Unlock()
+	if !ok {
+		list, err := m.Registry.List()
 		if err != nil {
-			return Result{Text: "Tool server unavailable: " + err.Error(), IsError: true}
+			return Result{Text: "MCP registry unavailable", IsError: true}
 		}
-		for _, t := range tools {
-			if t.Name == fullName {
-				return m.call(ctx, s, t, args)
+		for _, s := range list {
+			if s.Enabled && s.Unsupported == "" && s.AllowsAgent(agentID) && strings.HasPrefix(fullName, "mcp."+s.ID+".") {
+				if _, err := m.Tools(ctx, s); err != nil {
+					return Result{Text: "Tool server unavailable: " + err.Error(), IsError: true}
+				}
+				m.mu.Lock()
+				item, ok = m.toolsIndex[fullName]
+				m.mu.Unlock()
+				break
 			}
 		}
+	}
+	if ok && item.server.AllowsAgent(agentID) {
+		s, exists := m.Registry.Get(item.server.ID)
+		if exists && s.Enabled && s.Unsupported == "" && s.AllowsAgent(agentID) && s.AllowsTool(item.tool.Tool) {
+			if _, err := m.ensure(ctx, s, false); err != nil {
+				return Result{Text: "Tool server unavailable: " + err.Error(), IsError: true}
+			}
+			m.mu.Lock()
+			item, ok = m.toolsIndex[fullName]
+			m.mu.Unlock()
+			if ok && item.server.ID == s.ID {
+				return m.call(ctx, s, item.tool, args)
+			}
+		}
+		m.unindexServer(item.server.ID)
 	}
 	return Result{Text: "Unknown or unavailable tool " + fullName, IsError: true}
 }
@@ -534,6 +588,7 @@ func (m *Manager) Close() {
 	m.mu.Lock()
 	conns := m.conns
 	m.conns = nil
+	m.toolsIndex = nil
 	m.mu.Unlock()
 	for _, c := range conns {
 		if c.client != nil {
