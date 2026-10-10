@@ -51,6 +51,22 @@ func Load(root string, now time.Time) (*Backend, error) {
 			b.users[industry][u.ID] = &u
 		}
 	}
+	// Adversarial-only identities are routable by ID for isolated suite sessions,
+	// but never appear in the CRM's ordinary identity selector.
+	for _, u := range []User{
+		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-001", Kind: "contact", Name: "Nadia Rahman"}, Scenario: "Prospective family; child considering Year 5; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-002", Kind: "contact", Name: "Omar Haddad"}, Scenario: "Prospective family; child considering Year 3; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-001", Kind: "contact", Name: "Layla Mansour"}, Scenario: "Prospective family; child considering FS2; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-002", Kind: "contact", Name: "Yusuf Karim"}, Scenario: "Prospective family; child considering Year 1; first enquiry."},
+	} {
+		b.users["aquila"][u.ID] = &u
+	}
+	for _, u := range []User{
+		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-001", Kind: "family", Name: "Maya Patel"}, Scenario: "Prospective family; interested in the primary program; first enquiry."},
+		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-002", Kind: "family", Name: "Ethan Brooks"}, Scenario: "Prospective family; interested in the early years program; first enquiry."},
+	} {
+		b.users["school"][u.ID] = &u
+	}
 	for _, x := range []struct{ industry, name string }{{"telecom", "plans"}, {"school", "programs"}, {"school", "school_info"}} {
 		var r []tools.Record
 		if err := read(filepath.Join(root, x.industry, x.name+".json"), &r); err != nil {
@@ -98,6 +114,9 @@ func (b *Backend) Users(industry string) []tools.Record {
 	defer b.mu.Unlock()
 	out := []tools.Record{}
 	for _, u := range b.users[industry] {
+		if strings.HasPrefix(u.ID, "ADV-") {
+			continue
+		}
 		r := u.Record
 		r.Description = u.Scenario
 		out = append(out, r)

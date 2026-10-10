@@ -134,6 +134,14 @@ async function open(id, selectedIdentity) {
     const options = await identity
       .locator("option")
       .evaluateAll((os) => os.map((o) => o.value));
+    if (selectedIdentity && !options.includes(selectedIdentity)) {
+      await identity.evaluate((el, value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        el.append(option);
+      }, selectedIdentity);
+    }
     const candidates = options.filter(Boolean);
     const fresh =
       selectedIdentity ||
@@ -204,9 +212,18 @@ async function open(id, selectedIdentity) {
   return { ctx, page };
 }
 async function chooseCleanTourIdentity(id) {
-  const options = (agents.find((a) => a.config.id === id)?.users || [])
-    .map((u) => (typeof u === "string" ? u : u.id))
-    .filter(Boolean);
+  const reserved = {
+    "aquila-admissions": [
+      "ADV-AQUILA-ADMISSIONS-001",
+      "ADV-AQUILA-ADMISSIONS-002",
+    ],
+    "aquila-reception": [
+      "ADV-AQUILA-RECEPTION-001",
+      "ADV-AQUILA-RECEPTION-002",
+    ],
+    "school-services": ["ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002"],
+  };
+  const options = reserved[id] || [];
   if (!options.length) return { warning: "demo identity selector unavailable" };
   const ordered = options.map(
     (_, i) =>
@@ -274,18 +291,19 @@ async function chooseCleanTourIdentity(id) {
       );
     if (!event) continue;
     const bookings = event.data?.result?.records || [];
-    const confirmed = bookings.some(
+    const dirtyHistory = bookings.some(
       (b) =>
         /tour/i.test(`${b.kind} ${b.name} ${b.description}`) &&
-        /booked|confirmed/i.test(`${b.status || ""} ${b.description || ""}`),
+        !/cancelled|canceled/i.test(`${b.status || ""} ${b.description || ""}`),
     );
     const recalledTour = (memory?.data?.memories || []).some((m) =>
       /tour/i.test(m.text || ""),
     );
-    if (!confirmed && !recalledTour) return { identity: candidate };
+    if (!dirtyHistory && !recalledTour) return { identity: candidate };
   }
   return {
-    warning: "no demo identity with a verified clean tour history and memory",
+    warning:
+      "reserved contact dirty or clean CRM history and memory could not be verified",
   };
 }
 async function send(page, text) {

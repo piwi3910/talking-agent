@@ -83,3 +83,28 @@ func TestTechnicianAtomicBookingsAndIsolation(t *testing.T) {
 		t.Fatal("cross-domain tool accepted")
 	}
 }
+
+func TestReservedAdversarialContactsAreHiddenButUsable(t *testing.T) {
+	b := fixture(t)
+	for _, industry := range []string{"aquila", "school"} {
+		for _, user := range b.Users(industry) {
+			if strings.HasPrefix(user.ID, "ADV-") {
+				t.Fatalf("reserved contact leaked into %s users: %s", industry, user.ID)
+			}
+		}
+	}
+	for industry, ids := range map[string][]string{
+		"aquila": {"ADV-AQUILA-ADMISSIONS-001", "ADV-AQUILA-ADMISSIONS-002", "ADV-AQUILA-RECEPTION-001", "ADV-AQUILA-RECEPTION-002"},
+		"school": {"ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002"},
+	} {
+		for _, id := range ids {
+			tool := "contact.profile"
+			if industry == "school" {
+				tool = "family.profile"
+			}
+			if got := call(b, industry, id, tool, nil); got.Error != nil || len(got.Records) == 0 || got.Records[0].ID != id {
+				t.Fatalf("reserved identity %s not usable: %+v", id, got)
+			}
+		}
+	}
+}
