@@ -111,6 +111,16 @@ async function open(id, selectedIdentity) {
   const page = await ctx.newPage();
   await page.addInitScript(() => {
     window.__advEvents = [];
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.includes("/api/sessions") && init.method === "POST") {
+        const headers = new Headers(init.headers || {});
+        headers.set("X-Adversarial-Test", "reserved-contacts");
+        init = { ...init, headers };
+      }
+      return originalFetch(input, init);
+    };
     const E = window.EventSource;
     window.EventSource = class extends E {
       constructor(...a) {
@@ -232,7 +242,10 @@ async function chooseCleanTourIdentity(id) {
   for (const candidate of ordered) {
     const sessionResponse = await fetch(`${BASE}/api/sessions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Adversarial-Test": "reserved-contacts",
+      },
       body: JSON.stringify({ agent_id: id, user_id: candidate }),
     });
     if (!sessionResponse.ok) continue;

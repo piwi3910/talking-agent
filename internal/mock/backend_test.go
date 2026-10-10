@@ -2,6 +2,7 @@ package mock
 
 import (
 	"enterprise-ai-demo/internal/tools"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -106,5 +107,21 @@ func TestReservedAdversarialContactsAreHiddenButUsable(t *testing.T) {
 				t.Fatalf("reserved identity %s not usable: %+v", id, got)
 			}
 		}
+	}
+}
+
+func TestReservedContactsRequireAdversarialListMarker(t *testing.T) {
+	b := fixture(t)
+	ordinary := httptest.NewRecorder()
+	b.Handler().ServeHTTP(ordinary, httptest.NewRequest("GET", "/users/aquila", nil))
+	markedRequest := httptest.NewRequest("GET", "/users/aquila", nil)
+	markedRequest.Header.Set("X-Adversarial-Test", "reserved-contacts")
+	marked := httptest.NewRecorder()
+	b.Handler().ServeHTTP(marked, markedRequest)
+	if strings.Contains(ordinary.Body.String(), "ADV-AQUILA") {
+		t.Fatal("ordinary CRM listing exposed reserved contacts")
+	}
+	if !strings.Contains(marked.Body.String(), "ADV-AQUILA-ADMISSIONS-001") {
+		t.Fatal("marked adversarial listing omitted reserved contact")
 	}
 }

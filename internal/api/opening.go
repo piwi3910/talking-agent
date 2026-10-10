@@ -16,7 +16,7 @@ func (a *API) openingRoutes(m *http.ServeMux) {
 // contactName resolves the selected identity's display name for the opening
 // instruction and memory query. A failed lookup only loses that polish.
 func (a *API) contactName(ctx context.Context, s *session.Session) string {
-	users, err := a.users(ctx, s.Agent)
+	users, err := a.users(ctx, s.Agent, false)
 	if err != nil {
 		return ""
 	}

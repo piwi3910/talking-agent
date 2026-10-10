@@ -76,7 +76,7 @@ func (a *API) settingsRoutes(m *http.ServeMux) {
 				return
 			}
 			if p.UserID != "" {
-				users, err := a.users(r.Context(), c)
+				users, err := a.users(r.Context(), c, false)
 				if err != nil {
 					fail(w, 502, "Account service unavailable")
 					return

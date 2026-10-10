@@ -110,11 +110,14 @@ func read(path string, v any) error {
 	return json.Unmarshal(raw, v)
 }
 func (b *Backend) Users(industry string) []tools.Record {
+	return b.usersList(industry, false)
+}
+func (b *Backend) usersList(industry string, includeAdversarial bool) []tools.Record {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	out := []tools.Record{}
 	for _, u := range b.users[industry] {
-		if strings.HasPrefix(u.ID, "ADV-") {
+		if !includeAdversarial && strings.HasPrefix(u.ID, "ADV-") {
 			continue
 		}
 		r := u.Record
@@ -127,7 +130,9 @@ func (b *Backend) Users(industry string) []tools.Record {
 func (b *Backend) Handler() http.Handler {
 	m := http.NewServeMux()
 	m.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { write(w, map[string]string{"status": "ok"}) })
-	m.HandleFunc("GET /users/{industry}", func(w http.ResponseWriter, r *http.Request) { write(w, b.Users(r.PathValue("industry"))) })
+	m.HandleFunc("GET /users/{industry}", func(w http.ResponseWriter, r *http.Request) {
+		write(w, b.usersList(r.PathValue("industry"), r.Header.Get("X-Adversarial-Test") == "reserved-contacts"))
+	})
 	m.HandleFunc("POST /tools/execute", func(w http.ResponseWriter, r *http.Request) {
 		var req tools.Request
 		d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768))

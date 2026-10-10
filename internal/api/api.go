@@ -87,7 +87,7 @@ func decodeLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) err
 	}
 	return nil
 }
-func (a *API) users(ctx context.Context, config *config.Agent) ([]tools.Record, error) {
+func (a *API) users(ctx context.Context, config *config.Agent, adversarial bool) ([]tools.Record, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	endpoint := a.BackendURL
@@ -97,6 +97,9 @@ func (a *API) users(ctx context.Context, config *config.Agent) ([]tools.Record, 
 	req, err := http.NewRequestWithContext(ctx, "GET", strings.TrimRight(endpoint, "/")+"/users/"+config.Industry, nil)
 	if err != nil {
 		return nil, err
+	}
+	if adversarial {
+		req.Header.Set("X-Adversarial-Test", "reserved-contacts")
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -141,7 +144,7 @@ func (a *API) Handler() http.Handler {
 		sort.Strings(ids)
 		for _, id := range ids {
 			c := a.Agents[id]
-			users, err := a.users(r.Context(), c)
+			users, err := a.users(r.Context(), c, false)
 			if err != nil {
 				fail(w, 502, "Mock backend unavailable")
 				return
@@ -172,7 +175,7 @@ func (a *API) Handler() http.Handler {
 			fail(w, 404, "Unknown agent")
 			return
 		}
-		users, err := a.users(r.Context(), c)
+		users, err := a.users(r.Context(), c, r.Header.Get("X-Adversarial-Test") == "reserved-contacts")
 		if err != nil {
 			fail(w, 502, "Mock backend unavailable")
 			return
