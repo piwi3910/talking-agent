@@ -5,6 +5,8 @@ import (
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/memory"
 	"enterprise-ai-demo/internal/session"
+	"enterprise-ai-demo/internal/skills"
+	"enterprise-ai-demo/internal/tools"
 	"strings"
 	"testing"
 )
@@ -97,5 +99,15 @@ func TestAquilaPersonasShareFamilyMemoryAndOpeningIsNeverStoredAsUserText(t *tes
 	}
 	if !retrieved {
 		t.Fatal("opening turn skipped memory retrieval")
+	}
+}
+
+func TestOpeningCueOnlyAsksForLookupToolsTheAgentHas(t *testing.T) {
+	withCRM := skills.Catalog{"family": {Tools: []tools.Definition{{Name: "contact.profile"}, {Name: "crm.history"}}}}
+	if cue := openingCue("[Call answered] Greet.", withCRM); !strings.Contains(cue, "First call contact.profile and crm.history silently") || !strings.Contains(cue, "never your reasoning") {
+		t.Fatal(cue)
+	}
+	if cue := openingCue("[Call answered] Greet.", skills.Catalog{}); strings.Contains(cue, "contact.profile") || strings.Contains(cue, "crm.history") || !strings.Contains(cue, "say only the greeting itself") {
+		t.Fatal(cue)
 	}
 }

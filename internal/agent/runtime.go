@@ -320,7 +320,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		offered = append(offered, llm.Tool{Type: "function", Function: llm.ToolFunction{Name: llm.WireName("skills.activate"), Description: "Load tools and instructions for a relevant business skill", Parameters: tools.Schema{Type: "object", Properties: map[string]tools.Property{"skill_id": {Type: "string", Enum: ids}}, Required: []string{"skill_id"}}}})
 		messages := []llm.Message{{Role: "system", Content: base + instructions}, {Role: "system", Content: memoryText}}
 		if turn.Opening != "" {
-			messages = append(messages, llm.Message{Role: "user", Content: turn.Opening})
+			messages = append(messages, llm.Message{Role: "user", Content: openingCue(turn.Opening, catalog)})
 		}
 		messages = append(messages, s.History...)
 		emit("llm.started", map[string]any{"provider": client.Name(), "iteration": iteration + 1})
