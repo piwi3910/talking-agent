@@ -16,6 +16,7 @@ import (
 	"enterprise-ai-demo/internal/tools"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -112,6 +113,7 @@ func (r *Runtime) remember(m memory.Memory, emit telemetry.Sink) {
 }
 func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, turn Turn) {
 	ctx = logx.WithCorrelation(ctx, s.ID, turnID)
+	slog.InfoContext(ctx, "agent turn started", "agent_id", s.Agent.ID)
 	emit := func(kind string, data any) { s.Events.Emit(turnID, kind, logx.RedactValue(data)) }
 	started := time.Now()
 	defer func() {
