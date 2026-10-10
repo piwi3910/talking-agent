@@ -2,9 +2,24 @@ package api
 
 import (
 	"encoding/json"
+	"enterprise-ai-demo/internal/config"
+	"enterprise-ai-demo/internal/session"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestCancelReturnsNoContent(t *testing.T) {
+	store := session.NewStore()
+	s := store.Create(&config.Agent{ID: "agent"}, "user")
+	h := (&API{Sessions: store}).Handler()
+	r := httptest.NewRequest(http.MethodPost, "/api/sessions/"+s.ID+"/cancel", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusNoContent || w.Body.Len() != 0 {
+		t.Fatalf("cancel response: status=%d body=%q", w.Code, w.Body.String())
+	}
+}
 
 func TestErrorResponseShapeTable(t *testing.T) {
 	for _, status := range []int{400, 401, 403, 404, 409, 413, 429, 500, 502, 503} {
