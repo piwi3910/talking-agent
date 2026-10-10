@@ -16,6 +16,12 @@ Run a focused follow-up:
 AGENTS=school-services tests/adversarial/run.sh
 ```
 
+For a focused booking rerun, set `TOURS_ONLY=1` with the tour agents in
+`AGENTS`; this runs the tour identity preflight and booking flow without the
+other adversarial cases. The API has no identity-creation route, so the
+preflight rotates the existing demo identities and skips tour cases when none
+has clean CRM history and memory.
+
 Full runs write raw transcripts and traces under `results/<timestamp>/` and
 copy the generated report to `REPORT.md`. A focused run leaves the main report
 alone. `merge-report.mjs <full-results-dir> <school-follow-up-dir>` merges a

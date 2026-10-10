@@ -17,6 +17,7 @@ const wanted = (process.env.AGENTS || "")
   .split(",")
   .map((x) => x.trim())
   .filter(Boolean);
+const toursOnly = process.env.TOURS_ONLY === "1";
 const seed = Number.parseInt(process.env.SEED || "0", 10) || 0;
 const ids = agents
   .map((a) => a.config.id)
@@ -172,41 +173,105 @@ async function open(id, selectedIdentity) {
     { timeout: 60000 },
   );
   await page.waitForTimeout(1000);
+  let openingTurn = "";
+  try {
+    await page.waitForFunction(
+      () => {
+        const events = window.__advEvents || [];
+        const opening = events.find(
+          (e) => e.type === "turn.started" && e.data?.opening,
+        );
+        return (
+          opening &&
+          events.some(
+            (e) => e.type === "turn.completed" && e.turn_id === opening.turn_id,
+          )
+        );
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    openingTurn = await page.evaluate(
+      () =>
+        window.__advEvents.find(
+          (e) => e.type === "turn.started" && e.data?.opening,
+        )?.turn_id || "",
+    );
+  } catch {
+    // Some agents do not send an opening turn; they can still be exercised normally.
+  }
+  if (openingTurn) await waitForSpeech(page, openingTurn, 0);
   return { ctx, page };
 }
 async function chooseCleanTourIdentity(id) {
-  const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
-  const page = await ctx.newPage();
-  await page.goto(BASE);
-  await page.locator(".persona-card", { hasText: display[id] }).first().click();
-  const identity = page.getByLabel("Demo identity");
-  if (!(await identity.count())) {
-    await ctx.close();
-    return { warning: "demo identity selector unavailable" };
-  }
-  const options = await identity
-    .locator("option")
-    .evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
-  await ctx.close();
+  const options = (agents.find((a) => a.config.id === id)?.users || [])
+    .map((u) => (typeof u === "string" ? u : u.id))
+    .filter(Boolean);
+  if (!options.length) return { warning: "demo identity selector unavailable" };
   const ordered = options.map(
     (_, i) =>
       options[(i + (seed % options.length) + options.length) % options.length],
   );
   for (const candidate of ordered) {
-    const probe = await open(id, candidate);
-    await send(
-      probe.page,
-      "Please check whether I already have a confirmed school tour booking.",
+    const sessionResponse = await fetch(`${BASE}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent_id: id, user_id: candidate }),
+    });
+    if (!sessionResponse.ok) continue;
+    const { id: sid } = await sessionResponse.json();
+    const messageResponse = await fetch(
+      `${BASE}/api/sessions/${sid}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: "Please check whether I already have a confirmed school tour booking.",
+        }),
+      },
     );
-    const history = await readTrace(probe.page);
-    const event = history.events.find(
-      (e) =>
-        e.type.endsWith("tool.completed") && e.data?.tool === "crm.history",
-    );
-    const memory = history.events.find((e) =>
-      e.type.endsWith("memory.retrieval.completed"),
-    );
-    await probe.ctx.close();
+    if (!messageResponse.ok) continue;
+    const { turn_id: turnId } = await messageResponse.json();
+    let events = [];
+    const deadline = Date.now() + 90000;
+    while (Date.now() < deadline) {
+      const traceResponse = await fetch(`${BASE}/api/traces/${sid}`);
+      const raw = await traceResponse.text();
+      events = raw
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      if (
+        events.some(
+          (e) =>
+            e.type.endsWith("turn.completed") && e.data?.turn_id === turnId,
+        )
+      )
+        break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const event = [...events]
+      .reverse()
+      .find(
+        (e) =>
+          e.data?.turn_id === turnId &&
+          e.type.endsWith("tool.completed") &&
+          e.data?.tool === "crm.history",
+      );
+    const memory = [...events]
+      .reverse()
+      .find(
+        (e) =>
+          e.data?.turn_id === turnId &&
+          e.type.endsWith("memory.retrieval.completed"),
+      );
     if (!event) continue;
     const bookings = event.data?.result?.records || [];
     const confirmed = bookings.some(
@@ -269,20 +334,21 @@ async function waitForSpeech(page, turnId, from) {
   const end = Date.now() + 45000;
   let quietSince = 0;
   while (Date.now() < end) {
-    const state = await page.evaluate(
-      ({ turnId, from }) => {
-        const events = (window.__advEvents || [])
+    const serverEvents = await page.evaluate(
+      ({ turnId, from }) =>
+        (window.__advEvents || [])
           .slice(from)
-          .filter((e) => e.turn_id === turnId);
-        const started = events.filter((e) => e.type === "tts.started").length;
-        const finished = events.filter(
-          (e) => e.type === "tts.completed" || e.type === "tts.failed",
-        ).length;
-        return { started, finished };
-      },
+          .filter((e) => e.turn_id === turnId),
       { turnId, from },
     );
-    if (state.started > 0 && state.finished >= state.started) {
+    const started = serverEvents.filter((e) => e.type === "tts.started").length;
+    const finished = serverEvents.filter(
+      (e) => e.type === "tts.completed" || e.type === "tts.failed",
+    ).length;
+    if (started > 0 && finished >= started) {
+      if (!quietSince) quietSince = Date.now();
+      if (Date.now() - quietSince >= 2000) return;
+    } else if (started === 0) {
       if (!quietSince) quietSince = Date.now();
       if (Date.now() - quietSince >= 500) return;
     } else {
@@ -348,6 +414,33 @@ for (const id of ids) {
     http_time_ms: publicAt,
   });
   const tourIdentity = isTour(id) ? await chooseCleanTourIdentity(id) : {};
+  if (toursOnly && isTour(id) && tourIdentity.warning) {
+    report.cases.push({
+      agent: id,
+      scenario: "tour_identity_preflight",
+      pass: false,
+      skip: true,
+      reply: tourIdentity.warning,
+    });
+    for (const scenario of [
+      "happy_tour_day_first",
+      "happy_tour_availability",
+      "happy_tour_booking",
+      "happy_tour_confirmed",
+    ]) {
+      report.cases.push({
+        agent: id,
+        scenario,
+        pass: false,
+        skip: true,
+        reply: `Skipped: ${tourIdentity.warning}`,
+      });
+    }
+    console.log(
+      `WARNING ${id}: ${tourIdentity.warning}; skipping booking-dependent scenarios`,
+    );
+    continue;
+  }
   let opened;
   try {
     opened = await open(id, tourIdentity.identity);
@@ -371,7 +464,7 @@ for (const id of ids) {
       skip: !!tourIdentity.warning,
       reply:
         tourIdentity.warning ||
-        `selected ${tourIdentity.identity}; CRM history contained no confirmed tour`,
+        `selected ${tourIdentity.identity}; CRM history and recalled memory showed no prior tour activity`,
       identity: tourIdentity.identity,
     });
     if (tourIdentity.warning)
@@ -405,7 +498,7 @@ for (const id of ids) {
       "happy_tour_day_first",
       "I would like to book a tour.",
       (t) =>
-        /which day|what day|day suits|day works|which of those days (?:works|would suit)|which of those (?:works|would suit)/i.test(
+        /which day|what day|when (?:would|do) you (?:like|prefer) to (?:book|visit)|when works|day suits|day works|which of those days (?:works|would suit)|which of those (?:works|would suit)/i.test(
           t,
         ),
     );
@@ -581,6 +674,7 @@ for (const id of ids) {
     }
   }
   for (const [name, prompt, predicate] of scenarios) {
+    if (toursOnly) continue;
     if (name === "bad_inputs") {
       const blank = await page.locator("#message").fill("");
       await page.locator("#message").press("Enter");
@@ -600,6 +694,26 @@ for (const id of ids) {
         await check(name + "_repeat", prompt, (t) => t.length > 0);
       }
     }
+  }
+  if (toursOnly) {
+    const tr = await trace(page);
+    traceByAgent[id] = tr;
+    fs.writeFileSync(`${OUT}/${id}.trace.jsonl`, tr.raw);
+    fs.writeFileSync(
+      `${OUT}/${id}.json`,
+      JSON.stringify(
+        {
+          session_id: tr.sid,
+          cases: report.cases.filter((x) => x.agent === id),
+          trace_events: tr.events,
+          trace: tr.raw,
+        },
+        null,
+        2,
+      ),
+    );
+    await ctx.close();
+    continue;
   }
   let second;
   try {
