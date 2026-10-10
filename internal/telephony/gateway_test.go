@@ -105,6 +105,7 @@ func TestGatewaySIPProbeAndConcurrentRegistrations(t *testing.T) {
 }
 
 func TestGatewayLifecycle(t *testing.T) {
+	setTestSIPDigest(t, "agent.test", map[string]sipDigestUser{"handset-a": {HA1: testSIPHA1("handset-a", "agent.test", "fixture-a"), Persona: "a"}})
 	conn, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)

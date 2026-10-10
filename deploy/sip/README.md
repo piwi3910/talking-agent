@@ -34,6 +34,12 @@ Copy `config.example.json` into your deployment configuration and set `SIP_CONFI
 
 The number is the exact SIP Request-URI user. Configure actual DIDs as settings entries or rewrite them in Hello. SIP uses UDP/TCP and G.711 PCMU/PCMA at 8 kHz. Other codecs require Hello's media tier to transcode. Untrusted peers receive 403; unknown numbers receive 404; capacity exhaustion receives 486. TLS/SRTP and REGISTER-based trunks are not yet implemented.
 
+### Inbound SIP digest authentication
+
+Every SIP INVITE is challenged with RFC 7616 SHA-256 (`qop=auth`) after the peer allowlist check. Challenges use random five-minute nonces. Response hashes are compared in constant time, nonce counts must increase per username/client nonce, and missing or invalid credentials receive 401. Each digest username maps to one persona and can call only that persona's configured numbers. Non-INVITE methods and HTTP health are unaffected.
+
+Provide `SIP_DIGEST_USERS` through the `sip-digest-auth` Kubernetes Secret (`users.json`) and set `SIP_DIGEST_REALM` to the realm used in HA1. JSON shape: `{"handset-500":{"ha1":"<64 hex SHA-256 characters>","persona":"telecom-support"}}`; HA1 is SHA-256 of `username:realm:password`. Create the Secret out of band and never commit its data. The KW reference is optional so web-only startup works; the SIP listener fails closed until users and realm are configured. HA1 is password-equivalent and must be protected as a credential.
+
 ## KW delivery and networking
 
 Use Kuvryn Sync, committed manifests, ARM64 BuildKit images and immutable digests. Keep one replica while sessions and fixtures remain process-local. The bootstrap Role includes namespace-scoped PVC management for persistent settings.

@@ -44,6 +44,10 @@ func (s *Server) Run(ctx context.Context) error {
 	if !s.Speech.Enabled() {
 		return fmt.Errorf("SIP requires STT_URL and TTS_URL")
 	}
+	auth, err := loadSIPDigestAuth()
+	if err != nil {
+		return err
+	}
 	ua, err := sipgo.NewUA(sipgo.WithUserAgent("talking-agent"))
 	if err != nil {
 		return err
@@ -51,7 +55,7 @@ func (s *Server) Run(ctx context.Context) error {
 	defer ua.Close()
 	media.RTPPortStart = s.Config.RTPStart
 	media.RTPPortEnd = s.Config.RTPEnd
-	opts := []diago.DiagoOption{diago.WithMediaConfig(diago.MediaConfig{Codecs: []media.Codec{media.CodecAudioUlaw, media.CodecAudioAlaw}})}
+	opts := []diago.DiagoOption{diago.WithMediaConfig(diago.MediaConfig{Codecs: []media.Codec{media.CodecAudioUlaw, media.CodecAudioAlaw}}), diago.WithServerRequestMiddleware(auth.middleware(s))}
 	for _, transport := range []string{"udp", "tcp"} {
 		opts = append(opts, diago.WithTransport(diago.Transport{Transport: transport, BindHost: s.Config.BindHost, BindPort: s.Config.Port, ExternalHost: s.Config.AdvertiseIP, ExternalPort: s.Config.Port, MediaExternalIP: net.ParseIP(s.Config.AdvertiseIP)}))
 	}

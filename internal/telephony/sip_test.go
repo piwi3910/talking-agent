@@ -33,6 +33,7 @@ import (
 
 // Real SIP dialogs exercise number routing, concurrent calls, capacity and BYE cleanup.
 func TestSIPConcurrentCalls(t *testing.T) {
+	setTestSIPDigest(t, "agent.test", map[string]sipDigestUser{"handset-a": {HA1: testSIPHA1("handset-a", "agent.test", "fixture-a"), Persona: "a"}, "handset-b": {HA1: testSIPHA1("handset-b", "agent.test", "fixture-b"), Persona: "b"}})
 	greetings := make(chan string, 30)
 	transcripts := make(chan string, 10)
 	for _, text := range []string{"hello", "change my plan", "confirm", "confirm"} {
@@ -143,7 +144,11 @@ func TestSIPConcurrentCalls(t *testing.T) {
 	dial := func(number, transport string) (*diago.DialogClientSession, error) {
 		dialctx, done := context.WithTimeout(ctx, 3*time.Second)
 		defer done()
-		call, m, err := phone.Invite(dialctx, sip.Uri{User: number, Host: "127.0.0.1", Port: port}, diago.InviteOptions{Transport: transport})
+		username, password := "handset-a", "fixture-a"
+		if number == "501" {
+			username, password = "handset-b", "fixture-b"
+		}
+		call, m, err := phone.Invite(dialctx, sip.Uri{User: number, Host: "127.0.0.1", Port: port}, diago.InviteOptions{Transport: transport, Username: username, Password: password})
 		if err == nil {
 			callMedia = append(callMedia, m)
 		}
