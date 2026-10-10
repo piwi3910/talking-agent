@@ -57,7 +57,7 @@ func envFloat(name string, fallback float64) float64 {
 	return fallback
 }
 func newRequestLimiter() *requestLimiter {
-	return &requestLimiter{ipRate: envFloat("RATE_IP_PER_SECOND", 20), ipBurst: envFloat("RATE_IP_BURST", 120), messageRate: envFloat("RATE_MESSAGES_PER_SECOND", 5), messageBurst: envFloat("RATE_MESSAGES_BURST", 10), speechRate: envFloat("RATE_SPEECH_PER_SECOND", 3), speechBurst: envFloat("RATE_SPEECH_BURST", 6)}
+	return &requestLimiter{ipRate: envFloat("RATE_IP_PER_SECOND", 20), ipBurst: envFloat("RATE_IP_BURST", 120), messageRate: envFloat("RATE_MESSAGES_PER_SECOND", 5), messageBurst: envFloat("RATE_MESSAGES_BURST", 10), speechRate: envFloat("RATE_SPEECH_PER_SECOND", 3), speechBurst: envFloat("RATE_SPEECH_BURST", 12)}
 }
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
