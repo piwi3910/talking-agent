@@ -548,7 +548,7 @@ for (const id of ids) {
       skip: !!tourIdentity.warning,
       reply:
         tourIdentity.warning ||
-        `selected ${tourIdentity.identity}; CRM history and recalled memory showed no prior tour activity`,
+        `selected ${tourIdentity.identity}; mock booking state and recalled NovaMem memory were clean${id === "school-services" ? " (Willowbrook has no CRM-history tool)" : "; CRM history was also clean"}`,
       identity: tourIdentity.identity,
     });
     if (tourIdentity.warning)
@@ -1164,7 +1164,7 @@ const checkedIdentities = report.cases.filter(
   (c) => c.scenario === "tour_identity_preflight",
 );
 const skippedTourIdentities = checkedIdentities.filter((c) => c.skip);
-md += `## Idempotency\n\nBefore tour cases, the harness rotates demo contacts from the run's \`SEED\` (default: run timestamp), checks both live CRM history and recalled NovaMem entries for each candidate, and uses the first identity with no prior tour activity; if none can be verified clean, it marks tour cases skipped with a warning. \`AGENTS\` filtering remains supported. Identities selected this run: ${
+md += `## Idempotency\n\nBefore tour cases, the harness rotates reserved \`ADV-<AGENT>-NNN\` contacts and requires the marker-gated mock booking-state check plus an empty recalled NovaMem result. Where the agent exposes CRM history, it also verifies that history before using the contact. Dirty or unverifiable contacts are skipped with a warning. The mock omits reserved contacts from ordinary CRM listings; only requests marked \`X-Adversarial-Test: reserved-contacts\` can list or check them. \`AGENTS\` filtering remains supported. Identities selected this run: ${
   checkedIdentities
     .filter((c) => c.identity)
     .map((c) => `${c.agent}=${c.identity}`)
