@@ -1,0 +1,26 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1020
+        - -QF1001
+        - -SA4000
+        - -SA4003
+        - -S1016
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
