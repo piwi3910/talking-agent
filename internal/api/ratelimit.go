@@ -68,7 +68,7 @@ func clientIP(r *http.Request) string {
 }
 func (l *requestLimiter) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := "ip:" + clientIP(r)
+		ipKey := "ip:" + clientIP(r)
 		if strings.HasPrefix(r.URL.Path, "/api/sessions/") {
 			id := r.PathValue("id")
 			if id == "" {
@@ -79,7 +79,7 @@ func (l *requestLimiter) middleware(next http.Handler) http.Handler {
 			}
 			switch {
 			case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/messages"):
-				key = "messages:" + id
+				key := "messages:" + id
 				if ok, wait := l.buckets.allow("global:messages", l.messageRate*10, l.messageBurst*10); !ok {
 					rateFail(w, wait)
 					return
@@ -89,7 +89,7 @@ func (l *requestLimiter) middleware(next http.Handler) http.Handler {
 					return
 				}
 			case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/speech"):
-				key = "speech:" + id
+				key := "speech:" + id
 				if ok, wait := l.buckets.allow("global:speech", l.speechRate*10, l.speechBurst*10); !ok {
 					rateFail(w, wait)
 					return
@@ -100,7 +100,7 @@ func (l *requestLimiter) middleware(next http.Handler) http.Handler {
 				}
 			}
 		}
-		if ok, wait := l.buckets.allow(key, l.ipRate, l.ipBurst); !ok {
+		if ok, wait := l.buckets.allow(ipKey, l.ipRate, l.ipBurst); !ok {
 			rateFail(w, wait)
 			return
 		}
