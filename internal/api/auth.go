@@ -20,7 +20,7 @@ func authToken() string {
 
 func adminRoute(r *http.Request) bool {
 	p := r.URL.Path
-	return strings.HasPrefix(p, "/api/settings/") || strings.HasPrefix(p, "/api/mcp/") || strings.HasPrefix(p, "/api/traces") || p == "/api/system/info"
+	return strings.HasPrefix(p, "/api/settings/") || strings.HasPrefix(p, "/api/mcp/") || strings.HasPrefix(p, "/api/traces") || p == "/api/system/info" || p == "/api/metrics"
 }
 
 func protected(next http.Handler, token string) http.Handler {

@@ -15,6 +15,7 @@ func TestProtectedRouteAuthTable(t *testing.T) {
 		{"admin bearer", "/api/settings/sip", "Bearer secret", 204},
 		{"admin cookie", "/api/mcp/servers", "cookie", 204},
 		{"conversation public", "/api/sessions/x/events", "", 204},
+		{"metrics is admin", "/api/metrics", "", 401},
 		{"health public", "/api/health", "", 204},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

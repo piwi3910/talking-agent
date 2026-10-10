@@ -205,7 +205,8 @@ func run() error {
 	}
 	voiceStore.Start(ctx)
 	// METRICS: in-memory registry exposed through the admin-gated API scrape route.
-	app := &api.API{MCP: mcpManager, Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web, Metrics: metrics.New()}
+	metricsRegistry := metrics.New()
+	app := &api.API{MCP: mcpManager, Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web, Metrics: metricsRegistry}
 	if dir := env("TRACE_DIR", "var/traces"); dir != "" && dir != "off" {
 		app.Traces = api.NewTraceStore(dir)
 	}

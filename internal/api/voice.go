@@ -16,6 +16,7 @@ import (
 
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/speech"
+
 	"github.com/coder/websocket"
 )
 
@@ -123,6 +124,15 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	started := time.Now()
+	if a.Metrics != nil {
+		a.Metrics.Add("talking_agent_speech_requests_total", 1, "stt", "success")
+		a.Metrics.IncGauge("talking_agent_speech_ws_connections", 1)
+		defer func() {
+			a.Metrics.IncGauge("talking_agent_speech_ws_connections", -1)
+			a.Metrics.Observe("talking_agent_speech_duration_seconds", time.Since(started).Seconds(), "stt")
+		}()
+	}
 	defer c.CloseNow()
 	c.SetReadLimit(65536)
 	ctx, cancel := context.WithTimeout(r.Context(), 70*time.Second)
@@ -132,7 +142,6 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 	pr, pw := io.Pipe()
 	defer pr.Close()
 	defer pw.Close()
-	started := time.Now()
 	var ended atomic.Int64
 	id := r.URL.Query().Get("utterance")
 	if len(id) > 64 {
@@ -273,6 +282,13 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 	stop := context.AfterFunc(a.Root, cancel)
 	defer stop()
 	started := time.Now()
+	metricStatus := "success"
+	if a.Metrics != nil {
+		defer func() {
+			a.Metrics.Add("talking_agent_speech_requests_total", 1, "tts", metricStatus)
+			a.Metrics.Observe("talking_agent_speech_duration_seconds", time.Since(started).Seconds(), "tts")
+		}()
+	}
 	first := true
 	bytes := 0
 	voice := a.Voices.Resolve(s.Agent.ID)
@@ -309,6 +325,7 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 		return err
 	})
 	if err != nil {
+		metricStatus = "error"
 		a.trace(s.ID, s.Agent.ID, "speech.error", map[string]any{"req": req, "error": err.Error(), "cancelled": ctx.Err() != nil, "bytes": bytes, "duration_ms": time.Since(started).Milliseconds()})
 		s.Events.Emit(in.TurnID, "tts.failed", map[string]any{"cancelled": ctx.Err() != nil, "duration_ms": time.Since(started).Milliseconds()})
 		if first {
