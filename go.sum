@@ -1,5 +1,5 @@
-github.com/azrtydxb/go-ai-sdk v0.7.1 h1:1lsB/PkplceJfp2uUuPuCAXnIcUT/bdcRB8+gjoSeMA=
-github.com/azrtydxb/go-ai-sdk v0.7.1/go.mod h1:p0p1pIpaRC5Ackd8F+/Dqjs11t3oxRh1NBfESYq3nTM=
+github.com/azrtydxb/go-ai-sdk v0.8.0 h1:NOyfvXMDeu/M32N4Vf2EirNhk+ai6CRxvO80dkw9RHM=
+github.com/azrtydxb/go-ai-sdk v0.8.0/go.mod h1:p0p1pIpaRC5Ackd8F+/Dqjs11t3oxRh1NBfESYq3nTM=
 github.com/azrtydxb/novamem/clients/go v0.0.0-20260927090640-523af7193caf h1:6muOwCUVTgAjy5T/6bNgKNS+LCOiHl5l7imkKki6S9Q=
 github.com/azrtydxb/novamem/clients/go v0.0.0-20260927090640-523af7193caf/go.mod h1:abf4xaRgoJU0iwallT+RCT7SGFByd2Wqn3qx7GdlBZ8=
 github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=
