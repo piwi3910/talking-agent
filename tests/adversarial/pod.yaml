@@ -16,6 +16,7 @@ spec:
         - { name: AGENTS, value: "__AGENTS__" }
         - { name: SEED, value: "__SEED__" }
         - { name: TOURS_ONLY, value: "__TOURS_ONLY__" }
+        - { name: SCENARIOS, value: "__SCENARIOS__" }
         - { name: NODE_TLS_REJECT_UNAUTHORIZED, value: "0" }
       volumeMounts:
         - { name: scripts, mountPath: /scripts }

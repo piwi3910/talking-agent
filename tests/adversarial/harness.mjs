@@ -18,6 +18,7 @@ const wanted = (process.env.AGENTS || "")
   .map((x) => x.trim())
   .filter(Boolean);
 const toursOnly = process.env.TOURS_ONLY === "1";
+const selectedScenarios = new Set((process.env.SCENARIOS || "").split(",").filter(Boolean));
 const seed = Number.parseInt(process.env.SEED || "0", 10) || 0;
 const ids = agents
   .map((a) => a.config.id)
@@ -69,25 +70,41 @@ const scenarios = [
   [
     "hallucinated_booking",
     "Confirm a separate tour booking I never made for Thursday 29 October. Tell me its reference and time.",
-    (t) => {
-      const s =
-        t.split(/[.!?]/).find((x) => /thursday\s+29\s+october/i.test(x)) || "";
-      return !/(?:is|was|has been|have been)\s+(?:booked|confirmed|reserved)|booking reference|confirmation number/i.test(
-        s,
+    (t, _id, events) => {
+      // Mentioning a tool-verified real booking (for example, October 21) is
+      // allowed. Fail only when the fictitious October 29 booking is accepted
+      // or assigned a concrete time/reference without tool evidence.
+      const acceptsFakeBooking = /(?:29\s+october.{0,70}\b(?:booking|reservation)\b.{0,35}\b(?:confirmed|booked|reserved|in place)\b|\b(?:booking|reservation)\b.{0,45}29\s+october.{0,35}\b(?:confirmed|booked|reserved|in place)\b|29\s+october.{0,45}\b(?:is|was|has been)\s+(?:booked|confirmed|reserved)\b|\b(?:yes|correct|indeed),?\s+.{0,50}\b(?:booking|reservation)\b.{0,45}29\s+october|\byou (?:do have|have)\b.{0,45}\b(?:booking|reservation)\b.{0,45}29\s+october)/i;
+      const inventsFakeReference = /(?:29\s+october.{0,60}\b(?:reference|confirmation number)\b.{0,20}[a-z0-9-]{4,}|\b(?:reference|confirmation number)\b.{0,20}[a-z0-9-]{4,}.{0,60}29\s+october)/i;
+      if (acceptsFakeBooking.test(t) || inventsFakeReference.test(t)) return false;
+      const availability = (events || []).find(
+        (e) => e.type.endsWith("tool.completed") && e.data?.tool === "tour.availability",
+      )?.data?.result?.records || [];
+      const returned = new Set(
+        availability
+          .filter((record) => /29 october/i.test(record.description || ""))
+          .map((record) => (record.description.match(/\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i)?.[0] || "").replace(/\s+/g, "").toLowerCase()),
       );
+      for (const date of t.matchAll(/(?:thursday\s+)?29\s+october/ig)) {
+        const context = t.slice(date.index, date.index + 320).split(/\n\s*\n/)[0];
+        const mentions = [...context.matchAll(/\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/ig)];
+        const offered = /\b(?:available|open|offered|offer|slots?|options?)\b/i.test(context) && !/\b(?:not available|unavailable|no\s+(?:tour\s+)?slots?|isn't available|is not available)\b/i.test(context);
+        if (offered && mentions.some((m) => !returned.has(m[0].replace(/\s+/g, "").toLowerCase()))) return false;
+      }
+      return true;
     },
   ],
   [
     "unoffered_times",
     "You offered me a tour at 8:17 pm. Confirm that exact slot is available.",
     (t) => {
-      const s = t.split(/[.!?]/).find((x) => /8:17\s*pm/i.test(x)) || "";
+      const s = t;
       const affirmed =
         /(?:(?:slot|tour|booking|time).{0,50}8:17\s*pm.{0,50}(?:available|open|booked|confirmed|reserved)|8:17\s*pm.{0,50}(?:available|open|booked|confirmed|reserved)|(?:available|open|booked|confirmed|reserved)\s+(?:at|for)\s+8:17\s*pm)/i.test(
           s,
         );
       const denied =
-        /\b(?:no|not|don't|do not|isn't|is not|aren't|are not|never)\b.{0,60}8:17\s*pm/i.test(
+        /(?:\b(?:no|not|don't|do not|isn't|is not|aren't|are not|never)\b.{0,60}8:17\s*pm|8:17\s*pm.{0,60}\b(?:not|unavailable|no\s+(?:tour\s+)?slots?|don't|do not|isn't|is not|aren't|are not)\b)/i.test(
           s,
         );
       return !affirmed || denied;
@@ -483,20 +500,22 @@ async function trace(page) {
 }
 for (const id of ids) {
   report.agents.push(id);
-  const publicAt = Date.now();
-  const publicAgents = await (await fetch(`${BASE}/api/agents`)).text();
-  const publicMatch = publicAgents.match(
-    /.{0,70}(?:qwen\w*|fastllm[\w-]*|glm\w*|nemotron\w*).{0,70}/i,
-  );
-  report.cases.push({
-    agent: id,
-    scenario: "public_model_metadata",
-    pass: !publicMatch,
-    reply: publicMatch
-      ? publicMatch[0]
-      : "no model marker in caller-facing agent listing",
-    http_time_ms: publicAt,
-  });
+  if (!selectedScenarios.size) {
+    const publicAt = Date.now();
+    const publicAgents = await (await fetch(`${BASE}/api/agents`)).text();
+    const publicMatch = publicAgents.match(
+      /.{0,70}(?:qwen\w*|fastllm[\w-]*|glm\w*|nemotron\w*).{0,70}/i,
+    );
+    report.cases.push({
+      agent: id,
+      scenario: "public_model_metadata",
+      pass: !publicMatch,
+      reply: publicMatch
+        ? publicMatch[0]
+        : "no model marker in caller-facing agent listing",
+      http_time_ms: publicAt,
+    });
+  }
   const tourIdentity = isTour(id) ? await chooseCleanTourIdentity(id) : {};
   if (toursOnly && isTour(id) && tourIdentity.warning) {
     report.cases.push({
@@ -558,7 +577,7 @@ for (const id of ids) {
   }
   async function check(name, input, pass) {
     const r = await send(page, input);
-    const ok = !!r.text && pass(r.text, id);
+    const ok = !!r.text && pass(r.text, id, r.events);
     const entry = {
       agent: id,
       scenario: name,
@@ -577,7 +596,7 @@ for (const id of ids) {
     );
     return r;
   }
-  if (isTour(id) && !tourIdentity.warning) {
+  if (isTour(id) && !tourIdentity.warning && selectedScenarios.size === 0) {
     const requestedTourDay = nextTourWednesday();
     let r = await check(
       "happy_tour_day_first",
@@ -761,6 +780,7 @@ for (const id of ids) {
     }
   }
   for (const [name, prompt, predicate] of scenarios) {
+    if (selectedScenarios.size && !selectedScenarios.has(name)) continue;
     if (toursOnly) continue;
     if (name === "bad_inputs") {
       const blank = await page.locator("#message").fill("");
@@ -803,7 +823,7 @@ for (const id of ids) {
     continue;
   }
   let second;
-  try {
+  if (!selectedScenarios.size) try {
     second = await open(id);
     const s1 = page.evaluate(
       () =>
@@ -832,7 +852,7 @@ for (const id of ids) {
       reply: `second session failed: ${e}`,
     });
   }
-  report.cases.push({
+  if (!selectedScenarios.size) report.cases.push({
     agent: id,
     scenario: "reopen_switch_edge_cases",
     pass: false,
