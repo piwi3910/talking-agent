@@ -228,6 +228,16 @@ type freshSample struct {
 	wav []byte
 }
 
+type designSampleError struct {
+	voice string
+	err   error
+}
+
+func (e *designSampleError) Error() string {
+	return fmt.Sprintf("%s for %q: %s", ErrSynthesis, e.voice, trimError(e.err))
+}
+func (e *designSampleError) Unwrap() []error { return []error{ErrSynthesis, e.err} }
+
 // prepareDesigns renders, outside the store lock, a sample for every design
 // voice of a save request that has none for its current description.
 func (s *Store) prepareDesigns(in SaveRequest) (map[string]*freshSample, error) {
@@ -254,7 +264,7 @@ func (s *Store) prepareDesigns(in SaveRequest) (map[string]*freshSample, error) 
 		ref, wav, err := s.renderDesignSample(context.Background(), n.desc)
 		if err != nil {
 			slog.Warn("voice design sample render failed", "voice", n.id, "error", err)
-			return nil, fmt.Errorf("%w for %q: %s", ErrSynthesis, n.id, trimError(err))
+			return nil, &designSampleError{voice: n.id, err: err}
 		}
 		out[n.id] = &freshSample{designSample{desc: n.desc, ref: ref}, wav}
 	}

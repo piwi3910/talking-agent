@@ -63,6 +63,14 @@ type Client struct {
 	live atomic.Int64 // live syntheses in flight (web and SIP), not cue renders
 }
 
+type upstreamRequestError struct {
+	message string
+	err     error
+}
+
+func (e *upstreamRequestError) Error() string { return e.message }
+func (e *upstreamRequestError) Unwrap() error { return e.err }
+
 func (c *Client) Enabled() bool { return c != nil && c.STTURL != "" && c.TTSURL != "" }
 
 // Omni reports whether clone voices stream from the vLLM-Omni server.
@@ -113,7 +121,7 @@ func (c *Client) do(ctx context.Context, endpoint string, body io.Reader) (*http
 	if err != nil {
 		// net/http errors can include the full request URL; omit the upstream
 		// detail here so callers cannot accidentally expose credentials.
-		return nil, fmt.Errorf("speech upstream request failed: %s", logx.Error(err))
+		return nil, &upstreamRequestError{message: fmt.Sprintf("speech upstream request failed: %s", logx.Error(err)), err: err}
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
