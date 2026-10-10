@@ -112,7 +112,7 @@ func TestConfirmedMutationAcknowledgedWithoutModel(t *testing.T) {
 			}
 			if !fail {
 				text := conversation(s)
-				if !strings.Contains(text, "Technician visit booked") || strings.Contains(text, "UTC") || !(strings.Contains(text, "9 am") || strings.Contains(text, "1 pm")) || !strings.Contains(text, slot.ID) {
+				if !strings.Contains(text, "Technician visit booked") || strings.Contains(text, "UTC") || !(strings.Contains(text, "9 am") || strings.Contains(text, "1 pm")) || strings.Contains(text, slot.ID) {
 					t.Fatal(text)
 				}
 				remaining := b.Execute(request("telecom", "C001", "technician.availability"))

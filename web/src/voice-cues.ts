@@ -4,6 +4,8 @@ export class VoiceCues {
   private clips = new Map<string, AudioBuffer>();
   private cues: Cue[] = [];
   private source?: AudioBufferSourceNode;
+  // Context time the playing cue ends; replies start after it instead of cutting it off.
+  private endsAt = 0;
   private timer?: ReturnType<typeof setTimeout>;
   private category = "waiting";
   private previous = "";
@@ -83,7 +85,8 @@ export class VoiceCues {
   begin() {
     this.cancel();
     this.count = 0;
-    this.schedule("waiting", 1200);
+    // Only fill a wait that is actually long; most replies start sooner.
+    this.schedule("waiting", 2200);
   }
   schedule(category: string, delay = 1200) {
     this.category = category;
@@ -149,6 +152,7 @@ export class VoiceCues {
       this.trace("cue.ended", { id: cue.id, ct: this.ctx.currentTime });
     };
     source.start();
+    this.endsAt = this.ctx.currentTime + source.buffer.duration;
     this.trace("cue.play", {
       id: cue.id,
       category: cue.category,
@@ -157,6 +161,19 @@ export class VoiceCues {
       duration_ms: cue.duration_ms,
     });
     this.report(cue.text);
+  }
+  // Drops any pending cue but lets the one playing finish. Returns the context
+  // time it ends (0 when none plays) so the reply can start right after it.
+  settle(): number {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+      this.trace("cue.settle", {
+        playing: !!this.source,
+        ends_at: this.endsAt,
+      });
+    }
+    return this.source ? this.endsAt : 0;
   }
   cancel() {
     if (this.timer || this.source)

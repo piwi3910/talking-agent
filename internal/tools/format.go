@@ -10,6 +10,16 @@ import (
 // meant only for the model. FormatResult drops everything after it.
 const GuidanceMarker = "\n\nGuidance: "
 
+// SpokenSummary is the part of a result meant to be said aloud: the summary
+// without model guidance or the raw records (those are shown, not read).
+func SpokenSummary(result Result) string {
+	if result.Error != nil {
+		return ""
+	}
+	summary, _, _ := strings.Cut(result.Summary, GuidanceMarker)
+	return strings.TrimSpace(summary)
+}
+
 // FormatResult renders service facts without inference or industry-specific logic.
 // It is used for acknowledged mutations and recovery from empty model answers.
 func FormatResult(result Result) string {

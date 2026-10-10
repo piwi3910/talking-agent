@@ -47,6 +47,8 @@ const BURST_GAP_MS = 25;
 // the second arrives about 0.5-0.85 s after it, so with 0.4 s of lead the second
 // is still in time up to 1.04 s after the first.
 const START_LEAD = 0.4;
+// Pause between a filler cue finishing and the reply starting.
+const CUE_GAP = 0.15;
 // Audio still playing at least this far ahead is continued without a gap; one
 // render quantum is 128 frames (about 3 ms).
 const CONTINUE_MARGIN = 0.01;
@@ -120,6 +122,8 @@ export class Voice {
   // in seconds and rounding up occasionally lands one frame late, which is a
   // one-sample hole (a click) between two buffers.
   private nextFrame = 0;
+  // Context time a filler cue still playing ends; the reply waits for it.
+  private cueEnd = 0;
   // A barge-in during playback waits for its transcript: if it only repeats what
   // the agent just said, it was the agent hearing itself and playback continues.
   private bargePending = false;
@@ -597,10 +601,10 @@ export class Voice {
       this.cues?.schedule(this.cuePhase, 1000);
     }
     if (type === "tool.completed" || type === "tool.failed") {
-      this.cues?.cancel();
+      this.settleCue();
       this.cuePhase = "waiting";
     }
-    if (type === "llm.started") this.cues?.schedule("waiting", 1400);
+    if (type === "llm.started") this.cues?.schedule("waiting", 2400);
     if (
       type === "safety.blocked" ||
       type === "agent.error" ||
@@ -648,7 +652,7 @@ export class Voice {
     this.flush(false);
   }
   complete() {
-    this.cues?.cancel();
+    this.settleCue();
     this.flush(true);
   }
   // End of the first sentence in this.text, or 0. Full stops after abbreviations
@@ -707,6 +711,10 @@ export class Voice {
         (w.length >= 3 && [...spoken].some((s) => s.startsWith(w))),
     );
     return heard.length <= 12 && known.length / heard.length >= 0.6;
+  }
+  // Stops pending filler cues without cutting off one that is mid-word.
+  private settleCue() {
+    this.cueEnd = Math.max(this.cueEnd, this.cues?.settle() ?? 0);
   }
   private restoreGain() {
     if (this.gain && this.context)
@@ -1018,7 +1026,7 @@ export class Voice {
   private deliver(phrase: Phrase, bytes: Uint8Array, gen: number) {
     if (bytes.length) phrase.bursts++;
     if (this.order[0] === phrase) {
-      this.cues?.cancel();
+      this.settleCue();
       this.play(bytes, gen, phrase);
     } else {
       this.tr("speech.held", {
@@ -1038,7 +1046,7 @@ export class Voice {
         const chunks = head.chunks;
         head.chunks = [];
         for (const chunk of chunks) {
-          this.cues?.cancel();
+          this.settleCue();
           this.play(chunk, this.generation, head);
         }
       }
@@ -1089,7 +1097,10 @@ export class Voice {
     const startFrame =
       this.nextFrame >= Math.ceil((now + CONTINUE_MARGIN) * rate)
         ? this.nextFrame
-        : Math.ceil((now + START_LEAD) * rate);
+        : Math.max(
+            Math.ceil((now + START_LEAD) * rate),
+            Math.ceil((this.cueEnd + CUE_GAP) * rate),
+          );
     const at = startFrame / rate;
     this.nextFrame = startFrame + samples.length;
     // Waveform edges: a click shows as a jump at the buffer start or at a seam.
@@ -1221,6 +1232,7 @@ export class Voice {
     }
     this.output.clear();
     this.nextFrame = 0;
+    this.cueEnd = 0;
     this.lastSample = 0;
     this.lastPhrase = "";
     this.firstPlayback = false;

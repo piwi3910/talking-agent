@@ -151,7 +151,11 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 			fail(res.Error)
 			return
 		}
-		text := tools.FormatResult(res)
+		// Say the acknowledgement only; the booked records are on screen.
+		text := tools.SpokenSummary(res)
+		if text == "" {
+			text = tools.FormatResult(res)
+		}
 		if text == "" {
 			fail(fmt.Errorf("backend returned no acknowledgement"))
 			return
