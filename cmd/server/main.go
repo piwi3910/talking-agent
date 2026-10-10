@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -35,6 +36,15 @@ func env(k, fallback string) string {
 		return s
 	}
 	return fallback
+}
+func validateLLMKey(mode, keyEnv string) error {
+	if mode != "openai-compatible" {
+		return nil
+	}
+	if strings.TrimSpace(os.Getenv(keyEnv)) == "" {
+		return fmt.Errorf("%s is required for openai-compatible LLM_PROVIDER", keyEnv)
+	}
+	return nil
 }
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -114,6 +124,9 @@ func run() error {
 	backendURLs := map[string]string{}
 	runtime.Executors = map[string]tools.Executor{}
 	mode := env("LLM_PROVIDER", "demo")
+	if e := validateLLMKey(mode, env("LLM_API_KEY_ENV", "LLM_API_KEY")); e != nil {
+		return e
+	}
 	for id, a := range agents {
 		endpoint := backendURL
 		if a.Backend.URL != "" {
