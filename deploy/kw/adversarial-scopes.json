@@ -61,5 +61,26 @@
     "domain": "school-services",
     "namespace": "school-demo",
     "user": "ADV-SCHOOL-SERVICES-003"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-admissions",
+    "namespace": "aquila-demo",
+    "user": "ADV-AQUILA-ADMISSIONS-004"
+  },
+  {
+    "tenant": "aquila-demo",
+    "organization": "The Aquila School",
+    "domain": "aquila-reception",
+    "namespace": "aquila-demo",
+    "user": "ADV-AQUILA-RECEPTION-004"
+  },
+  {
+    "tenant": "demo-operator",
+    "organization": "Willowbrook School",
+    "domain": "school-services",
+    "namespace": "school-demo",
+    "user": "ADV-SCHOOL-SERVICES-004"
   }
 ]

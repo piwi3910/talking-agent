@@ -95,8 +95,8 @@ func TestReservedAdversarialContactsAreHiddenButUsable(t *testing.T) {
 		}
 	}
 	for industry, ids := range map[string][]string{
-		"aquila": {"ADV-AQUILA-ADMISSIONS-001", "ADV-AQUILA-ADMISSIONS-002", "ADV-AQUILA-ADMISSIONS-003", "ADV-AQUILA-RECEPTION-001", "ADV-AQUILA-RECEPTION-002", "ADV-AQUILA-RECEPTION-003"},
-		"school": {"ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002", "ADV-SCHOOL-SERVICES-003"},
+		"aquila": {"ADV-AQUILA-ADMISSIONS-001", "ADV-AQUILA-ADMISSIONS-002", "ADV-AQUILA-ADMISSIONS-003", "ADV-AQUILA-ADMISSIONS-004", "ADV-AQUILA-RECEPTION-001", "ADV-AQUILA-RECEPTION-002", "ADV-AQUILA-RECEPTION-003", "ADV-AQUILA-RECEPTION-004"},
+		"school": {"ADV-SCHOOL-SERVICES-001", "ADV-SCHOOL-SERVICES-002", "ADV-SCHOOL-SERVICES-003", "ADV-SCHOOL-SERVICES-004"},
 	} {
 		for _, id := range ids {
 			tool := "contact.profile"
@@ -123,5 +123,31 @@ func TestReservedContactsRequireAdversarialListMarker(t *testing.T) {
 	}
 	if !strings.Contains(marked.Body.String(), "ADV-AQUILA-ADMISSIONS-001") {
 		t.Fatal("marked adversarial listing omitted reserved contact")
+	}
+}
+
+func TestAdversarialCleanCheckTracksActiveBookings(t *testing.T) {
+	b := fixture(t)
+	for _, tc := range []struct{ industry, user string }{
+		{"aquila", "ADV-AQUILA-ADMISSIONS-004"},
+		{"school", "ADV-SCHOOL-SERVICES-004"},
+	} {
+		if !b.adversarialClean(tc.industry, tc.user) {
+			t.Fatalf("fresh reserved contact is dirty: %s", tc.user)
+		}
+		availability := call(b, tc.industry, tc.user, "tour.availability", nil)
+		if availability.Error != nil || len(availability.Records) == 0 {
+			t.Fatalf("no tour slots for %s: %+v", tc.user, availability)
+		}
+		args := map[string]string{"slot_id": availability.Records[0].ID}
+		if tc.industry == "aquila" {
+			args["when"] = availability.Records[0].Description
+		}
+		if booked := call(b, tc.industry, tc.user, "tour.book", args); booked.Error != nil {
+			t.Fatalf("book tour for %s: %+v", tc.user, booked)
+		}
+		if b.adversarialClean(tc.industry, tc.user) {
+			t.Fatalf("active booking was not detected for %s", tc.user)
+		}
 	}
 }

@@ -124,6 +124,40 @@ func (a *API) Handler() http.Handler {
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, map[string]string{"status": "ok"})
 	})
+	m.HandleFunc("GET /api/adversarial/clean/{agent}/{user}", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Adversarial-Test") != "reserved-contacts" {
+			fail(w, http.StatusNotFound, "Not found")
+			return
+		}
+		c := a.Agents[r.PathValue("agent")]
+		if c == nil {
+			fail(w, http.StatusNotFound, "Not found")
+			return
+		}
+		endpoint := a.BackendURL
+		if specific := a.BackendURLs[c.ID]; specific != "" {
+			endpoint = specific
+		}
+		url := strings.TrimRight(endpoint, "/") + "/adversarial/clean/" + c.Industry + "/" + r.PathValue("user")
+		check, err := http.NewRequestWithContext(r.Context(), http.MethodGet, url, nil)
+		if err != nil {
+			fail(w, http.StatusBadGateway, "Mock backend unavailable")
+			return
+		}
+		check.Header.Set("X-Adversarial-Test", "reserved-contacts")
+		response, err := http.DefaultClient.Do(check)
+		if err != nil || response.StatusCode != http.StatusOK {
+			fail(w, http.StatusBadGateway, "Mock backend unavailable")
+			return
+		}
+		defer response.Body.Close()
+		var result map[string]bool
+		if err := json.NewDecoder(io.LimitReader(response.Body, 1024)).Decode(&result); err != nil {
+			fail(w, http.StatusBadGateway, "Mock backend unavailable")
+			return
+		}
+		write(w, http.StatusOK, result)
+	})
 	m.HandleFunc("GET /api/metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")

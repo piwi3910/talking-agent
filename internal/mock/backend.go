@@ -57,9 +57,11 @@ func Load(root string, now time.Time) (*Backend, error) {
 		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-001", Kind: "contact", Name: "Nadia Rahman"}, Scenario: "Prospective family; child considering Year 5; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-002", Kind: "contact", Name: "Omar Haddad"}, Scenario: "Prospective family; child considering Year 3; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-003", Kind: "contact", Name: "Sara Nasser"}, Scenario: "Prospective family; child considering Year 6; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-ADMISSIONS-004", Kind: "contact", Name: "Tariq Salem"}, Scenario: "Prospective family; child considering Year 4; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-001", Kind: "contact", Name: "Layla Mansour"}, Scenario: "Prospective family; child considering FS2; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-002", Kind: "contact", Name: "Yusuf Karim"}, Scenario: "Prospective family; child considering Year 1; first enquiry."},
 		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-003", Kind: "contact", Name: "Hana Saeed"}, Scenario: "Prospective family; child considering FS1; first enquiry."},
+		{Record: tools.Record{ID: "ADV-AQUILA-RECEPTION-004", Kind: "contact", Name: "Mariam Ali"}, Scenario: "Prospective family; child considering Year 2; first enquiry."},
 	} {
 		b.users["aquila"][u.ID] = &u
 	}
@@ -67,6 +69,7 @@ func Load(root string, now time.Time) (*Backend, error) {
 		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-001", Kind: "family", Name: "Maya Patel"}, Scenario: "Prospective family; interested in the primary program; first enquiry."},
 		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-002", Kind: "family", Name: "Ethan Brooks"}, Scenario: "Prospective family; interested in the early years program; first enquiry."},
 		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-003", Kind: "family", Name: "Grace Nguyen"}, Scenario: "Prospective family; interested in the middle school program; first enquiry."},
+		{Record: tools.Record{ID: "ADV-SCHOOL-SERVICES-004", Kind: "family", Name: "Liam Foster"}, Scenario: "Prospective family; interested in the secondary program; first enquiry."},
 	} {
 		b.users["school"][u.ID] = &u
 	}
@@ -130,11 +133,40 @@ func (b *Backend) usersList(industry string, includeAdversarial bool) []tools.Re
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
+func (b *Backend) adversarialClean(industry, id string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if !strings.HasPrefix(id, "ADV-") || b.users[industry][id] == nil {
+		return false
+	}
+	keys := []string{"aq_events", "aq_slots"}
+	if industry == "school" {
+		keys = []string{"school_visits", "school_tours"}
+	}
+	for _, key := range keys {
+		for _, record := range b.records[key] {
+			if record.UserID != id || (record.Status != "booked" && record.Status != "confirmed") {
+				continue
+			}
+			if strings.Contains(record.Kind, "tour") || strings.Contains(record.Kind, "visit") {
+				return false
+			}
+		}
+	}
+	return true
+}
 func (b *Backend) Handler() http.Handler {
 	m := http.NewServeMux()
 	m.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { write(w, map[string]string{"status": "ok"}) })
 	m.HandleFunc("GET /users/{industry}", func(w http.ResponseWriter, r *http.Request) {
 		write(w, b.usersList(r.PathValue("industry"), r.Header.Get("X-Adversarial-Test") == "reserved-contacts"))
+	})
+	m.HandleFunc("GET /adversarial/clean/{industry}/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Adversarial-Test") != "reserved-contacts" {
+			write(w, map[string]bool{"clean": false})
+			return
+		}
+		write(w, map[string]bool{"clean": b.adversarialClean(r.PathValue("industry"), r.PathValue("id"))})
 	})
 	m.HandleFunc("POST /tools/execute", func(w http.ResponseWriter, r *http.Request) {
 		var req tools.Request
