@@ -7,6 +7,7 @@ import (
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/knowledge"
 	"enterprise-ai-demo/internal/llm"
+	"enterprise-ai-demo/internal/logx"
 	"enterprise-ai-demo/internal/mcp"
 	"enterprise-ai-demo/internal/memory"
 	"enterprise-ai-demo/internal/session"
@@ -72,7 +73,7 @@ func (r *Runtime) Start(ctx context.Context) {
 			defer cancel()
 			err := r.Memory.Store(c, job.Memory)
 			if err != nil {
-				job.Emit("memory.store.failed", map[string]any{"error": err.Error()})
+				job.Emit("memory.store.failed", map[string]any{"error": logx.Error(err)})
 			} else {
 				job.Emit("memory.store.completed", map[string]any{"memory": job.Memory.Text, "provider": r.Memory.Name()})
 			}
@@ -110,7 +111,8 @@ func (r *Runtime) remember(m memory.Memory, emit telemetry.Sink) {
 	}
 }
 func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, turn Turn) {
-	emit := func(kind string, data any) { s.Events.Emit(turnID, kind, data) }
+	ctx = logx.WithCorrelation(ctx, s.ID, turnID)
+	emit := func(kind string, data any) { s.Events.Emit(turnID, kind, logx.RedactValue(data)) }
 	started := time.Now()
 	defer func() {
 		trim(s)
@@ -119,7 +121,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		emit("turn.completed", map[string]any{"duration_ms": time.Since(started).Milliseconds()})
 	}()
 	fail := func(err error) {
-		emit("agent.error", map[string]any{"message": err.Error(), "cancelled": errors.Is(ctx.Err(), context.Canceled)})
+		emit("agent.error", map[string]any{"message": logx.Error(err), "cancelled": errors.Is(ctx.Err(), context.Canceled)})
 	}
 	answer := func(text string) {
 		s.History = append(s.History, llm.Message{Role: "assistant", Content: text})
@@ -218,7 +220,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 	mems, err := r.Memory.Retrieve(mctx, memory.RetrieveRequest{Scope: Scope(s), Query: query, Limit: 5})
 	cancel()
 	if err != nil {
-		emit("memory.retrieval.failed", map[string]any{"error": err.Error()})
+		emit("memory.retrieval.failed", map[string]any{"error": logx.Error(err)})
 	} else {
 		emit("memory.retrieval.completed", map[string]any{"count": len(mems), "memories": mems, "duration_ms": time.Since(ms).Milliseconds(), "provider": r.Memory.Name()})
 	}
@@ -334,7 +336,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 			emit("agent.response.delta", map[string]any{"text": delta})
 		})
 		if err != nil {
-			emit("llm.failed", map[string]any{"message": err.Error(), "duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "diagnostics": response.Diagnostics})
+			emit("llm.failed", map[string]any{"message": logx.Error(err), "duration_ms": time.Since(begin).Milliseconds(), "usage": response.Usage, "diagnostics": response.Diagnostics})
 			if errors.Is(err, llm.ErrEmptyResponse) && first && strings.TrimSpace(response.Message.Content) == "" && len(response.Message.ToolCalls) == 0 && ctx.Err() == nil && len(latestResults) > 0 {
 				texts := []string{}
 				names := []string{}
@@ -369,7 +371,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 			emit("agent.response.completed", map[string]any{"text": response.Message.Content})
 			trim(s)
 			if turn.Opening == "" {
-				r.capture(s, query, response.Message.Content, emit)
+				r.capture(s, query, response.Message.Content, ctx, emit)
 			}
 			return
 		}
@@ -443,7 +445,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 			emit("agent.response.grounded", map[string]any{"source": "tool_records", "tools": names})
 			answer(strings.Join(texts, "\n\n"))
 			if turn.Opening == "" {
-				r.capture(s, query, strings.Join(texts, "\n\n"), emit)
+				r.capture(s, query, strings.Join(texts, "\n\n"), ctx, emit)
 			}
 			return
 		}

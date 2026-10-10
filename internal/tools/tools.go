@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"enterprise-ai-demo/internal/logx"
 	"enterprise-ai-demo/internal/telemetry"
 	"errors"
 	"fmt"
@@ -139,7 +140,10 @@ func (h HTTPExecutor) Execute(ctx context.Context, d Definition, req Request, em
 		if out.Error != nil {
 			kind = "tool.failed"
 		}
-		emit(kind, map[string]any{"tool": d.Name, "duration_ms": time.Since(start).Milliseconds(), "result": out})
+		if out.Error != nil {
+			out.Error.Message = logx.Redact(out.Error.Message)
+		}
+		emit(kind, logx.RedactValue(map[string]any{"tool": d.Name, "duration_ms": time.Since(start).Milliseconds(), "result": out}).(map[string]any))
 	}()
 	ms := d.TimeoutMS
 	if ms <= 0 {
@@ -162,7 +166,7 @@ func (h HTTPExecutor) Execute(ctx context.Context, d Definition, req Request, em
 	}
 	resp, err := client.Do(r)
 	if err != nil {
-		return Failure("backend_unavailable", err.Error())
+		return Failure("backend_unavailable", logx.Error(err))
 	}
 	defer resp.Body.Close()
 	if err = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {

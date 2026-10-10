@@ -2,6 +2,7 @@ package speech
 
 import (
 	"context"
+	"enterprise-ai-demo/internal/logx"
 	"io"
 	"strings"
 	"sync"
@@ -224,7 +225,7 @@ func (c *Client) transcribeHybrid(ctx context.Context, audio io.Reader, emit fun
 	}
 	data := map[string]any{"model": c.FinalModel, "reason": reason, "live_ok": liveOK}
 	if res.err != nil {
-		data["error"] = res.err.Error()
+		data["error"] = logx.Error(res.err)
 	}
 	trace(ctx, "stt.final.fallback", data)
 	if !liveOK {

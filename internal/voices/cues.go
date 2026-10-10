@@ -3,6 +3,7 @@ package voices
 import (
 	"context"
 	"encoding/json"
+	"enterprise-ai-demo/internal/logx"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -180,7 +181,7 @@ func trimError(err error) string {
 	case errors.As(err, &pathErr):
 		return "could not write cue files"
 	}
-	msg := strings.Join(strings.Fields(err.Error()), " ")
+	msg := strings.Join(strings.Fields(logx.Error(err)), " ")
 	if len(msg) > 200 {
 		msg = msg[:200]
 	}

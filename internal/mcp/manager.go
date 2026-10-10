@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"enterprise-ai-demo/internal/logx"
 	"errors"
 	"fmt"
 	"net/http"
@@ -122,6 +123,7 @@ func (m *Manager) lock(id string) *sync.Mutex {
 
 // scrub removes credential values from an error message.
 func scrub(msg string, headers map[string]string) string {
+	msg = logx.Redact(msg)
 	for _, v := range headers {
 		if len(v) >= 6 {
 			msg = strings.ReplaceAll(msg, v, "***")
@@ -361,7 +363,7 @@ func (m *Manager) Test(ctx context.Context, s Server) ([]Tool, Status) {
 	}
 	c, err := m.ensure(ctx, s, true)
 	if err != nil {
-		return nil, Status{State: "error", Error: err.Error(), CheckedAt: time.Now()}
+		return nil, Status{State: "error", Error: logx.Error(err), CheckedAt: time.Now()}
 	}
 	return c.tools, Status{State: "ok", Tools: len(c.tools), Transport: c.transport, CheckedAt: c.fetched}
 }
@@ -443,7 +445,7 @@ func (m *Manager) Call(ctx context.Context, agentID, fullName string, args json.
 		for _, s := range list {
 			if s.Enabled && s.Unsupported == "" && s.AllowsAgent(agentID) && strings.HasPrefix(fullName, "mcp."+s.ID+".") {
 				if _, err := m.Tools(ctx, s); err != nil {
-					return Result{Text: "Tool server unavailable: " + err.Error(), IsError: true}
+					return Result{Text: "Tool server unavailable: " + logx.Error(err), IsError: true}
 				}
 				m.mu.Lock()
 				item, ok = m.toolsIndex[fullName]
@@ -456,7 +458,7 @@ func (m *Manager) Call(ctx context.Context, agentID, fullName string, args json.
 		s, exists := m.Registry.Get(item.server.ID)
 		if exists && s.Enabled && s.Unsupported == "" && s.AllowsAgent(agentID) && s.AllowsTool(item.tool.Tool) {
 			if _, err := m.ensure(ctx, s, false); err != nil {
-				return Result{Text: "Tool server unavailable: " + err.Error(), IsError: true}
+				return Result{Text: "Tool server unavailable: " + logx.Error(err), IsError: true}
 			}
 			m.mu.Lock()
 			item, ok = m.toolsIndex[fullName]
@@ -486,7 +488,7 @@ func (m *Manager) call(ctx context.Context, s Server, t Tool, args json.RawMessa
 		if c == nil || c.client == nil {
 			var err error
 			if c, err = m.ensure(ctx, s, false); err != nil {
-				return Result{Text: "Tool server unavailable: " + err.Error(), IsError: true}
+				return Result{Text: "Tool server unavailable: " + logx.Error(err), IsError: true}
 			}
 		}
 		cctx, cancel := context.WithTimeout(ctx, m.callTimeout())

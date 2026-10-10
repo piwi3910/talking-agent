@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"enterprise-ai-demo/internal/logx"
 	"fmt"
 	"io"
 	"net/http"
@@ -105,7 +106,9 @@ func (c *Client) do(ctx context.Context, endpoint string, body io.Reader) (*http
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		// net/http errors can include the full request URL; omit the upstream
+		// detail here so callers cannot accidentally expose credentials.
+		return nil, fmt.Errorf("speech upstream request failed: %s", logx.Error(err))
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
@@ -278,7 +281,7 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 	trace(ctx, "upstream.request", map[string]any{"base": base, "request_bytes": len(raw)})
 	resp, err := c.do(ctx, strings.TrimRight(base, "/")+"/v1/audio/speech", bytes.NewReader(raw))
 	if err != nil {
-		trace(ctx, "upstream.error", map[string]any{"error": err.Error()})
+		trace(ctx, "upstream.error", map[string]any{"error": logx.Error(err)})
 		return err
 	}
 	defer resp.Body.Close()

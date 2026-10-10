@@ -1,6 +1,9 @@
 package speech
 
-import "context"
+import (
+	"context"
+	"enterprise-ai-demo/internal/logx"
+)
 
 // TraceFunc receives diagnostic events about one upstream speech request.
 type TraceFunc func(event string, data map[string]any)
@@ -14,6 +17,10 @@ func WithTrace(ctx context.Context, f TraceFunc) context.Context {
 
 func trace(ctx context.Context, event string, data map[string]any) {
 	if f, ok := ctx.Value(traceKey{}).(TraceFunc); ok && f != nil {
-		f(event, data)
+		if clean, ok := logx.RedactValue(data).(map[string]any); ok {
+			f(event, clean)
+		} else {
+			f(event, data)
+		}
 	}
 }
