@@ -17,7 +17,7 @@ func TestErrorRedactsCredentials(t *testing.T) {
 			t.Errorf("redacted error contains credential %q: %s", secret, got)
 		}
 	}
-	for _, expected := range []string{"Bearer ***", "api_key=***", "example.test", "access_token"} {
+	for _, expected := range []string{"Authorization: ***", "api_key=***", "example.test", "access_token"} {
 		if !strings.Contains(got, expected) {
 			t.Errorf("redacted error missing %q: %s", expected, got)
 		}
