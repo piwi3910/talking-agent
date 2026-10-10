@@ -49,6 +49,13 @@ const BURST_GAP_MS = 25;
 const START_LEAD = 0.4;
 // Pause between a filler cue finishing and the reply starting.
 const CUE_GAP = 0.15;
+// Silence during a running tool before a filler cue fills it.
+const TOOL_CUE_SILENCE_MS = 700;
+// Tool cues may follow an earlier cue sooner than general fillers do.
+const TOOL_CUE_MIN_GAP_MS = 4000;
+// Highest plausible echo coupling after the browser's echo canceller; a higher
+// calibration means someone spoke during it and would block interruptions.
+const MAX_COUPLING = 0.8;
 // Audio still playing at least this far ahead is continued without a gap; one
 // render quantum is 128 frames (about 3 ms).
 const CONTINUE_MARGIN = 0.01;
@@ -126,6 +133,8 @@ export class Voice {
   private cueEnd = 0;
   // A tool call is in flight; silence after the agent's line gets a filler.
   private toolRunning = false;
+  private toolCueDone = false;
+  private silentSince = 0;
   // A barge-in during playback waits for its transcript: if it only repeats what
   // the agent just said, it was the agent hearing itself and playback continues.
   private bargePending = false;
@@ -332,9 +341,9 @@ export class Voice {
         this.calibratedMs += ms;
         if (this.calibratedMs >= ECHO_CALIBRATION_MS) {
           const sorted = [...this.calibration].sort((a, b) => a - b);
-          this.coupling = Math.max(
-            0.02,
-            sorted[Math.floor(sorted.length * 0.95)] || 0,
+          this.coupling = Math.min(
+            MAX_COUPLING,
+            Math.max(0.02, sorted[Math.floor(sorted.length * 0.95)] || 0),
           );
           this.tr("echo.calibrated", {
             coupling: this.coupling,
@@ -348,6 +357,7 @@ export class Voice {
   }
   private frame(pcm: ArrayBuffer, probability: number, ms: number) {
     if (this.closed || this.muted) return;
+    this.fillToolSilence();
     let micRms = 0;
     {
       const v = new Int16Array(pcm);
@@ -593,7 +603,10 @@ export class Voice {
     }
     if (type === "turn.completed") this.turnRunning = false;
     if (turn === this.blockedTurn) return;
-    if (type === "tool.started") this.toolRunning = true;
+    if (type === "tool.started") {
+      this.toolRunning = true;
+      this.toolCueDone = false;
+    }
     if (
       type === "tool.completed" ||
       type === "tool.failed" ||
@@ -607,7 +620,7 @@ export class Voice {
           : tool?.endsWith(".availability")
             ? "availability"
             : "lookup";
-      this.cues?.schedule(this.cuePhase, 1000);
+      // The cue itself is played by fillToolSilence once the agent is quiet.
     }
     if (type === "tool.completed" || type === "tool.failed") {
       this.settleCue();
@@ -724,6 +737,24 @@ export class Voice {
         (w.length >= 3 && [...spoken].some((s) => s.startsWith(w))),
     );
     return heard.length <= 12 && known.length / heard.length >= 0.6;
+  }
+  // While a tool runs and the agent has said its line, one fitting cue fills the
+  // silence once it lasts TOOL_CUE_SILENCE_MS. Checked every audio frame, so it
+  // does not depend on timers racing the agent's own speech.
+  private fillToolSilence() {
+    const now = performance.now();
+    if (this.output.size || this.cues?.playing) {
+      this.silentSince = now;
+      return;
+    }
+    if (
+      this.toolRunning &&
+      !this.toolCueDone &&
+      now - this.silentSince >= TOOL_CUE_SILENCE_MS
+    ) {
+      this.toolCueDone = true;
+      this.cues?.play(this.cuePhase, TOOL_CUE_MIN_GAP_MS);
+    }
   }
   // Stops pending filler cues without cutting off one that is mid-word.
   private settleCue() {
@@ -1185,10 +1216,7 @@ export class Voice {
       if (!this.output.size && !this.closed) {
         if (!this.order.length && !this.queue.length && !this.turnRunning)
           this.cb.status(this.muted ? "Microphone muted" : "Listening");
-        // A tool still running after the agent's "one moment" line: fill the
-        // silence soon with a fitting cue instead of waiting.
-        else if (this.toolRunning) this.cues?.schedule(this.cuePhase, 700);
-        else this.cues?.schedule("waiting", 1600);
+        else if (!this.toolRunning) this.cues?.schedule("waiting", 1600);
       }
     };
     source.start(at);

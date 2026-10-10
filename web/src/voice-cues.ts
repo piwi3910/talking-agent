@@ -106,13 +106,13 @@ export class VoiceCues {
       this.play(this.category);
     }, delay);
   }
-  play(category: string) {
+  play(category: string, minGapMs = 8000) {
     if (
       this.closed ||
       !this.allowed() ||
       this.source ||
       this.count >= 2 ||
-      performance.now() - this.last < 8000
+      performance.now() - this.last < minGapMs
     ) {
       this.trace("cue.skip", {
         category,
