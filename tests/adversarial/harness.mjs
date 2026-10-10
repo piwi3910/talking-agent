@@ -256,7 +256,8 @@ async function chooseCleanTourIdentity(id) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: "Please check whether I already have a confirmed school tour booking.",
+          message:
+            "Please check whether I already have a confirmed school tour booking.",
         }),
       },
     );
@@ -302,7 +303,16 @@ async function chooseCleanTourIdentity(id) {
           e.data?.turn_id === turnId &&
           e.type.endsWith("memory.retrieval.completed"),
       );
-    if (!event) continue;
+    if (!event) {
+      // Willowbrook has no CRM history tool, so its preflight uses memory retrieval.
+      const recalledSchoolTour = (memory?.data?.memories || []).some((m) =>
+        /tour/i.test(m.text || ""),
+      );
+      if (id === "school-services" && memory && !recalledSchoolTour) {
+        return { identity: candidate };
+      }
+      continue;
+    }
     const bookings = event.data?.result?.records || [];
     const dirtyHistory = bookings.some(
       (b) =>

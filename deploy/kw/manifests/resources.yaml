@@ -28,7 +28,7 @@
                   "app.kubernetes.io/version": "sip-gateway-settings-20261002",
                 },
               "annotations":
-                { "enterprise-ai-demo/memory-persistence-check": "20260929-1" },
+                { "enterprise-ai-demo/memory-persistence-check": "20261010-reserved-contacts-1" },
             },
           "spec":
             {
