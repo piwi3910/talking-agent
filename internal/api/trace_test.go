@@ -40,6 +40,15 @@ func TestTraceStoreAppendListAndCaps(t *testing.T) {
 	if err := st.Append("session-one", "agent-a", []byte(`{"type":"one"}`), []byte(`{"type":"two"}`)); err != nil {
 		t.Fatal(err)
 	}
+	entries, err := os.ReadDir(st.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".trace-") {
+			t.Fatalf("atomic trace temp file remains: %s", entry.Name())
+		}
+	}
 	lines := readLines(t, st.path("session-one"))
 	if len(lines) != 3 || lines[0]["type"] != "trace.start" || lines[2]["type"] != "two" {
 		t.Fatalf("unexpected file: %v", lines)

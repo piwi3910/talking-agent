@@ -77,13 +77,56 @@ func (t *TraceStore) Append(id, agent string, lines ...[]byte) error {
 	if size+int64(buf.Len()) > t.MaxBytes {
 		return errTraceFull
 	}
-	f, err := os.OpenFile(t.path(id), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
+	path := t.path(id)
+	tmp, err := os.CreateTemp(t.Dir, ".trace-*.tmp")
 	if err != nil {
 		return err
 	}
-	n, err := f.Write(buf.Bytes())
-	if cerr := f.Close(); err == nil {
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0o640); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if existing, openErr := os.Open(path); openErr == nil {
+		_, err = io.Copy(tmp, existing)
+		if cerr := existing.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			_ = tmp.Close()
+			return err
+		}
+	} else if !os.IsNotExist(openErr) {
+		_ = tmp.Close()
+		return openErr
+	}
+	n, err := tmp.Write(buf.Bytes())
+	if err == nil && n != buf.Len() {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if cerr := tmp.Close(); err == nil {
 		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	if err = os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	if dir, openErr := os.Open(t.Dir); openErr == nil {
+		err = dir.Sync()
+		if cerr := dir.Close(); err == nil {
+			err = cerr
+		}
+	} else {
+		err = openErr
+	}
+	if err != nil {
+		return err
 	}
 	t.sizes[id] = size + int64(n)
 	if size == 0 {
