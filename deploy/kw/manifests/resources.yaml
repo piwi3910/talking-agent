@@ -46,7 +46,7 @@
                 [
                   {
                     "name": "demo",
-                    "image": "192.168.10.131/enterprise-ai-demo@sha256:fc706b379ebe0a1472922b571dfab04cd43e6585c2735a3d4927a9107f1e598b",
+                    "image": "192.168.10.131/enterprise-ai-demo@sha256:2516f0478780777a8d23cf81668fcc0c625321986d44e5e407cd1f3e6b0c5296",
                     "imagePullPolicy": "IfNotPresent",
                     "ports": [{ "name": "http", "containerPort": 8080 }],
                     "env":
@@ -55,8 +55,22 @@
                           "name": "SIP_TRUSTED_FORWARDERS",
                           "value": "192.168.10.101/32,192.168.10.102/32,192.168.10.103/32,192.168.10.104/32,192.168.10.105/32,192.168.10.106/32,192.168.10.107/32,192.168.10.108/32",
                         },
-                        { "name": "SIP_DIGEST_USERS", "valueFrom": { "secretKeyRef": { "name": "sip-digest-auth", "key": "users.json", "optional": true } } },
-                        { "name": "SIP_DIGEST_REALM", "value": "agent.kw.watteel.lab" },
+                        {
+                          "name": "SIP_DIGEST_USERS",
+                          "valueFrom":
+                            {
+                              "secretKeyRef":
+                                {
+                                  "name": "sip-digest-auth",
+                                  "key": "users.json",
+                                  "optional": true,
+                                },
+                            },
+                        },
+                        {
+                          "name": "SIP_DIGEST_REALM",
+                          "value": "agent.kw.watteel.lab",
+                        },
                         {
                           "name": "SIP_ADVERTISE_IP",
                           "value": "192.168.10.142",
