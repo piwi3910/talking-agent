@@ -143,6 +143,7 @@ func TestSpeechUsesTheAgentDefaultVoiceAndDropsStageDirections(t *testing.T) {
 }
 
 func TestSpeechAllowsTwoConcurrentRequestsPerSession(t *testing.T) {
+	t.Setenv("RATE_SPEECH_BURST", "100")
 	e := newQwenEnv(t)
 	e.hold = make(chan struct{})
 	path := "/api/sessions/" + e.session.ID + "/speech"

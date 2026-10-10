@@ -114,6 +114,19 @@ func (s *Settings) Route(number string) (*config.Agent, PersonaSettings) {
 	}
 	return nil, PersonaSettings{}
 }
+
+func (s *Settings) PersonaForNumber(number string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for id, p := range s.state.Personas {
+		for _, n := range p.Numbers {
+			if n == number {
+				return id
+			}
+		}
+	}
+	return ""
+}
 func (s *Settings) validate(state PhoneSettings) error {
 	seen := map[string]string{}
 	for id, p := range state.Personas {
