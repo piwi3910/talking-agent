@@ -27,3 +27,29 @@ func TestResultDatesAndMoneyComeFromServiceRecords(t *testing.T) {
 		t.Fatal(empty)
 	}
 }
+
+func TestFormatSpokenResultOmitsInternalIdentifiers(t *testing.T) {
+	got := FormatSpokenResult(Result{Summary: "Found your appointment. ID: BK-44 Related ID: C-12", Records: []Record{{ID: "A-001", RelatedID: "C-12", Name: "Dr. Ahmed", Status: "booked", Start: "2026-09-30T00:30:00+02:00"}}})
+	for _, secret := range []string{"A-001", "C-12", "BK-44", "ID:"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("spoken output leaked %q: %s", secret, got)
+		}
+	}
+	for _, safe := range []string{"Dr. Ahmed", "booked", "Wednesday 30 September"} {
+		if !strings.Contains(got, safe) {
+			t.Fatalf("spoken output missing %q: %s", safe, got)
+		}
+	}
+}
+
+func TestFormatSpokenResultSanitizesMutationWithoutSpokenSummary(t *testing.T) {
+	got := FormatSpokenResult(Result{Summary: GuidanceMarker + "internal only", Records: []Record{{ID: "APP-88", RelatedID: "CH-17", Name: "Application started", Description: "Your application is ready. Internal reference: APP-88", Status: "started"}}})
+	for _, secret := range []string{"APP-88", "CH-17", "Internal reference", "internal only"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("spoken fallback leaked %q: %s", secret, got)
+		}
+	}
+	if !strings.Contains(got, "Application started") || !strings.Contains(got, "started") {
+		t.Fatalf("spoken fallback omitted user-facing fields: %s", got)
+	}
+}

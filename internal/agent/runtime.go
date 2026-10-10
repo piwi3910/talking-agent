@@ -154,7 +154,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		// Say the acknowledgement only; the booked records are on screen.
 		text := tools.SpokenSummary(res)
 		if text == "" {
-			text = tools.FormatResult(res)
+			text = tools.FormatSpokenResult(res)
 		}
 		if text == "" {
 			fail(fmt.Errorf("backend returned no acknowledgement"))
@@ -339,7 +339,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 				texts := []string{}
 				names := []string{}
 				for _, entry := range latestResults {
-					text := tools.FormatResult(entry.result)
+					text := tools.FormatSpokenResult(entry.result)
 					if text == "" {
 						texts = nil
 						break
@@ -428,7 +428,7 @@ func (r *Runtime) Run(ctx context.Context, s *session.Session, turnID string, tu
 		direct, valid := false, len(latestResults) > 0
 		texts, names := []string{}, []string{}
 		for _, entry := range latestResults {
-			text := tools.FormatResult(entry.result)
+			text := tools.FormatSpokenResult(entry.result)
 			if text == "" {
 				valid = false
 				break

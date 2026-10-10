@@ -89,7 +89,7 @@
       leadership,
       events,
     ]
-  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Tool times are already local; never mention a time zone."
+  instructions: "Answer school fact questions only from the school.information result or trusted school profile. If the result lacks the detail, say so honestly and offer to pass the question to staff; never invent policies, fees or dates. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Tool times are already local; never mention a time zone."
   tools:
     - name: school.information
       description: "Look up published information about The Aquila School on any topic (curriculum, results, inclusion, campus, timings, calendar, ratings, leadership, events and more)"
@@ -313,7 +313,7 @@
       slot,
       available,
     ]
-  instructions: "Ask which day or part of the week suits, using any remembered preference, then call tour.availability or assessment.availability and offer two or three times on that day. Book the exact slot chosen with tour.book or assessment.book, passing the slot ID and the day and time in words. CAT4 is for Secondary entry; the meet and greet is for FS1 to Year 6. Tool times are already local; never mention a time zone. Use tour.cancel with the booking reference from crm.history."
+  instructions: "For a booking, acknowledge the request and ask which day works first unless the family already gave a day; remembered time preferences do not replace the day question. After they give a day, call tour.availability or assessment.availability for that day and offer only two or three real times returned for it. Confirm the chosen day, time and who or what it is for before booking the exact slot with tour.book or assessment.book, passing its slot ID and day and time in words. CAT4 is for Secondary entry; the meet and greet is for FS1 to Year 6. Tool times are already local; never mention a time zone. Use tour.cancel with the booking reference from crm.history."
   tools:
     - name: tour.availability
       description: "Find available tours: in-person weekday mornings, virtual tours and the Saturday open morning. Times are local to the school"

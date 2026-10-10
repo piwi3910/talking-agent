@@ -52,6 +52,34 @@ func TestHTTPAPIAndSSE(t *testing.T) {
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 	defer app.Workers.Wait()
+	agentsResp, err := http.Get(server.URL + "/api/agents")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var agentsPayload []map[string]json.RawMessage
+	if err := json.NewDecoder(agentsResp.Body).Decode(&agentsPayload); err != nil {
+		agentsResp.Body.Close()
+		t.Fatal(err)
+	}
+	agentsResp.Body.Close()
+	for _, item := range agentsPayload {
+		for _, field := range []string{"llm", "model", "provider"} {
+			if _, ok := item[field]; ok {
+				t.Errorf("public agent payload contains %q", field)
+			}
+		}
+		var configPayload map[string]json.RawMessage
+		if err := json.Unmarshal(item["config"], &configPayload); err != nil {
+			t.Fatal(err)
+		}
+		var memoryPayload map[string]json.RawMessage
+		if err := json.Unmarshal(configPayload["memory"], &memoryPayload); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := memoryPayload["provider"]; ok {
+			t.Error("public agent config contains memory provider")
+		}
+	}
 	post := func(path, body string, want int) map[string]string {
 		t.Helper()
 		resp, e := http.Post(server.URL+path, "application/json", strings.NewReader(body))

@@ -578,9 +578,7 @@ function XRay({ live }: { live: Live }) {
               </p>
             ))
           ) : (
-            <p className="quiet">
-              {agent?.memory || "No memories recalled yet."}
-            </p>
+            <p className="quiet">No memories recalled yet.</p>
           )}
         </div>
         <div>

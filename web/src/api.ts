@@ -19,9 +19,8 @@ export type Agent = {
     string,
     { description: string; instructions: string; tools: Tool[] }
   >;
-  llm: string;
-  memory: string;
 };
+export type SystemInfo = Record<string, { llm: string; memory: string }>;
 export type Event = {
   id: number;
   type: string;

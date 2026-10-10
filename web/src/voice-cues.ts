@@ -30,6 +30,7 @@ export class VoiceCues {
   // The clips are only re-downloaded when the agent or the manifest's full reference_sha256 string changed.
   private version?: string;
   private generation = 0;
+  private cueGeneration = 0;
   async load(agent: string) {
     const generation = ++this.generation;
     try {
@@ -100,10 +101,13 @@ export class VoiceCues {
       });
       return;
     }
+    const generation = this.cueGeneration;
+    const scheduledCategory = category;
     this.trace("cue.schedule", { category, delay });
     this.timer = setTimeout(() => {
+      if (generation !== this.cueGeneration || this.closed) return;
       this.timer = undefined;
-      this.play(this.category);
+      this.play(scheduledCategory);
     }, delay);
   }
   play(category: string, minGapMs = 8000) {
@@ -176,6 +180,7 @@ export class VoiceCues {
     return this.source ? this.endsAt : 0;
   }
   cancel() {
+    this.cueGeneration++;
     if (this.timer || this.source)
       this.trace("cue.cancel", {
         timer: !!this.timer,

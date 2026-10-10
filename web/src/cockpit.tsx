@@ -1,7 +1,7 @@
 // Screen 3 · Presenter cockpit: session controls, show-off moments and stage toggles.
 import React, { useEffect, useState } from "react";
 import type { Live } from "./main";
-import { clock } from "./api";
+import { api, clock, type SystemInfo } from "./api";
 import { metricsOf, stateOf } from "./stage";
 import { BackButton, NavLink, PersonaMark, Switch, ThemeToggle } from "./ui";
 
@@ -17,6 +17,12 @@ export function Cockpit({ live }: { live: Live }) {
   const { agent, session } = live;
   const user = agent?.users.find((u) => u.id === live.userID);
   const [fired, setFired] = useState("");
+  const [systemInfo, setSystemInfo] = useState<SystemInfo>({});
+  useEffect(() => {
+    api<SystemInfo>("/system/info")
+      .then(setSystemInfo)
+      .catch(() => {});
+  }, []);
   const tokens = live.events.reduce(
     (n, e) => n + (e.data.usage?.total_tokens || 0),
     0,
@@ -167,7 +173,7 @@ export function Cockpit({ live }: { live: Live }) {
             <dt>State</dt>
             <dd>{state.label}</dd>
             <dt>LLM</dt>
-            <dd>{agent?.llm || "—"}</dd>
+            <dd>{agent ? systemInfo[agent.config.id]?.llm || "—" : "—"}</dd>
             <dt>Speech</dt>
             <dd>
               {live.voiceEnabled

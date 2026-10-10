@@ -1,5 +1,6 @@
 // Screens 5 + 6 · Settings: channels (SIP + phone numbers), voice studio, personas, models, memory.
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { api, type SystemInfo } from "./api";
 import type { Live } from "./main";
 import { PhoneSettings } from "./phone-settings";
 import { VoiceSettings } from "./voice-settings";
@@ -23,6 +24,12 @@ export function SettingsPage({
   live: Live;
   section: string;
 }) {
+  const [systemInfo, setSystemInfo] = useState<SystemInfo>({});
+  useEffect(() => {
+    api<SystemInfo>("/system/info")
+      .then(setSystemInfo)
+      .catch(() => {});
+  }, []);
   const current = sections.find((s) => s.id === section) || sections[0];
   return (
     <div className="screen settings">
@@ -61,8 +68,12 @@ export function SettingsPage({
         {current.id === "voices" && <Voices live={live} />}
         {current.id === "personas" && <Personas live={live} />}
         {current.id === "tools" && <McpSettings personas={live.agents} />}
-        {current.id === "models" && <Models live={live} />}
-        {current.id === "memory" && <Memory live={live} />}
+        {current.id === "models" && (
+          <Models live={live} systemInfo={systemInfo} />
+        )}
+        {current.id === "memory" && (
+          <Memory live={live} systemInfo={systemInfo} />
+        )}
         {current.id === "identities" && <Identities live={live} />}
       </main>
     </div>
@@ -80,7 +91,7 @@ function Heading({ title, text }: { title: string; text: string }) {
 
 function Health({ live }: { live: Live }) {
   const tiles: [string, string, boolean][] = [
-    ["LLM", live.agent?.llm || "—", !!live.agent],
+    ["LLM", live.agent ? "Available" : "—", !!live.agent],
     [
       "Speech-to-text",
       live.voiceEnabled
@@ -95,7 +106,7 @@ function Health({ live }: { live: Live }) {
         : "Not configured",
       live.voiceEnabled,
     ],
-    ["Memory", live.agent?.memory || "—", !!live.agent],
+    ["Memory", live.agent ? "Available" : "—", !!live.agent],
   ];
   return (
     <div className="health" aria-label="Runtime health">
@@ -216,9 +227,11 @@ function Personas({ live }: { live: Live }) {
   );
 }
 
-function Models({ live }: { live: Live }) {
+function Models({ live, systemInfo }: { live: Live; systemInfo: SystemInfo }) {
   const llms = Array.from(
-    new Set(live.agents.map((a) => a.llm).filter(Boolean)),
+    new Set(
+      live.agents.map((a) => systemInfo[a.config.id]?.llm).filter(Boolean),
+    ),
   );
   return (
     <>
@@ -256,7 +269,7 @@ function Models({ live }: { live: Live }) {
   );
 }
 
-function Memory({ live }: { live: Live }) {
+function Memory({ live, systemInfo }: { live: Live; systemInfo: SystemInfo }) {
   return (
     <>
       <Heading
@@ -280,7 +293,7 @@ function Memory({ live }: { live: Live }) {
                   <td>
                     {a.config.name} <small>{a.config.organization}</small>
                   </td>
-                  <td>{a.memory}</td>
+                  <td>{systemInfo[a.config.id]?.memory || "—"}</td>
                   <td>
                     <code>{a.config.memory.namespace}</code>
                   </td>

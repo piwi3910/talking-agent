@@ -68,7 +68,7 @@ func TestEmptyAnswerRecoversOnlyVerifiedCurrentResults(t *testing.T) {
 			}
 			if recover {
 				text := conversation(s)
-				if mode == "success" && (strings.Contains(text, "UTC") || !strings.Contains(text, "9:00 am") || !strings.Contains(text, "ID: TECH-")) {
+				if mode == "success" && (strings.Contains(text, "UTC") || !strings.Contains(text, "9:00 am") || strings.Contains(text, "ID: TECH-")) {
 					t.Fatal(text)
 				}
 				if mode == "no_slots" && !strings.Contains(text, "Available technician visits.") {
@@ -166,7 +166,7 @@ func TestConfiguredRecordsEndTurnWithoutSynthesis(t *testing.T) {
 		return llm.Response{Message: llm.Message{Role: "assistant", ToolCalls: []llm.Call{{ID: "slots", Type: "function", Function: llm.Function{Name: "technician__availability", Arguments: `{}`}}}}}
 	}}
 	r.Run(context.Background(), s, "search", Turn{Text: "Show technician visits"})
-	if count != 1 || !hasEvent(s, "agent.response.grounded") || hasEvent(s, "agent.error") || !strings.Contains(conversation(s), "ID: TECH-") {
+	if count != 1 || !hasEvent(s, "agent.response.grounded") || hasEvent(s, "agent.error") || strings.Contains(conversation(s), "ID: TECH-") {
 		t.Fatal(conversation(s))
 	}
 }

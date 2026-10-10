@@ -13,6 +13,14 @@ func TestClaimsAction(t *testing.T) {
 		"Perfect. I am booking Omar in for the in-person campus tour.",
 		"I'm scheduling that callback now.",
 		"That's confirmed for 10 am.",
+		"I'll get that arranged.",
+		"I will get that sorted.",
+		"Your appointment will be set up for Monday.",
+		"We can have that moved to Tuesday.",
+		"The cancellation is complete.",
+		"I’ve put that in the diary.",
+		"I've put that in the diary.",
+		"The booking has been completed.",
 	} {
 		if !ClaimsAction(s) {
 			t.Errorf("missed claim: %q", s)
@@ -24,6 +32,8 @@ func TestClaimsAction(t *testing.T) {
 		"Shall I go ahead and book it?",
 		"Tours run on weekday mornings.",
 		"Let me look that up.",
+		"I can't move appointments.",
+		"The system shows your booking.",
 	} {
 		if ClaimsAction(s) {
 			t.Errorf("false claim: %q", s)

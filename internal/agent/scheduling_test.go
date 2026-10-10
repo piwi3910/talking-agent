@@ -81,7 +81,7 @@ func TestSchedulingPolicyIsShortAndPlainSpoken(t *testing.T) {
 func TestLocalClockUsesTheAgentTimezone(t *testing.T) {
 	now := time.Date(2026, 10, 9, 22, 30, 0, 0, time.UTC) // already Saturday morning in Dubai
 	a := &config.Agent{Timezone: "Asia/Dubai"}
-	if got := localClock(a, now); got != "Today is Saturday 10 October 2026 and the local time is 2:30 am. Tomorrow is Sunday 11 October. \"Next week\" means Monday 12 October to Sunday 18 October." {
+	if got := localClock(a, now); got != "Today is Saturday 10 October 2026 and the local time is 2:30 am. Tomorrow is Sunday 11 October. This week's date anchors are Saturday 10 October; Sunday 11 October; Monday 12 October; Tuesday 13 October; Wednesday 14 October; Thursday 15 October; Friday 16 October; Saturday 17 October; Sunday 18 October; Monday 19 October; Tuesday 20 October; Wednesday 21 October; Thursday 22 October; Friday 23 October; Saturday 24 October. \"Next week\" means Monday 12 October to Sunday 18 October." {
 		t.Fatal(got)
 	}
 	if got := localClock(&config.Agent{}, now); got != "" {

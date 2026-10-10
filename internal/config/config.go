@@ -39,7 +39,7 @@ type Agent struct {
 	Industry string            `yaml:"industry" json:"industry"`
 	Persona  map[string]string `yaml:"persona" json:"persona"`
 	Memory   struct {
-		Provider  string        `yaml:"provider" json:"provider"`
+		Provider  string        `yaml:"provider" json:"-"`
 		Rules     []memory.Rule `yaml:"rules" json:"rules"`
 		Namespace string        `yaml:"namespace" json:"namespace"`
 		Domain    string        `yaml:"domain" json:"domain,omitempty"`

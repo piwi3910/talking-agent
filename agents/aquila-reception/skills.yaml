@@ -89,7 +89,7 @@
       lunch,
       wrap-around,
     ]
-  instructions: "school.information always returns a substantive answer; share it warmly in your own words, in short sentences. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Tool times are already local; never mention a time zone."
+  instructions: "Answer school fact questions only from the school.information result or trusted school profile. If the result lacks the detail, say so honestly and offer to pass the question to staff; never invent policies, fees or dates. Use clubs.list for clubs and wrap-around care, uniform.info for uniform and transport.quote for bus zones and fees. Tool times are already local; never mention a time zone."
   tools:
     - name: school.information
       description: "Look up published information about The Aquila School on any topic (timings, calendar, term dates, events, curriculum, leadership, contact details and more)"

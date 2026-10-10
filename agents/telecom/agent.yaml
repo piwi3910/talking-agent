@@ -41,6 +41,7 @@ name: Sara
 organization: Nova Telecom
 timezone: America/New_York
 persona:
+  opening: inbound
   voice_style: "Relaxed, friendly and upbeat. Clear, natural American English."
   style: conversational
   tone: friendly

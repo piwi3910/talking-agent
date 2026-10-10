@@ -100,7 +100,7 @@ func (a *API) Handler() http.Handler {
 	a.openingRoutes(m)
 	a.traceRoutes(m)
 	m.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		write(w, 200, map[string]string{"status": "ok", "memory": a.Runtime.Memory.Name()})
+		write(w, 200, map[string]string{"status": "ok"})
 	})
 	m.HandleFunc("GET /api/agents", func(w http.ResponseWriter, r *http.Request) {
 		items := []any{}
@@ -116,7 +116,15 @@ func (a *API) Handler() http.Handler {
 				fail(w, 502, "Mock backend unavailable")
 				return
 			}
-			items = append(items, map[string]any{"config": c, "skills": a.Runtime.Catalogs[id], "users": users, "llm": a.Runtime.Clients[id].Name(), "memory": a.Runtime.Memory.Name()})
+			items = append(items, map[string]any{"config": c, "skills": a.Runtime.Catalogs[id], "users": users})
+		}
+		write(w, 200, items)
+	})
+	m.HandleFunc("GET /api/system/info", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		items := map[string]map[string]string{}
+		for id, client := range a.Runtime.Clients {
+			items[id] = map[string]string{"llm": client.Name(), "memory": a.Runtime.Memory.Name()}
 		}
 		write(w, 200, items)
 	})
@@ -227,7 +235,19 @@ func (a *API) Handler() http.Handler {
 		defer heartbeat.Stop()
 		for {
 			for _, event := range s.Events.Since(id) {
-				raw, _ := json.Marshal(event)
+				// Session SSE also feeds the presenting Stage. Keep runtime model
+				// identifiers in operator traces, but strip them from this stream.
+				presented := event
+				if data, ok := presented.Data.(map[string]any); ok {
+					publicData := make(map[string]any, len(data))
+					for key, value := range data {
+						if key != "provider" && key != "model" && key != "llm" {
+							publicData[key] = value
+						}
+					}
+					presented.Data = publicData
+				}
+				raw, _ := json.Marshal(presented)
 				if _, err := fmt.Fprintf(w, "id: %d\ndata: %s\n\n", event.ID, raw); err != nil {
 					return
 				}

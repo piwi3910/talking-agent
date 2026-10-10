@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -17,7 +18,50 @@ func SpokenSummary(result Result) string {
 		return ""
 	}
 	summary, _, _ := strings.Cut(result.Summary, GuidanceMarker)
-	return strings.TrimSpace(summary)
+	return scrubInternalRefs(strings.TrimSpace(summary))
+}
+
+// FormatSpokenResult formats only explicitly user-facing fields. Unlike
+// FormatResult, it never emits record identifiers or internal references.
+func FormatSpokenResult(result Result) string {
+	if result.Error != nil || strings.TrimSpace(result.Summary) == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(SpokenSummary(result))
+	limit := len(result.Records)
+	if limit > 50 {
+		limit = 50
+	}
+	for _, record := range result.Records[:limit] {
+		fields := []string{}
+		for _, value := range []string{record.Name, record.Description} {
+			if value != "" && !(value == record.Description && record.Start != "" && strings.HasSuffix(record.Kind, "_slot")) {
+				fields = append(fields, scrubInternalRefs(value))
+			}
+		}
+		if record.Start != "" {
+			if at, err := time.Parse(time.RFC3339, record.Start); err == nil {
+				fields = append(fields, at.Format("Monday 2 January, 3:04 pm"))
+			}
+		}
+		for _, value := range []string{record.Specialty, record.Location, record.Status} {
+			if value != "" {
+				fields = append(fields, scrubInternalRefs(value))
+			}
+		}
+		if len(fields) > 0 {
+			b.WriteString("\n- ")
+			b.WriteString(strings.Join(fields, " · "))
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+var internalRefPattern = regexp.MustCompile(`(?i)(?:related[- ]?id|internal reference|reference(?: code)?|(?:booking|slot|record)\s+id|\bid)\s*[:#]\s*[[:alnum:]_-]+`)
+
+func scrubInternalRefs(s string) string {
+	return strings.TrimSpace(internalRefPattern.ReplaceAllString(s, ""))
 }
 
 // FormatResult renders service facts without inference or industry-specific logic.

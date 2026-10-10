@@ -216,19 +216,13 @@ func (b *Backend) seedAquila(now time.Time) {
 	}
 	b.records["aq_history"] = aquilaHistoryRecords()
 	b.records["aq_apps"] = []tools.Record{{ID: "APP-L002", Kind: "application", UserID: "L002", Name: "Application for Arjun (Year 7)", Status: "started, CAT4 not yet booked", Description: "Started online on 2 June 2026. Outstanding: CAT4 booking and documents (passports, vaccination record, attested transfer certificate). Next step: book the CAT4 and meet Yasmine Dannawy, Head of Secondary."}}
-	// Closures only apply when they leave something to offer, so the demo never runs dry.
-	for _, respect := range []bool{true, false} {
-		b.seedAquilaSlots(now, respect)
-		if len(b.records["aq_slots"]) > 0 {
-			break
-		}
-	}
+	b.seedAquilaSlots(now, true)
 }
 
 func (b *Backend) seedAquilaSlots(now time.Time, respectClosures bool) {
 	local := now.In(dubai)
 	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
-	for offset := 2; offset <= 15; offset++ {
+	for offset := 2; offset <= 45; offset++ {
 		date := day.AddDate(0, 0, offset)
 		if respectClosures && aquilaClosed(date.Format("2006-01-02")) {
 			continue
@@ -313,7 +307,7 @@ func (b *Backend) aquilaSlotsFor(kind string, a map[string]string, quotas map[st
 	all := []tools.Record{}
 	for _, r := range b.records["aq_slots"] {
 		date := aquilaSlotDate(r.ID)
-		if r.Kind != kind || r.Status != "available" || date <= today {
+		if r.Kind != kind || r.Status != "available" || date <= today || aquilaClosed(date) {
 			continue
 		}
 		if a["from"] != "" && date < a["from"] || a["to"] != "" && date > a["to"] {
@@ -352,11 +346,14 @@ func (b *Backend) aquilaNearest(kind string, query map[string]string, quotas map
 		if start <= c[1] && end >= c[0] {
 			from, _ := time.Parse("2006-01-02", c[0])
 			to, _ := time.Parse("2006-01-02", c[1])
-			reason = fmt.Sprintf("The school is closed for a holiday break from %s to %s, so nothing runs on the requested days.", from.Format("Monday 2 January"), to.Format("Monday 2 January"))
+			reason = fmt.Sprintf("The school is closed for a holiday break from %s to %s, so nothing runs on the requested days. The next open date is %s.", from.Format("Monday 2 January"), to.Format("Monday 2 January"), to.AddDate(0, 0, 1).Format("Monday 2 January"))
 			break
 		}
 	}
 	after, _ := time.Parse("2006-01-02", end)
+	for aquilaClosed(after.AddDate(0, 0, 1).Format("2006-01-02")) {
+		after = after.AddDate(0, 0, 1)
+	}
 	next := map[string]string{"type": query["type"], "from": after.AddDate(0, 0, 1).Format("2006-01-02")}
 	nearest, _ := b.aquilaSlotsFor(kind, next, quotas)
 	if len(nearest.Records) == 0 {

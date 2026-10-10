@@ -134,6 +134,8 @@ export class Voice {
   // A tool call is in flight; silence after the agent's line gets a filler.
   private toolRunning = false;
   private toolCueDone = false;
+  private cueGeneration = 0;
+  private toolGeneration = 0;
   private silentSince = 0;
   // A barge-in during playback waits for its transcript: if it only repeats what
   // the agent just said, it was the agent hearing itself and playback continues.
@@ -351,7 +353,9 @@ export class Voice {
           });
         }
       }
-      return false;
+      // During calibration, reject ordinary speaker leakage but allow a caller
+      // whose level exceeds even the capped worst-case coupling estimate.
+      return micRms > MAX_COUPLING * this.outEnvelope + 0.004;
     }
     return micRms > this.coupling * this.outEnvelope * ECHO_MARGIN + 0.004;
   }
@@ -593,6 +597,10 @@ export class Voice {
     if (type !== "agent.response.delta")
       this.tr("sse", { type, turn, tool, blocked: turn === this.blockedTurn });
     if (type === "turn.started") {
+      this.cueGeneration++;
+      this.toolGeneration = this.cueGeneration;
+      this.toolRunning = false;
+      this.toolCueDone = false;
       this.turnRunning = true;
       this.turn = turn;
       this.turnPhrases = 0;
@@ -601,9 +609,11 @@ export class Voice {
       this.cuePhase = "waiting";
       this.cues?.begin();
     }
+    if (type !== "turn.started" && turn !== this.turn) return;
     if (type === "turn.completed") this.turnRunning = false;
     if (turn === this.blockedTurn) return;
     if (type === "tool.started") {
+      this.toolGeneration = this.cueGeneration;
       this.toolRunning = true;
       this.toolCueDone = false;
     }
@@ -730,6 +740,15 @@ export class Voice {
     if (!heard.length) return true;
     const since = performance.now() - ECHO_WINDOW_MS;
     this.recentSpoken = this.recentSpoken.filter((p) => p.at >= since);
+    if (heard.length <= 4) {
+      // Short answers often reuse one offered word. Only treat a short
+      // transcript as echo when its whole multiword phrase occurs contiguously.
+      if (heard.length < 2) return false;
+      const phrase = heard.join(" ");
+      return this.recentSpoken.some((p) =>
+        words(p.text).join(" ").includes(phrase),
+      );
+    }
     const spoken = new Set(this.recentSpoken.flatMap((p) => words(p.text)));
     const known = heard.filter(
       (w) =>
@@ -757,6 +776,7 @@ export class Voice {
     }
     if (
       this.toolRunning &&
+      this.toolGeneration === this.cueGeneration &&
       !this.toolCueDone &&
       now - this.silentSince >= TOOL_CUE_SILENCE_MS
     ) {
@@ -1247,6 +1267,9 @@ export class Voice {
     }
   }
   stopOutput(reason = "stop") {
+    this.cueGeneration++;
+    this.toolRunning = false;
+    this.toolCueDone = false;
     this.bargePending = false;
     this.tr("output.stop", {
       reason,
