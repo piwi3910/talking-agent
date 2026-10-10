@@ -65,6 +65,8 @@ spec:
         - { name: OUT, value: /out }
         - { name: TURNS, value: "__TURNS__" }
         - { name: CTX_RATE, value: "__CTX_RATE__" }
+        - { name: AGENTS, value: "__AGENTS__" }
+        - { name: SEED, value: "__SEED__" }
       volumeMounts:
         - { name: scripts, mountPath: /scripts }
         - { name: out, mountPath: /out }

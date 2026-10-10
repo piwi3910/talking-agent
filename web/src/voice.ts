@@ -124,6 +124,8 @@ export class Voice {
   private nextFrame = 0;
   // Context time a filler cue still playing ends; the reply waits for it.
   private cueEnd = 0;
+  // A tool call is in flight; silence after the agent's line gets a filler.
+  private toolRunning = false;
   // A barge-in during playback waits for its transcript: if it only repeats what
   // the agent just said, it was the agent hearing itself and playback continues.
   private bargePending = false;
@@ -591,6 +593,13 @@ export class Voice {
     }
     if (type === "turn.completed") this.turnRunning = false;
     if (turn === this.blockedTurn) return;
+    if (type === "tool.started") this.toolRunning = true;
+    if (
+      type === "tool.completed" ||
+      type === "tool.failed" ||
+      type === "turn.completed"
+    )
+      this.toolRunning = false;
     if (type === "tool.started") {
       this.cuePhase =
         tool?.startsWith("network.") || tool?.startsWith("wifi.")
@@ -689,12 +698,16 @@ export class Voice {
     return 0;
   }
   private clean(raw: string) {
-    return raw
-      .replace(/\b(?:Related )?ID:\s*[^\s·,]+/g, "")
-      .replace(/[*#`]/g, "")
-      .replace(/\s·\s/g, ", ")
-      .replace(/^\s*-\s*/gm, "")
-      .trim();
+    return (
+      raw
+        .replace(/\b(?:Related )?ID:\s*[^\s·,]+/g, "")
+        // Stage directions such as "[Phone call answered]" are never spoken.
+        .replace(/\[[^\]\n]{1,60}\]/g, "")
+        .replace(/[*#`]/g, "")
+        .replace(/\s·\s/g, ", ")
+        .replace(/^\s*-\s*/gm, "")
+        .trim()
+    );
   }
   // True when a transcript heard during playback only repeats the agent's own
   // recent words: the microphone picked up the speakers.
@@ -1172,6 +1185,9 @@ export class Voice {
       if (!this.output.size && !this.closed) {
         if (!this.order.length && !this.queue.length && !this.turnRunning)
           this.cb.status(this.muted ? "Microphone muted" : "Listening");
+        // A tool still running after the agent's "one moment" line: fill the
+        // silence soon with a fitting cue instead of waiting.
+        else if (this.toolRunning) this.cues?.schedule(this.cuePhase, 700);
         else this.cues?.schedule("waiting", 1600);
       }
     };

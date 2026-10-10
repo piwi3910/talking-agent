@@ -9,6 +9,8 @@ image="${1:?image reference (digest) required}"
 label="${2:-run}"
 rate="${3:-0}"
 turns="${TURNS:-6}"
+agents="${AGENTS:-aquila-admissions,assistant}"
+seed="${SEED:-Hello, I am calling to ask how the admissions process works and what the next steps are.}"
 name="e2e-audio-$(echo "$label" | tr -c 'a-z0-9\n' '-' | cut -c1-20)-$RANDOM"
 k="kubectl --context kw -n enterprise-ai-demo"
 dest="$here/results/$label"
@@ -19,7 +21,7 @@ cleanup() {
 }
 trap cleanup EXIT
 $k create configmap "$name" --from-file="$here/harness.mjs" --from-file="$here/analyze.py" --from-file="$here/runner.sh"
-sed -e "s|__NAME__|$name|g" -e "s|__IMAGE__|$image|g" -e "s|__TURNS__|$turns|g" -e "s|__CTX_RATE__|$rate|g" "$here/pod.yaml" | $k apply -f -
+sed -e "s|__NAME__|$name|g" -e "s|__IMAGE__|$image|g" -e "s|__TURNS__|$turns|g" -e "s|__CTX_RATE__|$rate|g" -e "s|__AGENTS__|$agents|g" -e "s|__SEED__|$seed|g" "$here/pod.yaml" | $k apply -f -
 live="$($k get pods -o name | grep '^pod/enterprise-ai-demo-' | head -1)"
 $k wait --for=condition=Initialized pod/"$name" --timeout=0 >/dev/null 2>&1 || true
 until $k exec "$name" -c seed -- true >/dev/null 2>&1; do sleep 2; done
