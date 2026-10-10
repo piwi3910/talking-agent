@@ -1,7 +1,10 @@
 package logx
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 )
@@ -17,6 +20,18 @@ func TestErrorRedactsCredentials(t *testing.T) {
 	for _, expected := range []string{"Bearer ***", "api_key=***", "example.test", "access_token"} {
 		if !strings.Contains(got, expected) {
 			t.Errorf("redacted error missing %q: %s", expected, got)
+		}
+	}
+}
+
+func TestHandlerAddsCorrelationFields(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(NewHandler(slog.NewJSONHandler(&output, nil)))
+	ctx := WithCorrelation(context.Background(), "session-123", "turn-456")
+	logger.InfoContext(ctx, "turn started")
+	for _, field := range []string{`"session_id":"session-123"`, `"turn_id":"turn-456"`} {
+		if !strings.Contains(output.String(), field) {
+			t.Errorf("log record missing %s: %s", field, output.String())
 		}
 	}
 }

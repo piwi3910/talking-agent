@@ -8,8 +8,10 @@ import (
 	"enterprise-ai-demo/internal/config"
 	"enterprise-ai-demo/internal/knowledge"
 	"enterprise-ai-demo/internal/llm"
+	"enterprise-ai-demo/internal/logx"
 	"enterprise-ai-demo/internal/mcp"
 	"enterprise-ai-demo/internal/memory"
+	"enterprise-ai-demo/internal/metrics"
 	"enterprise-ai-demo/internal/mock"
 	"enterprise-ai-demo/internal/session"
 	"enterprise-ai-demo/internal/skills"
@@ -47,6 +49,7 @@ func validateLLMKey(mode, keyEnv string) error {
 	return nil
 }
 func run() error {
+	slog.SetDefault(slog.New(logx.NewHandler(slog.NewJSONHandler(os.Stdout, nil))))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	agents, err := config.Load(env("AGENTS_DIR", "agents"))
@@ -201,7 +204,8 @@ func run() error {
 		return fmt.Errorf("voice settings: %w", err)
 	}
 	voiceStore.Start(ctx)
-	app := &api.API{MCP: mcpManager, Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web}
+	// METRICS: in-memory registry exposed through the admin-gated API scrape route.
+	app := &api.API{MCP: mcpManager, Voices: voiceStore, Speech: speechClient, Runtime: runtime, Agents: agents, Sessions: session.NewStore(), BackendURL: backendURL, BackendURLs: backendURLs, Root: ctx, WebDir: web, Metrics: metrics.New()}
 	if dir := env("TRACE_DIR", "var/traces"); dir != "" && dir != "off" {
 		app.Traces = api.NewTraceStore(dir)
 	}
