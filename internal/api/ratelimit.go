@@ -71,6 +71,12 @@ func (l *requestLimiter) middleware(next http.Handler) http.Handler {
 		key := "ip:" + clientIP(r)
 		if strings.HasPrefix(r.URL.Path, "/api/sessions/") {
 			id := r.PathValue("id")
+			if id == "" {
+				parts := strings.Split(r.URL.Path, "/")
+				if len(parts) > 3 {
+					id = parts[3]
+				}
+			}
 			switch {
 			case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/messages"):
 				key = "messages:" + id
