@@ -20,7 +20,7 @@ import (
 
 // Limits shaping what reaches the model.
 const (
-	MaxResultRunes      = 8000
+	MaxResultRunes      = 500
 	maxDescriptionRunes = 800
 	maxWireName         = 64
 )
@@ -444,7 +444,7 @@ func (m *Manager) call(ctx context.Context, s Server, t Tool, args json.RawMessa
 		var rpc *sdk.RPCError
 		if errors.As(err, &rpc) {
 			// The server understood and refused: report it, do not reconnect.
-			return Result{Text: fmt.Sprintf("Tool error: %s", rpc.Message), IsError: true}
+			return untrustedResult(fmt.Sprintf("Tool error: %s", rpc.Message), true)
 		}
 		last = err
 		if ctx.Err() != nil {
@@ -488,7 +488,33 @@ func shape(r *sdk.ToolResult) Result {
 	if n := utf8.RuneCountInString(text); n > MaxResultRunes {
 		text = truncateRunes(text, MaxResultRunes) + fmt.Sprintf("\n[truncated: %d of %d characters shown]", MaxResultRunes, n)
 	}
-	return Result{Text: text, IsError: r.IsError}
+	return untrustedResult(text, r.IsError)
+}
+
+func untrustedResult(text string, isError bool) Result {
+	text = filterUntrusted(text)
+	text = strings.ReplaceAll(text, "<<< BEGIN UNTRUSTED MCP TOOL RESULT >>>", "[result delimiter escaped]")
+	text = strings.ReplaceAll(text, "<<< END UNTRUSTED MCP TOOL RESULT >>>", "[result delimiter escaped]")
+	return Result{Text: "<<< BEGIN UNTRUSTED MCP TOOL RESULT >>>\n" + text + "\n<<< END UNTRUSTED MCP TOOL RESULT >>>", IsError: isError}
+}
+
+var injectionPatterns = regexp.MustCompile(`(?i)(ignore (all |any |the )?(previous|prior|above) instructions|system prompt|developer message|reveal (the )?(system|developer) prompt|you are chatgpt|<\|system\|>)`)
+
+func filterUntrusted(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if injectionPatterns.MatchString(line) {
+			lines[i] = "[instruction-like content removed]"
+		}
+	}
+	s = strings.Join(lines, "\n")
+	if i := strings.Index(strings.ToLower(s), "system prompt"); i >= 0 {
+		s = s[:i] + "[system prompt reference removed]"
+	}
+	if n := utf8.RuneCountInString(s); n > MaxResultRunes {
+		s = truncateRunes(s, MaxResultRunes) + " [truncated]"
+	}
+	return s
 }
 
 // legacyStatus reports whether a Streamable HTTP failure looks like a legacy
