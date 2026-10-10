@@ -743,7 +743,15 @@ export class Voice {
   // does not depend on timers racing the agent's own speech.
   private fillToolSilence() {
     const now = performance.now();
-    if (this.output.size || this.cues?.playing) {
+    // Speech still queued or downloading counts as talking: the agent's own
+    // "one moment" line must come before any filler.
+    if (
+      this.output.size ||
+      this.cues?.playing ||
+      this.queue.length ||
+      this.order.length ||
+      this.inflight
+    ) {
       this.silentSince = now;
       return;
     }
