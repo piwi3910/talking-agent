@@ -207,7 +207,7 @@ func (a *API) Handler() http.Handler {
 			return
 		}
 		s.Cancel()
-		write(w, 200, map[string]bool{"cancelled": true})
+		w.WriteHeader(http.StatusNoContent)
 	})
 	m.HandleFunc("GET /api/sessions/{id}/events", func(w http.ResponseWriter, r *http.Request) {
 		s := a.Sessions.Get(r.PathValue("id"))
@@ -290,7 +290,7 @@ func (a *API) Handler() http.Handler {
 		}
 		http.ServeFile(w, r, path)
 	})
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return protected(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" || r.Method == "PATCH" {
 			if origin := r.Header.Get("Origin"); origin != "" && origin != "http://"+r.Host && origin != "https://"+r.Host {
@@ -300,4 +300,5 @@ func (a *API) Handler() http.Handler {
 		}
 		m.ServeHTTP(w, r)
 	})
+	}), authToken())
 }
