@@ -79,6 +79,11 @@ func (c *Client) Live() int64 {
 // idlePoll is how often WaitIdle re-checks for live speech.
 const idlePoll = 200 * time.Millisecond
 
+const (
+	scannerBufferSize = 4096
+	maxTTSOutputBytes = 24_000 * 2 * 120
+)
+
 // WaitIdle blocks while any live synthesis is in flight, so background renders
 // never delay a caller. It returns the context's error if it ends first.
 func (c *Client) WaitIdle(ctx context.Context) error {
@@ -147,7 +152,7 @@ func (c *Client) transcribeLive(ctx context.Context, base, model, language strin
 	}
 	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 4096), 1<<20)
+	scanner.Buffer(make([]byte, scannerBufferSize), 1<<20)
 	final := false
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -300,7 +305,7 @@ func (c *Client) synthesize(ctx context.Context, text string, v Voice, emit func
 		}
 		if len(chunk) > 0 {
 			total += len(chunk)
-			if total > 24_000*2*120 {
+			if total > maxTTSOutputBytes {
 				return fmt.Errorf("speech output too long")
 			}
 			if err := emit(chunk); err != nil {

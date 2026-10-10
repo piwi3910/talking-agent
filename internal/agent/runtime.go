@@ -494,11 +494,12 @@ func (r *Runtime) executeMCP(ctx context.Context, s *session.Session, t mcp.Tool
 	return tools.Result{Summary: res.Text, Records: []tools.Record{}}
 }
 func trim(s *session.Session) {
+	const historyTrimThreshold = 12
 	count := 0
 	for i := len(s.History) - 1; i >= 0; i-- {
 		if s.History[i].Role == "user" {
 			count++
-			if count > 12 {
+			if count > historyTrimThreshold {
 				s.History = append([]llm.Message(nil), s.History[i+1:]...)
 				for len(s.History) > 0 && s.History[0].Role != "user" {
 					s.History = s.History[1:]

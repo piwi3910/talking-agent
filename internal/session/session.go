@@ -61,16 +61,21 @@ type Store struct {
 	items map[string]*Session
 }
 
+const (
+	MaxSessions = 1000
+	sessionTTL  = 24 * time.Hour
+)
+
 func NewStore() *Store { return &Store{items: map[string]*Session{}} }
 func (s *Store) Create(a *config.Agent, user string) *Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for id, old := range s.items {
-		if time.Since(old.Created) > 24*time.Hour && !old.Busy.Load() {
+		if time.Since(old.Created) > sessionTTL && !old.Busy.Load() {
 			delete(s.items, id)
 		}
 	}
-	if len(s.items) >= 1000 {
+	if len(s.items) >= MaxSessions {
 		return nil
 	}
 	id := ID()

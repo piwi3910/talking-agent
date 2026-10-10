@@ -53,6 +53,13 @@ type API struct {
 	metricSessions   map[string]struct{}
 }
 
+const (
+	maxJSONBodyBytes = 32 * 1024
+	maxMessageBytes  = 8000
+	ssePollInterval  = 40 * time.Millisecond
+	sseHeartbeat     = 10 * time.Second
+)
+
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -66,7 +73,7 @@ func fail(w http.ResponseWriter, status int, msg string) {
 // accepted asynchronous work, 204 for completed operations without a body, and
 // 200 for reads, synchronous updates, and streamed audio responses.
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
-	return decodeLimit(w, r, v, 32768)
+	return decodeLimit(w, r, v, maxJSONBodyBytes)
 }
 func decodeLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) error {
 	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
@@ -119,7 +126,7 @@ func (a *API) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		a.refreshSessionGauge()
 		if a.Metrics != nil {
-			a.Metrics.SetGauge("talking_agent_session_capacity", 1000)
+			a.Metrics.SetGauge("talking_agent_session_capacity", session.MaxSessions)
 		}
 		if a.Metrics != nil {
 			_ = a.Metrics.WritePrometheus(w)
@@ -213,7 +220,7 @@ func (a *API) Handler() http.Handler {
 			return
 		}
 		turn.Text = strings.TrimSpace(turn.Text)
-		if (turn.Text == "" && turn.Confirmation == "") || len(turn.Text) > 8000 || (turn.Text != "" && turn.Confirmation != "") {
+		if (turn.Text == "" && turn.Confirmation == "") || len(turn.Text) > maxMessageBytes || (turn.Text != "" && turn.Confirmation != "") {
 			fail(w, 400, "Supply a message (1–8000 bytes) or a confirmation ID")
 			return
 		}
@@ -266,9 +273,9 @@ func (a *API) Handler() http.Handler {
 		}
 		fmt.Fprint(w, ": connected\n\n")
 		f.Flush()
-		tick := time.NewTicker(40 * time.Millisecond)
+		tick := time.NewTicker(ssePollInterval)
 		defer tick.Stop()
-		heartbeat := time.NewTicker(10 * time.Second)
+		heartbeat := time.NewTicker(sseHeartbeat)
 		defer heartbeat.Stop()
 		for {
 			for _, event := range s.Events.Since(id) {

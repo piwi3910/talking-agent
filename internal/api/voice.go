@@ -229,7 +229,10 @@ func (a *API) transcribe(w http.ResponseWriter, r *http.Request) {
 }
 
 // maxSpeechPerSession bounds concurrent /speech requests of one session.
-const maxSpeechPerSession = 2
+const (
+	maxSpeechPerSession = 2
+	maxSpeechTextChars  = 1800
+)
 
 // acquireSpeech takes one of the session's speech slots; false when all are taken.
 func (a *API) acquireSpeech(session string) bool {
@@ -267,7 +270,7 @@ func (a *API) synthesize(w http.ResponseWriter, r *http.Request) {
 		Text   string `json:"text"`
 		TurnID string `json:"turn_id"`
 	}
-	if decode(w, r, &in) != nil || len(strings.TrimSpace(in.Text)) == 0 || len(in.Text) > 1800 || len(in.TurnID) > 64 {
+	if decode(w, r, &in) != nil || len(strings.TrimSpace(in.Text)) == 0 || len(in.Text) > maxSpeechTextChars || len(in.TurnID) > 64 {
 		fail(w, 400, "Invalid speech request")
 		return
 	}
