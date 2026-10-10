@@ -54,6 +54,10 @@ func write(w http.ResponseWriter, status int, v any) {
 func fail(w http.ResponseWriter, status int, msg string) {
 	write(w, status, map[string]string{"error": msg})
 }
+
+// API success statuses follow resource semantics: 201 for creation, 202 for
+// accepted asynchronous work, 204 for completed operations without a body, and
+// 200 for reads, synchronous updates, and streamed audio responses.
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	return decodeLimit(w, r, v, 32768)
 }
