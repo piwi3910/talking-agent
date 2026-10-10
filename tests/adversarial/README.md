@@ -23,8 +23,9 @@ targeted school follow-up into the full report.
 
 The suite covers typed multi-turn conversation and voice playback, tool
 availability/booking confirmation, refusals, repeated inputs, and concurrent
-sessions. It does not yet inject microphone audio for barge-in or degraded-STT
-checks, reopen a session mid-turn, or switch agents in a live session. The
-outbound outreach persona is not started because its UI action places a call.
-Successful booking scenarios create demo bookings; the report records the demo
-identity and confirmation evidence.
+sessions. On Nova it also sends noisy PCM over the transcription WebSocket,
+cancels a streaming turn while that WebSocket is active, then sends an immediate
+follow-up. The reopen probe checks whether an existing session can be resumed;
+the report records the API result. It also attempts the outreach persona's
+outbound UI flow, which can place a call. Successful booking scenarios create
+demo bookings; the report records the demo identity and confirmation evidence.
