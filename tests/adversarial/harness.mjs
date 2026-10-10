@@ -214,14 +214,13 @@ async function chooseCleanTourIdentity(id) {
         /tour/i.test(`${b.kind} ${b.name} ${b.description}`) &&
         /booked|confirmed/i.test(`${b.status || ""} ${b.description || ""}`),
     );
-    const recalledTour = (memory?.data?.memories || []).some(
-      (m) =>
-        /tour/i.test(m.text || "") && /booked|confirmed/i.test(m.text || ""),
+    const recalledTour = (memory?.data?.memories || []).some((m) =>
+      /tour/i.test(m.text || ""),
     );
     if (!confirmed && !recalledTour) return { identity: candidate };
   }
   return {
-    warning: "no demo identity with a verified clean confirmed-tour history",
+    warning: "no demo identity with a verified clean tour history and memory",
   };
 }
 async function send(page, text) {
@@ -254,10 +253,43 @@ async function send(page, text) {
         events: e,
       };
     }, n);
-    if (r.done) return r;
+    if (r.done) {
+      await waitForSpeech(page, r.id, n);
+      r.events = await page.evaluate(
+        (n) => (window.__advEvents || []).slice(n),
+        n,
+      );
+      return r;
+    }
     await page.waitForTimeout(250);
   }
   return { text: "", events: [], error: "timeout" };
+}
+async function waitForSpeech(page, turnId, from) {
+  const end = Date.now() + 45000;
+  let quietSince = 0;
+  while (Date.now() < end) {
+    const state = await page.evaluate(
+      ({ turnId, from }) => {
+        const events = (window.__advEvents || [])
+          .slice(from)
+          .filter((e) => e.turn_id === turnId);
+        const started = events.filter((e) => e.type === "tts.started").length;
+        const finished = events.filter(
+          (e) => e.type === "tts.completed" || e.type === "tts.failed",
+        ).length;
+        return { started, finished };
+      },
+      { turnId, from },
+    );
+    if (state.started > 0 && state.finished >= state.started) {
+      if (!quietSince) quietSince = Date.now();
+      if (Date.now() - quietSince >= 500) return;
+    } else {
+      quietSince = 0;
+    }
+    await page.waitForTimeout(100);
+  }
 }
 async function readTrace(page) {
   const sid = await page.evaluate(
@@ -373,7 +405,7 @@ for (const id of ids) {
       "happy_tour_day_first",
       "I would like to book a tour.",
       (t) =>
-        /which day|what day|day suits|day works|which of those (?:works|would suit)/i.test(
+        /which day|what day|day suits|day works|which of those days (?:works|would suit)|which of those (?:works|would suit)/i.test(
           t,
         ),
     );
@@ -397,14 +429,25 @@ for (const id of ids) {
           e.data?.tool === "tour.availability",
       );
     const records = avail?.data?.result?.records || [];
+    const requestedDate =
+      dayr.text.match(
+        /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+\d{1,2}\s+[A-Za-z]+/i,
+      )?.[0] || "Wednesday";
     const slots = records.filter(
-      (x) => x.status === "available" && /in.person/i.test(x.specialty || ""),
+      (x) =>
+        x.status === "available" &&
+        /in.person/i.test(x.specialty || "") &&
+        x.description.toLowerCase().includes(requestedDate.toLowerCase()),
     );
     const offered = [
       ...dayr.text.matchAll(/\b(\d{1,2})(?::\d{2})?\s*(?:am|pm|o'clock)\b/gi),
     ].map((x) => x[1]);
     const allowed = records
-      .filter((x) => x.status === "available")
+      .filter(
+        (x) =>
+          x.status === "available" &&
+          x.description.toLowerCase().includes(requestedDate.toLowerCase()),
+      )
       .map(
         (x) =>
           (x.description.match(/\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i) ||
@@ -920,7 +963,7 @@ const checkedIdentities = report.cases.filter(
   (c) => c.scenario === "tour_identity_preflight",
 );
 const skippedTourIdentities = checkedIdentities.filter((c) => c.skip);
-md += `## Idempotency\n\nBefore tour cases, the harness rotates demo contacts from the run's \`SEED\` (default: run timestamp), asks the live CRM history tool for each candidate, and uses the first identity with no confirmed tour; if none can be verified clean, it marks tour cases skipped with a warning. \`AGENTS\` filtering remains supported. Identities selected this run: ${
+md += `## Idempotency\n\nBefore tour cases, the harness rotates demo contacts from the run's \`SEED\` (default: run timestamp), checks both live CRM history and recalled NovaMem entries for each candidate, and uses the first identity with no prior tour activity; if none can be verified clean, it marks tour cases skipped with a warning. \`AGENTS\` filtering remains supported. Identities selected this run: ${
   checkedIdentities
     .filter((c) => c.identity)
     .map((c) => `${c.agent}=${c.identity}`)
