@@ -25,7 +25,7 @@ func OpeningTurn(a *config.Agent, contact string) (Turn, bool) {
 	switch a.Persona["opening"] {
 	case OpeningInbound:
 		return Turn{
-			Opening:     "[Call answered] This note is an internal cue, not something the caller said. Greet the caller in one or two sentences. Only if the relevant memories or those tools contain facts about this caller, greet them by name as a returning contact and mention one specific detail from them, using only names and facts that literally appear there. If nothing is known, give a normal friendly first-time greeting: never say you remember them, never invent names, family members or past conversations.",
+			Opening:     "[Call answered] This note is an internal cue, not something the caller said. Greet the caller in one or two sentences. Personalise only with a retrieved memory or CRM fact explicitly tied to the current contact identity; greet them by name as a returning contact and mention one specific detail only when that identity match is clear. If lookup failed or returned nothing usable, give only a plain friendly greeting and open question, with no name or personal detail. Never say you remember them or invent names, family members or past conversations.",
 			MemoryQuery: query,
 		}, true
 	case OpeningOutbound:
@@ -34,7 +34,7 @@ func OpeningTurn(a *config.Agent, contact string) (Turn, bool) {
 			who = "the selected contact"
 		}
 		return Turn{
-			Opening:     "[Outbound call connected] This note is an internal cue. You placed this call to " + who + ". Introduce yourself and the school, check it's a good time, and reference their history and the reason for your call, in two sentences, using only names and facts that literally appear in those sources and memory; never invent history.",
+			Opening:     "[Outbound call connected] This note is an internal cue. You placed this call to " + who + ". Introduce yourself and the school, check it's a good time, and reference history or a reason only when the retrieved memory/CRM fact is explicitly tied to this contact identity; if lookup failed or returned nothing usable, use a plain greeting with no personal detail. Never invent history.",
 			MemoryQuery: query,
 		}, true
 	}

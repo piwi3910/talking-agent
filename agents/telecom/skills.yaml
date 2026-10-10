@@ -347,8 +347,12 @@
   keywords:
     - technician
     - line
+    - someone come
+    - look at my line
+    - engineer visit
+    - send someone
   tools:
-    - description: Find available technician visits, grouped by day, in the customer's local time
+    - description: Find available technician visits, grouped by day, in Nova Telecom local time
       input:
         additionalProperties: false
         properties: {}
