@@ -65,10 +65,8 @@ export function Launcher({ live }: { live: Live }) {
         <div className="topbar-actions">
           <span className="runtime-pill">
             <span className="live-dot ok" aria-hidden="true" />
+            {/* Model names stay in the cockpit and settings, not the audience view. */}
             Runtime online
-            {agent?.llm ? ` · ${agent.llm}` : ""}
-            {live.speechInfo.stt ? ` · ${live.speechInfo.stt}` : ""}
-            {live.speechInfo.tts ? ` · ${live.speechInfo.tts}` : ""}
           </span>
           <NavLink
             live={live}
